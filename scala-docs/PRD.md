@@ -60,7 +60,7 @@ SCALA는 다음을 자동화한다.
 - `Scala-Agent`가 판단하기 애매하거나 어려운 것은 `사용자`와 interactive한 소통을 통해 취합할 필드를 확정한다.
 - 누락되는 데이터 없이 모든 데이터가 Opensearch에 적재되어야 하며, 모든 적재된 데이터에 대해 원본 데이터와의 Lineage가 가능해야 한다. 
 - OCSF 포맷으로 매칭되지 않는 필드의 경우, `custom_attr`, `unmapped_field` 등으로 처리가 되어야 한다. 즉, 모든 필드는 누락이 없어야 한다.
-- Data lineage를 위해 원본 source, index, field, id 정보와 정규화 데이터의 `run_id` (작업 실행 id), `원본 데이터의 id 등 식별자`, OpenSearch `_id` 정보를 추적할 수 있어야 한다.
+- Data lineage는 문서(document) 단위로 추적한다. 이를 위해 원본 source, index, 원본 document id 등 식별자 정보와 정규화 데이터의 `run_id` (작업 실행 id), OpenSearch `_id` 정보를 추적할 수 있어야 한다.
 - 토큰 이코노미를 위한 캐시 처리 시, 캐시 저장 대상은 원본 필드와 OCSF 후보/결정 결과의 매핑 정보이다. 예를 들어 `src_ip -> src_endpoint.ip` 같은 source field와 canonical field 간 매핑 결정을 저장한다.
 
 ## 5. 제품 범위
@@ -141,7 +141,7 @@ graph TD
     OA[Orchestrator Agent <br/> 워크 플로우 관리] 
     PA[Schema Profiler Agent <br/> 스키마 프로파일 분석] 
     NA[Normalization Agent <br/> 정규화 Rule 생성] 
-    VA[Validator Agent <br/> 매핑 품질 검증] 
+    VA[Validator Agent <br/> 데이터 정합성 검증] 
     %% LO / CA / LA 를 하위 박스로 묶음
     subgraph ProcAgents [Processing Agents]
       LO[Load Agent <br/> 정규화된 데이터 적재]
@@ -154,7 +154,7 @@ graph TD
     RAG[ChromaDB <br/> OCSF 표준 임베딩 RAG] 
     RD[Redis <br/> 매칭된 데이터 캐싱 처리] 
     OS[OpenSearch <br/> OCSF 정규화 데이터 저장 custom_attr / unmapped_field 보존] 
-    PO[Postgresql <br/> 원천 추적 메타데이터 관리] 
+    PO[Postgresql <br/> 원천 추적 메타데이터 관리 <br/> 에이전트 토큰/비용 사용 이력 관리] 
   end 
   
   ES --> CL 
@@ -163,26 +163,30 @@ graph TD
   US --> |1. 데이터 정규화 파이프라인 수행 요청| OA
   CL --> |2. Source schema/sample 조회| OA 
   OA --> |3. 스키마 분석 요청| PA 
-  PA --> |4. 캐시 조회| RD 
-  PA --> |5. 표준 스키마 조회| RAG 
-  PA --> |6. 스키마 분석 내용 전송| NA 
-  NA --> |7. 정규화 결과 품질 검증 요청| VA 
-  VA --> |8. 품질 낮은 경우, Human Feedback 요청| US
-  US --> |9. 피드백 결과 전송| VA
-  VA --> |10. 최종 품질 검증| VA
-  VA --> |11. 최종 품질 검증 결과 전송| NA
-  NA --> |12. 최종 정규화 Rule 생성 및 원본 데이터에 적용|NA
-  NA --> |13.1. 정규화 데이터 적재 요청| LO 
-  LO --> |13.1.1. 정규화 데이터 적재| OS
-  LO --> |13.1.2. 적재 결과 및 OpenSearch _id 전송| LA
-  NA --> |13.2. 확정된 필드 매핑 결과 캐시 저장 요청| CA
-  CA --> |13.2.1. 캐시 저장|RD
-  NA --> |14. 원본 / 정규화 데이터 추적 연결성 구성| LA 
-  LA --> |14.1. 데이터 리니지 관리를 위한 메타데이터 저장| PO
+  PA --> |4. 캐시 조회 cache key로 기존 매핑 결정 확인| RD 
+  PA --> |5. 캐시 미스 시 OCSF 표준 스키마 후보 조회| RAG 
+  PA --> |6. 분석 결과 전송 캐시 히트 시 캐시된 매핑 재사용하여 RAG/LLM 분석 생략| NA 
+  NA --> |7. 정규화 결과 정합성 검증 요청| VA 
+  VA --> |8. 정합성 미달 시, Human Feedback 요청| OA
+  OA --> |9. Human Feedback 요청 내용 사용자에게 전달| US
+  US --> |10. 피드백 결과 입력| OA
+  OA --> |11. 피드백 결과 VA에게 전달| VA
+  VA --> |12. 최종 정합성 검증| VA
+  VA --> |13. 최종 정합성 검증 결과 전송| NA
+  NA --> |14. 최종 정규화 Rule 생성 및 원본 데이터에 적용|NA
+  NA --> |15.1. 정규화 데이터 적재 요청| LO 
+  LO --> |15.1.1. 정규화 데이터 적재| OS
+  LO --> |15.1.2. 적재 결과 및 OpenSearch _id 전송| LA
+  NA --> |15.2. 확정된 필드 매핑 결과 캐시 저장 요청| CA
+  CA --> |15.2.1. 캐시 저장|RD
+  NA --> |16. 원본 / 정규화 데이터 추적 연결성 구성| LA 
+  LA --> |16.1. 데이터 리니지 관리를 위한 메타데이터 저장| PO
   %% 세 개의 결과 전송 엣지를 박스 -> OA 한 줄로 통합
-  ProcAgents --> |15. 처리 결과 OA로 전송| OA
-  OA --> |16. 최종 처리 결과 User에게 응답|US
+  ProcAgents --> |17. 처리 결과 OA로 전송| OA
+  OA --> |18. 최종 처리 결과 User에게 응답|US
 ```
+
+> 참고: 캐시 히트로 매핑 결정이 이미 확정된 필드는 위 `4`(캐시 조회) 이후 RAG/LLM 분석뿐 아니라 Validator 정합성 검증·Human Feedback(`7`~`13`) 단계까지 생략하고, 캐시된 매핑을 그대로 적용한다. (토큰 이코노미를 위한 처리이며, per-field 분기이므로 다이어그램에는 별도 엣지로 표현하지 않는다.)
 
 ## 8. 주요 화면
 
@@ -190,7 +194,7 @@ SCALA가 직접 구현할 TUI 화면은 다음이다.
 
 - Main
 - Source Selection
-- Field & Sample Explorer
+- Data Samples
 - Agent Workflow Graph
 - Human Feedback
 - Lineage Viewer

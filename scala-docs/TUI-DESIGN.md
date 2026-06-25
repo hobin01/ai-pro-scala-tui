@@ -9,11 +9,10 @@ TUI : Terminal User Interface
 | key input | 역할 |
 | --- | --- |
 | ↑ ↓ | 키보드 상하 입력으로 선택창 이동 |
-| ← → | 키보드 좌우 입력으로 페이지 이동 |
+| ← → | 키보드 좌우 입력으로 콘텐츠 페이지네이션 이동 |
 | `space` | `space` 키 입력으로 단일, 복수 선택 기능 (선택 후 해제 포함) selector 역할일 때만 선택 기능을 하며, 그 외에는 공백 입력으로 사용됨 |
 | `enter` | `enter` 키 입력으로 `사용자`의 현재 입력 내용 `scala`에게 전송 |
 | `ctrl` + `enter` OR `shift` + `enter` | 줄바꿈 입력. `scala`에게 전송하면 안 됨 | 
-| `esc` | `esc` 키 입력으로 `scala-agent` 동작 중지. interupt 역할 |
 | `ctrl` + c | 프로세스 강제 종료 | 
 | `/` + <command> | command 입력기. 특정 페이지 이동, 명령어 help 기능 |
 

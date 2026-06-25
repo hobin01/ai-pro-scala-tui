@@ -66,6 +66,7 @@ ai-pro-scala-tui/
     ├── PRD.md                  # PRD, 제품 요구사항 정의서
     ├── SW-ARCHITECTURE.md      # SW 아키텍처 구성 내용 
     ├── TUI-DESIGN.md           # TUI 디자인 관련 문서 
+    ├── tui-pages/              # TUI 페이지별 상세 문서(mockup) 디렉토리 
     ├── WORKFLOW.md             # SCALA 전체 워크플로우 
     └── README.md               # 관련 문서들에 대한 설명
 ```

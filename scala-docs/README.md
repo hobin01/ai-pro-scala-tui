@@ -4,4 +4,5 @@
 - `PRD.md` : 제품 요구사항 정의서 
 - `SW-ARCHITECTURE.md` : SW 아키텍처 정의서 
 - `TUI-DESIGN.md` : TUI 디자인 문서 
+- `tui-pages/` : TUI 페이지별 상세 문서(mockup) 디렉토리 
 - `WORKFLOW.md` : 프로그램 워크플로우 상세 설명

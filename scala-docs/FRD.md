@@ -22,8 +22,12 @@ step 별 가이드 하단에는 SCALA 데이터 취합을 원하는지, 결과 �
 2. Data Sample 확인 
   - 선택된 index에 포함된 데이터 필드, 타입, 값에 대한 샘플을 확인
   - 상세 기능은 하단의 `3.data-samples.md` 섹션에서 설명한다. 
-3. 파이프라인 동작 실행 여부 확인
-  - 사용자에게 최종 실행 여부 확인
+3. Agent Workflow Graph 확인
+  - `2.` Data Sample 확인 후 `enter` 입력 시 `4.agent-workflow-graph.md` 화면으로 전환된다.
+  - 현재 구성된 agent workflow graph(에이전트 구성도, 각 에이전트의 역할, 사용 모델)를 확인한다.
+  - 상세 기능은 하단의 `4.agent-workflow-graph.md` 섹션에서 설명한다.
+4. 파이프라인 동작 실행 여부 확인
+  - `4.agent-workflow-graph.md` 화면에서 사용자에게 최종 실행 여부를 확인한다.
   - 사용자가 Y, Yes 등을 선택 시, 동작 완료 때까지 추가 입력을 받지 않음 (현재 프로젝트 범위에서 큐잉 시스템 없음)
 
 
@@ -67,11 +71,11 @@ step 별 가이드 하단에는 SCALA 데이터 취합을 원하는지, 결과 �
 
 #### `scala-agent`가 동작 완료한 경우
 
-`scala-agent`가 동작을 완료한 경우, `Orchestrator Agent`가 최종 결과를 사용자에게 알려준다. 스트리밍으로 결과를 전송하고, 마지막으로 결과 확인을 할 지, 초기 화면으로 돌아갈지를 선택하도록 한다. 
+`scala-agent`가 동작을 완료한 경우, `Orchestrator Agent`가 최종 결과를 사용자에게 스트리밍으로 알려준다. 동시에 실제 취합된 결과가 저장된 opensearch 웹 화면 링크를 함께 제공한다. 
 
-`사용자`가 결과 확인을 원하는 경우, 실제 취합된 결과가 저장된 opensearch 웹 화면 링크를 제공한다. 
+`사용자`가 결과 확인을 마친 경우, `enter` 키를 입력받아 "#### `scala-agent`가 동작하는 것이 없는 초기 화면 - 공통" 섹션에 해당하는 main 화면으로 이동한다. 
 
-초기 화면으로 돌아가는 것을 원하는 경우, "#### `scala-agent`가 동작하는 것이 없는 초기 화면 - 공통" 섹션에 해당하는 화면으로 돌아간다.
+완료 화면의 상세 기능은 하단의 `5.human-feedback.md` 섹션에서 설명한다.
 
 
 ### 2.source-selection.md
@@ -155,6 +159,8 @@ opensearch document와 postgresql에 저장된 metadata 정보가 있으므로 �
 
 각 에이전트 별로 최종 작업을 수행한 이력은 무엇인지, 에이전트 별로 토큰은 얼마나 썼는지, 현재 프로세스에서 사용한 총 토큰은 얼마인지, 오늘 사용한 총 토큰은 얼마인지 등 전체적인 에이전트 시스템의 비용과 이력 관련 모니터링을 한다. 
 
+이때 현재 세션을 넘어서는 집계(오늘 사용량, 전체 기간 누적 사용량 등)는 PostgreSQL에 저장된 에이전트 토큰/비용 사용 이력을 기반으로 계산한다. (구체적인 테이블 설계는 별도 디자인 작업에서 진행한다.)
+
 `scala-agent`를 구성한 agent에서 사용하는 자세한 모델명(chatgpt-5.4-mini 등), 각 모델의 마지막 작업 이력 (orchestrator agent의 경우, 최종 취합 결과를 사용자에게 보여줬음에 대한 이력), 각 agent들이 토큰을 얼마나 사용하고 현재 비용이 얼마가 사용되었는지 등을 상세히 표현한다.
 
 `사용자`가 확인 환료한 경우, `enter` 키를 입력받아 main 화면으로 이동하도록 한다.
@@ -204,6 +210,8 @@ Agent 별 기능 요구사항은 다음과 같다.
 - 주요 기능 : 작업 분배 및 작업 결과를 사용자와 직접적으로 소통하는 Agent
 
 사용자의 입력에 대해 적합한 명령을 다른 agent에게 전달하고, agent의 수행 결과를 취합하여 사용자에게 제공한다.
+
+`사용자`와의 모든 직접 소통 채널은 `Orchestrator Agent`가 단독으로 소유한다. 즉, `Validator Agent` 등 다른 agent가 Human Feedback을 요청하는 경우에도, `Orchestrator Agent`가 요청 내용을 `사용자`에게 전달(`OA → US`)하고 `사용자`의 응답을 다시 해당 agent에게 전달(`OA → 요청 agent`)하는 **중계자** 역할을 한다. 이때 추천 매핑 등 Feedback 요청 내용 자체는 이를 요청한 agent가 생성하며, `Orchestrator Agent`는 생성에 관여하지 않고 전달만 담당한다. (`PRD.md`의 `7. 주요 워크플로우` mermaid 8~11번 참고)
 
 전체 파이프라인 실행 결과는 `Caching Agent`, `Load Agent`, `Lineage Agent`의 실행 결과로 처리한다. 즉, `Orchestrator Agent`는 `Caching Agent`, `Load Agent`, `Lineage Agent`의 실행 결과를 종합하여 최종 처리 결과를 도출한다.
 
