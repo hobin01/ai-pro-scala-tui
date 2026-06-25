@@ -49,7 +49,6 @@ SCALA는 다음을 자동화한다.
 - Field profiling
 - OCSF 후보 검색
 - Canonical Mapping
-- Human Feedback
 - 정규화 Rule 생성
 - OpenSearch 적재
 - Lineage 저장
@@ -61,7 +60,7 @@ SCALA는 다음을 자동화한다.
 - `Scala-Agent`가 판단하기 애매하거나 어려운 것은 `사용자`와 interactive한 소통을 통해 취합할 필드를 확정한다.
 - 누락되는 데이터 없이 모든 데이터가 Opensearch에 적재되어야 하며, 모든 적재된 데이터에 대해 원본 데이터와의 Lineage가 가능해야 한다. 
 - OCSF 포맷으로 매칭되지 않는 필드의 경우, `custom_attr`, `unmapped_field` 등으로 처리가 되어야 한다. 즉, 모든 필드는 누락이 없어야 한다.
-- Data lineage를 위해 원본 source, index, field, id 정보와 정규화 데이터의 `run_id`, `scala_document_id`, OpenSearch `_id` 정보를 추적할 수 있어야 한다.
+- Data lineage를 위해 원본 source, index, field, id 정보와 정규화 데이터의 `run_id` (작업 실행 id), `원본 데이터의 id 등 식별자`, OpenSearch `_id` 정보를 추적할 수 있어야 한다.
 - 토큰 이코노미를 위한 캐시 처리 시, 캐시 저장 대상은 원본 필드와 OCSF 후보/결정 결과의 매핑 정보이다. 예를 들어 `src_ip -> src_endpoint.ip` 같은 source field와 canonical field 간 매핑 결정을 저장한다.
 
 ## 5. 제품 범위
@@ -143,7 +142,6 @@ graph TD
     PA[Schema Profiler Agent <br/> 스키마 프로파일 분석] 
     NA[Normalization Agent <br/> 정규화 Rule 생성] 
     VA[Validator Agent <br/> 매핑 품질 검증] 
-    HF[Human Feedback <br/> 모호한 매핑 피드백 처리]
     %% LO / CA / LA 를 하위 박스로 묶음
     subgraph ProcAgents [Processing Agents]
       LO[Load Agent <br/> 정규화된 데이터 적재]
@@ -169,8 +167,8 @@ graph TD
   PA --> |5. 표준 스키마 조회| RAG 
   PA --> |6. 스키마 분석 내용 전송| NA 
   NA --> |7. 정규화 결과 품질 검증 요청| VA 
-  VA --> |8. 품질 낮은 경우, 피드백 요청| HF
-  HF --> |9. 피드백 결과 전송| VA
+  VA --> |8. 품질 낮은 경우, Human Feedback 요청| US
+  US --> |9. 피드백 결과 전송| VA
   VA --> |10. 최종 품질 검증| VA
   VA --> |11. 최종 품질 검증 결과 전송| NA
   NA --> |12. 최종 정규화 Rule 생성 및 원본 데이터에 적용|NA
@@ -193,9 +191,10 @@ SCALA가 직접 구현할 TUI 화면은 다음이다.
 - Main
 - Source Selection
 - Field & Sample Explorer
-- Agent Run Monitor
+- Agent Workflow Graph
 - Human Feedback
 - Lineage Viewer
+- Agent Monitoring
 - Settings
 
 Kibana, Splunk Web, OpenSearch Dashboards UI는 외부 웹 화면이며, 원본 데이터, 정규화된 데이터를 확인한다.
