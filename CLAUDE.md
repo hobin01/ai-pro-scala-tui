@@ -15,3 +15,7 @@
 ## 핵심 파일 목록 
 
 다른 코딩 에이전트의 main 지침서는 `AGENTS.md` 파일이다. 이 지침서의 내용을 바탕으로 문서 구조 및 내용을 파악한다. 
+
+## Usefule Tools
+
+Task에 적합한 skills, plugins를 적극적으로 활용하여 task를 완료한다.
