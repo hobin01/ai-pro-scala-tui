@@ -27,3 +27,8 @@ TO-DO
 TO-DO
 - 프로젝트 config 설정 방법 
 
+----
+
+temporary memo
+
+TUI 실행 : go run ./cmd/scala-tui
