@@ -153,6 +153,6 @@ agent별 토큰·비용·마지막 작업 이력. monitoring 화면의 표 단�
 
 ---
 
-## 미결 사항
+## 설정 반영 방식
 
-- **설정 반영 방식(hot-reload vs 컨테이너 재시작).** `8.settings.md`의 pending/재시작 흐름은 런타임 UI 상태라 본 테이블 스키마에는 영향이 없다. 반영 방식 확정은 `SW-ARCHITECTURE.md`(step 7)에서 다룬다.
+- `scala_settings` 변경은 **hot-reload**로 반영된다(컨테이너 재시작 불필요). 백엔드가 각 run 시작 시점에 현재 값을 읽어 연결을 구성하기 때문이며, 인프라 접속 정보는 `.env`에서 관리해 설정 변경이 재시작을 유발하지 않는다. 런타임 반영 메커니즘 상세는 `SW-ARCHITECTURE.md`(step 7)에서 다룬다.

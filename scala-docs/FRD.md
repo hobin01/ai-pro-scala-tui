@@ -174,9 +174,9 @@ opensearch document와 postgresql에 저장된 metadata 정보가 있으므로 �
 
 settings 화면에서 설정 가능한 모든 값은 DB `scala_settings` table에서 관리되는 값과 항상 동일해야 한다. 
 
-settings 내용 반영을 위해 컨테이너 재시동 등이 필요한 경우, 해당 컨테이너만 재시동을 하며, TUI 화면 상에 설정 중이라는 문구 및 spinner 모양 / 모래시계 모양 등 로딩 중임을 표시한다. 재시동이 완료된 경우, 재시동되었음을 사용자에게 알린다. 
+모든 설정 변경은 hot-reload로 반영된다. 백엔드가 각 파이프라인 실행(run) 시작 시점에 현재 `scala_settings` 값을 읽어 source/OpenSearch 연결을 구성하므로, URL·model·system prompt 변경도 다음 run부터 자동 반영되며 컨테이너 재시작·프로세스 종료가 필요 없다. (인프라 접속 정보는 `scala_settings`가 아니라 `.env`에서 관리하므로, Settings 변경으로 재시작이 유발될 일이 없다.)
 
-사용자는 `enter` 키를 입력받아 main 화면으로 이동할 수 있다. 단, 재시동 중인 경우에는 main 화면으로 이동이 불가능하다. 
+사용자는 `enter` 키를 입력받아 main 화면으로 이동할 수 있다. 
 
 필수로 필요한 설정값은 아래와 같다. 
 - agent 별 model 명 
