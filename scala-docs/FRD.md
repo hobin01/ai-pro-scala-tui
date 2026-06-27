@@ -17,7 +17,7 @@ step 별 가이드 하단에는 SCALA 데이터 취합을 원하는지, 결과 �
 데이터 취합을 선택한 경우, 가이드에 대한 `사용자`의 입력 내용은 `Orchestrator Agent`가 확인 후, `scala-agent`에게 동작을 요청한다.
 
 1. Data Source 선택
-  - config 파일에 미리 설정된 값 중 2개 이상을 선택. Elasticsearch index 2개, Elasticsearch index 1개, Splunk index 1개, Splunk index 2개 등을 고를 수 있음
+  - settings에 미리 설정된 값 중 2개 이상을 선택. Elasticsearch index 2개, Elasticsearch index 1개, Splunk index 1개, Splunk index 2개 등을 고를 수 있음
   - 상세 기능은 하단의 `2.source-selection.md` 섹션에서 설명한다.
 2. Data Sample 확인 
   - 선택된 index에 포함된 데이터 필드, 타입, 값에 대한 샘플을 확인
@@ -57,8 +57,8 @@ step 별 가이드 하단에는 SCALA 데이터 취합을 원하는지, 결과 �
 환경 설정을 하고자 하는 경우, 다음의 기능을 수행할 수 있다. 
 
 1. settings 기능
-  - config 설정값을 확인하고, TUI에서 직접 수정할 수 있다. 
-  - 수정된 내용은 config 파일에 즉각 반영되어, 다른 화면에서도 바로 적용되어야 한다. (index 추가 : main 화면에서 추가된 index를 프로세스 종료 없이 바로 선택 가능)
+  - settings 설정값을 확인하고, TUI에서 직접 수정할 수 있다. (source url, index 등)
+  - 수정된 내용은 db의 `settings` table에 즉각 반영되어, 다른 화면에서도 바로 적용되어야 한다. (index 추가 : main 화면에서 추가된 index를 프로세스 종료 없이 바로 선택 가능)
   - 상세 기능은 하단의 `8.settings.md` 섹션에서 설명한다.
 
 
@@ -168,19 +168,19 @@ opensearch document와 postgresql에 저장된 metadata 정보가 있으므로 �
 
 ### 8.settings.md
 
-환경설정과 관련된 값들을 확인, 수정을 한다. 즉, config 설정값을 확인하고, TUI에서 직접 수정할 수 있다. 
+환경설정과 관련된 값들을 확인, 수정을 한다. 즉, settings 설정값을 확인하고, TUI에서 직접 수정할 수 있다. (source index, url, llm model 종류 등)
 
-수정된 내용은 config 파일에 즉각 반영되어, 다른 화면에서도 바로 적용되어야 한다. (index 추가하는 경우, main 화면에서 추가된 index를 프로세스 종료 없이 바로 선택 가능 등)
+수정된 내용은 DB `scala_settings` table에 즉각 반영되어, 다른 화면에서도 바로 적용되어야 한다. (index 추가하는 경우, main 화면에서 추가된 index를 프로세스 종료 없이 바로 선택 가능 등)
 
-settings 화면에서 설정 가능한 모든 값은 config 파일에서 관리되는 값과 항상 동일해야 한다. 
+settings 화면에서 설정 가능한 모든 값은 DB `scala_settings` table에서 관리되는 값과 항상 동일해야 한다. 
 
-config 파일 내용 반영을 위해 컨테이너 재시동 등이 필요한 경우, 해당 컨테이너만 재시동을 하며, TUI 화면 상에 설정 중이라는 문구 및 spinner 모양 / 모래시계 모양 등 로딩 중임을 표시한다. 재시동이 완료된 경우, 재시동되었음을 사용자에게 알린다. 
+settings 내용 반영을 위해 컨테이너 재시동 등이 필요한 경우, 해당 컨테이너만 재시동을 하며, TUI 화면 상에 설정 중이라는 문구 및 spinner 모양 / 모래시계 모양 등 로딩 중임을 표시한다. 재시동이 완료된 경우, 재시동되었음을 사용자에게 알린다. 
 
 사용자는 `enter` 키를 입력받아 main 화면으로 이동할 수 있다. 단, 재시동 중인 경우에는 main 화면으로 이동이 불가능하다. 
 
 필수로 필요한 설정값은 아래와 같다. 
 - agent 별 model 명 
-- openai api key 
+- openai api key (`.env`에서 관리하며, settings 화면에는 read-only로만 표시한다. TUI에서 수정하지 않는다.)
 - 연결 가능한 source url
 - 연결 가능한 index
 - `scala` 결과가 저장될 opensearch url
@@ -281,4 +281,24 @@ Agent의 실행 결과는 `Orchestrator Agent`에게 전달한다.
 
 ### 기타 기능 요구사항 
 - `사용자`와의 interactive한 동작이 필요한 경우 (`enter`키를 입력 받아 다음 화면으로 전환 등), 모든 경우에 대해 적합한 메시지를 `사용자`에게 제공해야 한다.
-- 변동 가능한 설정은 모두 config 파일 또는 DB로 관리가 되어야 한다. (agent 시스템 프롬프트, 선택 가능한 index, source url 등)
+- 변동 가능한 설정은 모두 DB `scala_settings` table로 관리가 되어야 한다. (agent 시스템 프롬프트, 선택 가능한 index, source url 등)
+
+#### SCALA 데이터 관리 요구사항 
+
+구체적인 settings 관련 table 설계는 `RDB-TABLES.md` 파일을 참고하여라. 
+데이터 별 저장되는 위치는 아래 표와 같다.
+
+| 데이터 | 저장 위치 | 
+| --- | --- | 
+| API Key, Password | .env | 
+| 인프라 관련 접속 정보 (Postgresql, Redis, Chroma 등 접속 정보) | .env |
+| Elasticsearch, Kibana, Opensearch, Splunk 로그인 / auth token 정보 | .env |
+| Agent 모델 종류, 시스템 프롬프트 | Postgresql `scala_settings` table |
+| SIEM 등 데이터 source url 및 index | Postgresql `scala_settings` table |
+| 정규화 데이터 저장용 Opensearch url 및 index | Postgresql `scala_settings` table |
+| 웹 콘솔 (Kibana, Splunk, Opensearch dashboard 등) | Postgresql `scala_settings` table |
+| Data Lineage Metadata | Postgresql `scala_data_lineage_metadata` table | 
+| API Token 비용 등 llm 사용 이력 | Postgresql `scala_agent_usage` table |
+| SCALA 실행 관련 metadata (run_id 등) | Postgresql `scala_runs` table |
+| source data field -> OCSF 매핑에 사용된 cache | Redis | 
+| OCSF 표준 임베딩 (RAG) | ChromaDB | 
