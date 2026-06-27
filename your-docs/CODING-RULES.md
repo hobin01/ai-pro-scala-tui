@@ -136,9 +136,14 @@
 - 구현 시, 적합한 디자인 패턴을 사용하며, 추상화를 통해 service, data layer 구분 등 interface 기반의 구현을 수행한다.
 
 
-### Usefule Skills
+### Usefule Skills / Plugins
+
+아래 skills, plugins을 적극 활용한다. 해당 내용을 찾을 수 없으면 사용자에게 설치를 요청한다. 
+아래 이외의 skills, plugins 중 개발에 활용할 수 있는 설치된 것들이 있다면 적극적으로 활용한다. 
 
 - Go 개발 관련 : `cc-skills-golang`
 - 최소 개발 원칙 : `karpathy-guidelines`
-- 주석 작성 시 사람과 같이 작성 : `humanizer`
+- 적절한 용도의 프레임워크 사용, 최적의 코드 작성 : `ponytail`
+- 주석 작성 시 사람과 같이 작성 : `humanizer` (주석 작성 시 이 파일의 어투 참고하여 작성)
 - Docker 설정 관련 : `docker-development`
+- brainstorming, planning, code-review : `superpowers`

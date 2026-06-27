@@ -64,11 +64,12 @@ ai-pro-scala-tui/
 └── scala-docs/             # SCALA 프로젝트와 관련된 문서 저장 디렉토리 
     ├── FRD.md                  # FRD, 기능 요구사항 정의서 
     ├── PRD.md                  # PRD, 제품 요구사항 정의서
+    ├── RDB-TABLES.md           # settings, metadata 관리 등을 위한 RDB Table 설계 문서
     ├── SW-ARCHITECTURE.md      # SW 아키텍처 구성 내용 
     ├── TUI-DESIGN.md           # TUI 디자인 관련 문서 
-    ├── tui-pages/              # TUI 페이지별 상세 문서(mockup) 디렉토리 
     ├── WORKFLOW.md             # SCALA 전체 워크플로우 
     └── README.md               # 관련 문서들에 대한 설명
+    └── tui-pages/              # TUI 페이지별 상세 문서(mockup) 디렉토리 
 ```
 
 ## 프로젝트 규칙 및 제약사항
