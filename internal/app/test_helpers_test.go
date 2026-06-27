@@ -1,9 +1,12 @@
 package app
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
+
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func newModelAtDataSamples() *Model {
 	model := NewModel()
@@ -31,6 +34,7 @@ func typeText(model *Model, text string) {
 
 func assertContains(t *testing.T, got string, want string) {
 	t.Helper()
+	got = stripANSI(got)
 	if !strings.Contains(got, want) {
 		t.Fatalf("expected view to contain %q\nview:\n%s", want, got)
 	}
@@ -38,7 +42,19 @@ func assertContains(t *testing.T, got string, want string) {
 
 func assertNotContains(t *testing.T, got string, want string) {
 	t.Helper()
+	got = stripANSI(got)
 	if strings.Contains(got, want) {
 		t.Fatalf("expected view not to contain %q\nview:\n%s", want, got)
 	}
+}
+
+func assertContainsRaw(t *testing.T, got string, want string) {
+	t.Helper()
+	if !strings.Contains(got, want) {
+		t.Fatalf("expected raw view to contain %q\nview:\n%q", want, got)
+	}
+}
+
+func stripANSI(value string) string {
+	return ansiPattern.ReplaceAllString(value, "")
 }

@@ -2,13 +2,6 @@ package app
 
 import (
 	"strings"
-
-	"charm.land/lipgloss/v2"
-)
-
-var (
-	accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("82"))
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 )
 
 func (m *Model) View() string {

@@ -45,7 +45,7 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 	if notice != "" {
 		lines = append(lines, frameRow(notice, innerWidth))
 	}
-	lines = append(lines, frameRow(input, innerWidth))
+	lines = append(lines, frameInputRow(input, innerWidth))
 	lines = append(lines, frameBottom(footer, width))
 	return strings.Join(lines, "\n")
 }
@@ -156,29 +156,39 @@ func frameTitleLine(left string, right string, text string, width int) string {
 		label = fitLine(label, bodyWidth)
 	}
 	padding := bodyWidth - lipgloss.Width(label)
-	return left + label + strings.Repeat("─", padding) + right
+	return borderStyle.Render(left) +
+		footerStyle.Render(label) +
+		borderStyle.Render(strings.Repeat("─", padding)+right)
 }
 
 func frameHeaderLine(context string, status string, width int) string {
 	bodyWidth := width - 2
 	prefix := "─ SCALA · " + context + " "
-	suffix := " " + status + " ─"
-	if lipgloss.Width(prefix)+lipgloss.Width(suffix) > bodyWidth {
-		prefix = fitLine(prefix, bodyWidth-lipgloss.Width(suffix))
+	rawSuffix := " " + status + " ─"
+	if lipgloss.Width(prefix)+lipgloss.Width(rawSuffix) > bodyWidth {
+		prefix = fitLine(prefix, bodyWidth-lipgloss.Width(rawSuffix))
 	}
-	padding := bodyWidth - lipgloss.Width(prefix) - lipgloss.Width(suffix)
+	padding := bodyWidth - lipgloss.Width(prefix) - lipgloss.Width(rawSuffix)
 	if padding < 0 {
 		padding = 0
 	}
-	return "┌" + prefix + strings.Repeat("─", padding) + suffix + "┐"
+	return borderStyle.Render("┌") +
+		titleStyle.Render(prefix) +
+		borderStyle.Render(strings.Repeat("─", padding)) +
+		" " + renderStatus(status) + borderStyle.Render(" ─") +
+		borderStyle.Render("┐")
 }
 
 func frameSeparator(width int) string {
-	return "├" + strings.Repeat("─", width-2) + "┤"
+	return borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
 }
 
 func frameRow(value string, width int) string {
-	return "│ " + fitLine(value, width) + " │"
+	return borderStyle.Render("│") + " " + fitLine(value, width) + " " + borderStyle.Render("│")
+}
+
+func frameInputRow(value string, width int) string {
+	return borderStyle.Render("│") + " " + renderInput(fitLine(value, width)) + " " + borderStyle.Render("│")
 }
 
 func fitLine(value string, width int) string {

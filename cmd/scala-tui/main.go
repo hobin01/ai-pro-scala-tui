@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/hobin01/ai-pro-scala-tui/internal/app"
 )
 
@@ -22,9 +23,9 @@ type tuiModel struct {
 func main() {
 	model := tuiModel{
 		core:    app.NewModel(),
-		spinner: spinner.New(spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("82")))),
+		spinner: spinner.New(spinner.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("45")))),
 	}
-	if _, err := tea.NewProgram(model).Run(); err != nil {
+	if _, err := tea.NewProgram(model, tea.WithColorProfile(colorprofile.ANSI256)).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "scala-tui: %v\n", err)
 		os.Exit(1)
 	}

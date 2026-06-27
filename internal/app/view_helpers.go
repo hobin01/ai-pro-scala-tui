@@ -44,7 +44,7 @@ func renderBlock(b *strings.Builder, title string, lines []string) {
 
 func cursor(active bool) string {
 	if active {
-		return "▸"
+		return renderCursor("▸")
 	}
 	return " "
 }

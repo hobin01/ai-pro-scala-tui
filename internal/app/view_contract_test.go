@@ -17,6 +17,14 @@ func TestFrameRendersSharedRegionsAndResponsiveSize(t *testing.T) {
 	assertNotContains(t, view, "Header | Content | Input | Footer")
 }
 
+func TestFrameUsesBrightBlueTerminalPalette(t *testing.T) {
+	view := NewModel().View()
+
+	assertContainsRaw(t, view, "\x1b[38;5;45m")
+	assertContainsRaw(t, view, "\x1b[1;38;5;51m")
+	assertContainsRaw(t, view, "\x1b[1;38;5;226m")
+}
+
 func TestMainPageMatchesDocumentedLandingCopy(t *testing.T) {
 	model := NewModel()
 
