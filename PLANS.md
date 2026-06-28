@@ -34,7 +34,7 @@
 - TUI, 백엔드 간 IPC 포맷 구체화
 
 ### 8. WORKFLOW 구성 
-- `scala-docs/WORKFLOW.md` 파일 작성 
+- `scala-docs/workflow/` 디렉토리에 항목별 워크플로우 문서 작성 
 - 사용자 입력부터 SCALA 최종 출력 결과까지 모든 과정에 대한 워크플로우 구체화 
 
 ### 9. 백엔드 개발 
