@@ -65,18 +65,18 @@ ai-pro-scala-tui/
     ├── FRD.md                  # FRD, 기능 요구사항 정의서 
     ├── PRD.md                  # PRD, 제품 요구사항 정의서
     ├── RDB-TABLES.md           # settings, metadata 관리 등을 위한 RDB Table 설계 문서
-    ├── SW-ARCHITECTURE.md      # SW 아키텍처 구성 내용 
     ├── TUI-DESIGN.md           # TUI 디자인 관련 문서 
     ├── WORKFLOW.md             # SCALA 전체 워크플로우 
     └── README.md               # 관련 문서들에 대한 설명
     └── tui-pages/              # TUI 페이지별 상세 문서(mockup) 디렉토리 
+    └── sw-architecture/        # SW 아키텍처 구성 내용 
 ```
 
 ## 프로젝트 규칙 및 제약사항
 
 1. 코드 작성 시, 추상화와 재사용성을 고려하여 인터페이스 기반으로 개발을 수행한다. 이는 미래 목표 달성과도 연관이 있으므로 인터페이스 설계에 주의를 기울여야 한다. 
 2. Docker 이미지 다운로드, 외부 자료 다운로드 필요 시, 반드시 검증된 공식 사이트 및 자료만 다운로드를 한다. 즉, 인터넷과 관련된 것은 보안에 유의하여야 한다.
-3. 코드 작업 시에는 `your-docs`의 `CODING-RULES.md`, `GITOPS-RULES.md`를 반드시 지켜서 코딩 및 git 관리를 한다. 
+3. 소스코드 작업 시에는 `your-docs`의 `CODING-RULES.md`, `GITOPS-RULES.md`를 반드시 지켜서 코딩 및 git 관리를 한다. 
 4. `scala-docs`, `your-docs` 내의 문서 수정이 필요한 경우, `사용자`에게 확인 받은 뒤 수정한다. 예를 들어, 프로그램 워크플로우 과정에서 오류가 있거나 문서 상 논리가 이상한 경우가 있는 경우, `scala-docs/WORKFLOW.md` 파일을 `사용자`에게 어떤 부분에 오류가 있으니 어떻게 수정하면 되겠다를 제안한다. 그리고 `사용자`가 허용 시 문서를 수정한다. 
 5. `your-work-history`의 문서는 `TEMPLATE.md`에 맞게 자유롭게 작성한다. 
 6. `.env` 파일에 중요 환경 변수 값들이 저장되어 있다. `너`는 직접 읽어서 사용해도 되고, 수정해도 되지만, git commit은 절대 하면 안 된다. `.env.example` 파일만 commit하여 다른 개발자도 사용할 수 있도록 한다.

@@ -28,7 +28,7 @@
 - Postgresql docker container 기반으로 db 관리 구성 
 
 ### 7. SW Architecture 구성
-- `scala-docs/SW-ARCHITECTURE.md` 파일 작성
+- `scala-docs/sw-architecture/` 디렉토리에 항목별 아키텍처 문서 작성
 - 구체적인 SW 기술 스택 구체화
 - SW 구성 요소 간 IO, 요청/응답 결과 등을 구체화
 - TUI, 백엔드 간 IPC 포맷 구체화
