@@ -30,7 +30,7 @@ func TestSettingsHotReloadAndReadOnlyAPIKey(t *testing.T) {
 	assertContains(t, model.View(), "read-only · .env")
 }
 
-func TestSettingsRestartConfirmationFlow(t *testing.T) {
+func TestSettingsURLChangesHotReloadWithoutRestartState(t *testing.T) {
 	model := NewModel()
 	typeText(model, "/settings")
 	model.UpdateKey("enter")
@@ -40,29 +40,16 @@ func TestSettingsRestartConfirmationFlow(t *testing.T) {
 	model.UpdateKey("enter")
 	typeText(model, "-v2")
 	model.UpdateKey("enter")
-	assertContains(t, model.View(), "pending restart: 1")
-	assertContains(t, model.View(), "OpenSearch URL           https://opensearch.local:9200-v2 * pending")
-	for range 5 {
-		model.UpdateKey("down")
-	}
-	model.UpdateKey("enter")
 	view := model.View()
-	assertContains(t, view, "1 change needs a restart")
-	assertContains(t, view, "Restart now")
-	assertContains(t, view, "Keep editing")
-	assertContains(t, view, "Leave without restart")
+	assertContains(t, view, "OpenSearch URL           https://opensearch.local:9200-v2")
+	assertSettingsHasNoRestartState(t, view)
 
+	model.settingsCursor = model.backSettingsRow()
 	model.UpdateKey("enter")
-	view = model.View()
-	assertContains(t, view, "restarting")
-	assertContains(t, view, "restart: opensearch")
-	model.AdvanceLoading()
-	view = model.View()
-	assertContains(t, view, "Restart complete")
-	assertContains(t, view, "Settings applied")
+	assertContains(t, model.View(), "Welcome. SCALA normalizes")
 }
 
-func TestSplunkRestartPendingIsFieldSpecific(t *testing.T) {
+func TestSettingsSourceURLChangesHotReloadWithoutPendingMarkers(t *testing.T) {
 	model := NewModel()
 	typeText(model, "/settings")
 	model.UpdateKey("enter")
@@ -72,16 +59,14 @@ func TestSplunkRestartPendingIsFieldSpecific(t *testing.T) {
 	model.UpdateKey("enter")
 
 	view := model.View()
-	assertContains(t, view, "pending restart: 1")
-	assertContains(t, view, "Splunk URL               https://splunk.local:8089-v2 * pending")
-	assertNotContains(t, view, "Elasticsearch URL        https://es.local:9200 * pending")
-	assertNotContains(t, view, "OpenSearch URL           https://opensearch.local:9200 * pending")
+	assertContains(t, view, "Splunk URL               https://splunk.local:8089-v2")
+	assertSettingsHasNoRestartState(t, view)
+}
 
-	for range 13 {
-		model.UpdateKey("down")
-	}
-	model.UpdateKey("enter")
-	view = model.View()
-	assertContains(t, view, "1 change needs a restart")
-	assertNotContains(t, view, "2 changes need a restart")
+func assertSettingsHasNoRestartState(t *testing.T, view string) {
+	t.Helper()
+	assertNotContains(t, view, "pending")
+	assertNotContains(t, view, "restart")
+	assertNotContains(t, view, "Restart")
+	assertNotContains(t, view, "Apply pending changes")
 }

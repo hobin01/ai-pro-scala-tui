@@ -5,29 +5,6 @@ import (
 	"strings"
 )
 
-func renderRestartConfirm(b *strings.Builder, confirmCursor int, pendingRestart int) {
-	if pendingRestart == 1 {
-		fmt.Fprintln(b, "1 change needs a restart to take effect:")
-	} else {
-		fmt.Fprintf(b, "%d changes need a restart to take effect:\n", pendingRestart)
-	}
-	fmt.Fprintln(b, "Restart the affected containers now?")
-	options := []string{"Restart now", "Keep editing", "Leave without restart"}
-	for i, option := range options {
-		fmt.Fprintf(b, "%s %s\n", cursor(i == confirmCursor), option)
-	}
-}
-
-func renderRestarting(b *strings.Builder, targets []string) {
-	fmt.Fprintln(b, "restarting...")
-	fmt.Fprintln(b, "Applying changes - restarting affected containers...")
-	fmt.Fprintln(b, "settings saved")
-	for _, target := range targets {
-		fmt.Fprintf(b, "restart: %s\n", target)
-	}
-	fmt.Fprintln(b, "Navigation is disabled until restart completes.")
-}
-
 func renderHelp(b *strings.Builder) {
 	fmt.Fprintln(b, "\nCommands")
 	fmt.Fprintln(b, "/source-selection  /data-samples  /agent-workflow")

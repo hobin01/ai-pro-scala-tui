@@ -36,8 +36,6 @@ func (m *Model) View() string {
 
 func (m *Model) inputLine() string {
 	switch {
-	case m.restarting:
-		return "⌧ restarting — please wait"
 	case m.pipelineRunning:
 		return "⌧ agent running — input disabled"
 	case m.feedbackComment:
@@ -62,21 +60,9 @@ func (m *Model) inputLine() string {
 }
 
 func settingsRows(m *Model) []string {
-	elasticPending := ""
-	splunkPending := ""
-	openSearchPending := ""
-	if m.elasticPending {
-		elasticPending = " * pending"
-	}
-	if m.splunkPending {
-		splunkPending = " * pending"
-	}
-	if m.openSearchPending {
-		openSearchPending = " * pending"
-	}
 	rows := []string{
-		"Elasticsearch URL        " + m.settings.elasticsearchURL + elasticPending,
-		"Splunk URL               " + m.settings.splunkURL + splunkPending,
+		"Elasticsearch URL        " + m.settings.elasticsearchURL,
+		"Splunk URL               " + m.settings.splunkURL,
 		"Orchestrator model       " + m.settings.orchestratorModel,
 		"Schema Profiler model    " + m.settings.profilerModel,
 		"Normalization model      " + m.settings.normalizationModel,
@@ -84,28 +70,15 @@ func settingsRows(m *Model) []string {
 		"OpenAI API key           " + m.settings.apiKeyMasked + " (read-only · .env)",
 		"Elasticsearch indices    logs-2024, firewall-idx",
 		"Splunk indices           main, security",
-		"OpenSearch URL           " + m.settings.openSearchURL + openSearchPending,
+		"OpenSearch URL           " + m.settings.openSearchURL,
 		"Result index             " + m.settings.resultIndex,
 		"Kibana                   " + m.settings.kibanaURL,
 		"Splunk Web               " + m.settings.splunkWebURL,
 		"OpenSearch Dashboards    " + m.settings.openSearchDash,
 	}
-	if m.pendingRestart > 0 {
-		rows = append(rows, "Apply pending changes (restart)")
-	}
 	return append(rows, "Back to main")
 }
 
-func (m *Model) applySettingsRow() int {
-	if m.pendingRestart == 0 {
-		return -1
-	}
-	return 14
-}
-
 func (m *Model) backSettingsRow() int {
-	if m.pendingRestart > 0 {
-		return 15
-	}
-	return 14
+	return len(settingsRows(m)) - 1
 }

@@ -43,16 +43,8 @@ type Model struct {
 	lineageNotFound   string
 	monitoringScope   int
 	settingsCursor    int
-	settingsConfirm   bool
-	confirmCursor     int
-	restarting        bool
-	restartComplete   bool
 	editingSetting    bool
 	editValue         string
-	pendingRestart    int
-	elasticPending    bool
-	splunkPending     bool
-	openSearchPending bool
 	settings          settings
 	sources           []source
 	lineage           map[string]lineageRecord
@@ -92,7 +84,7 @@ func (m *Model) UpdateKey(key string) bool {
 	if key == "ctrl+c" {
 		return true
 	}
-	if m.pipelineRunning || m.restarting {
+	if m.pipelineRunning {
 		return false
 	}
 	if m.route == routeMonitoring {
@@ -137,14 +129,5 @@ func (m *Model) AdvanceLoading() {
 	}
 	if m.lineageLoading {
 		m.resolveLineage()
-	}
-	if m.restarting {
-		m.restarting = false
-		m.pendingRestart = 0
-		m.elasticPending = false
-		m.splunkPending = false
-		m.openSearchPending = false
-		m.restartComplete = true
-		m.notice = "Restart complete - Settings applied."
 	}
 }

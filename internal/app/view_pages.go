@@ -227,21 +227,6 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 
 func (m *Model) renderSettings(b *strings.Builder) {
 	fmt.Fprintln(b, "Settings")
-	if m.restarting {
-		renderRestarting(b, m.pendingRestartTargets())
-		return
-	}
-	if m.pendingRestart > 0 {
-		fmt.Fprintf(b, "pending restart: %d\n", m.pendingRestart)
-	}
-	if m.restartComplete {
-		fmt.Fprintln(b, "Restart complete")
-		fmt.Fprintln(b, "Settings applied.")
-	}
-	if m.settingsConfirm {
-		renderRestartConfirm(b, m.confirmCursor, m.pendingRestart)
-		return
-	}
 	for i, row := range settingsRows(m) {
 		fmt.Fprintf(b, "%s %s\n", cursor(i == m.settingsCursor), row)
 	}
