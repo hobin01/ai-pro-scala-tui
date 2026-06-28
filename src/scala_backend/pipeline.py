@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import anyio
 
-from scala_backend.agent_graph import run_agent_graph
+from scala_backend.agent_graph import AGENT_STAGE_ORDER, run_agent_graph
 from scala_backend.cache import MappingCache
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import RunInProgressError
@@ -88,8 +88,17 @@ class PipelineRunner:
             await notify(
                 peer, "run.status", {"run_id": str(run_id), "status": "running"}
             )
-            graph_state = run_agent_graph(str(run_id))
             docs = self._collect_documents(sources)
+            mapping_result = await self._decider.decide(run_id, sources, peer)
+            decisions = mapping_result.decisions
+            cached = mapping_result.cached_count
+            run_agent_graph(
+                str(run_id),
+                cache_hit=cached > 0,
+                cache_miss=cached < len(decisions),
+                needs_feedback=mapping_result.feedback_requested,
+            )
+            agent_count = len(AGENT_STAGE_ORDER)
             await notify(
                 peer,
                 "progress",
@@ -98,11 +107,10 @@ class PipelineRunner:
                     "agent": "schema_profiler",
                     "message": (
                         f"profiled {len(docs)} docs via "
-                        f"{len(graph_state['stages'])} agents"
+                        f"{agent_count} agents"
                     ),
                 },
             )
-            decisions, cached = await self._decider.decide(run_id, sources, peer)
             settings = self._store.get_settings()
             opensearch_index = _opensearch_index(settings)
             for doc in docs:

@@ -132,6 +132,39 @@ func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	assertContains(t, view, "OpenAI API key")
 }
 
+func TestWorkflowGraphMatchesPRDCompressedSurface(t *testing.T) {
+	model := NewModel()
+
+	typeText(model, "/agent-workflow")
+	model.UpdateKey("enter")
+	view := model.View()
+
+	for _, text := range []string{
+		"Source SIEM",
+		"Elasticsearch + Splunk",
+		"Future SIEM",
+		"SIEM Connector",
+		"Redis cache lookup",
+		"cache miss -> ChromaDB OCSF",
+		"cache hit -> reuse mapping",
+		"Human feedback via Orchestrator",
+		"User -> Orchestrator -> Validator",
+		"Load     -> OpenSearch",
+		"Caching  -> Redis",
+		"Lineage  -> PostgreSQL",
+		"Processing Agents -> Orchestrator -> User",
+		"workflow mgmt · user chat",
+		"schema profile · cache",
+		"mapping rules · apply data",
+		"data consistency",
+		"load normalized data",
+		"store mapping cache",
+		"create lineage metadata",
+	} {
+		assertContains(t, view, text)
+	}
+}
+
 func TestMonitoringIsReadOnlyWithinSharedFrame(t *testing.T) {
 	model := NewModel()
 

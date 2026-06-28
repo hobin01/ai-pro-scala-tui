@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from uuid import UUID
 
 from scala_backend.cache import MappingCache, MappingDecision, cache_key
@@ -11,6 +12,13 @@ from scala_backend.providers import LlmProvider
 from scala_backend.runtime import request
 from scala_backend.store import BackendStore, make_usage
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
+
+
+@dataclass(frozen=True)
+class MappingResult:
+    decisions: list[MappingDecision]
+    cached_count: int
+    feedback_requested: bool
 
 
 class MappingDecider:
@@ -33,9 +41,10 @@ class MappingDecider:
         run_id: UUID,
         sources: list[SourceSelection],
         peer: object,
-    ) -> tuple[list[MappingDecision], int]:
+    ) -> MappingResult:
         decisions: list[MappingDecision] = []
         cached_count = 0
+        feedback_requested = False
         settings = self._store.get_settings()
         for source in sources:
             source_url = _source_url(settings, source.solution)
@@ -46,10 +55,13 @@ class MappingDecider:
                     cached_count += 1
                     decisions.append(cached)
                     continue
-                decision = await self._decide_uncached(run_id, field, settings, peer)
+                decision, requested = await self._decide_uncached(
+                    run_id, field, settings, peer
+                )
+                feedback_requested = feedback_requested or requested
                 self._cache.set(key, decision)
                 decisions.append(decision)
-        return decisions, cached_count
+        return MappingResult(decisions, cached_count, feedback_requested)
 
     async def _decide_uncached(
         self,
@@ -57,7 +69,7 @@ class MappingDecider:
         field: FieldSample,
         settings: dict[str, object],
         peer: object,
-    ) -> MappingDecision:
+    ) -> tuple[MappingDecision, bool]:
         decision = recommend_mapping(field)
         if decision.action == "map" and self._ocsf_index is not None:
             candidates = self._ocsf_index.query(_candidate_query(field), top_k=3)
@@ -71,8 +83,12 @@ class MappingDecider:
                 _feedback(run_id, field, decision),
             )
             if response.get("decision") == "keep_raw":
-                return recommend_mapping(FieldSample(name="unknown", type=field.type))
-        return decision
+                return (
+                    recommend_mapping(FieldSample(name="unknown", type=field.type)),
+                    True,
+                )
+            return decision, True
+        return decision, False
 
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
         return self._connectors[source.solution].fetch_schema_samples(source.index)
