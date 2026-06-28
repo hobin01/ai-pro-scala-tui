@@ -151,7 +151,10 @@ def _read(file: Any, transcript: list[dict[str, Any]]) -> dict[str, Any]:
     line = file.readline()
     if not line:
         raise RuntimeError("backend closed the connection")
-    message = json.loads(line.decode("utf-8"))
+    decoded = json.loads(line.decode("utf-8"))
+    if not isinstance(decoded, dict):
+        raise RuntimeError("backend returned a non-object JSON-RPC message")
+    message: dict[str, Any] = decoded
     transcript.append({"direction": "recv", "message": message})
     return message
 

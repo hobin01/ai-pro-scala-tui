@@ -43,6 +43,7 @@ class RedisMappingCache:
         client: RedisClient | None = None,
         redis_url: str = "redis://localhost:6379/0",
     ) -> None:
+        self._client: RedisClient
         if client is None:
             import redis
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from scala_backend.ocsf import OcsfField
 from scala_backend.providers import EmbeddingProvider
@@ -81,8 +81,11 @@ class ChromaOcsfIndex:
     ) -> ChromaClient:
         chromadb = importlib.import_module("chromadb")
         if host is not None:
-            return chromadb.HttpClient(host=host, port=port)
-        return chromadb.PersistentClient(path=str(path or Path(".chroma")))
+            return cast(ChromaClient, chromadb.HttpClient(host=host, port=port))
+        return cast(
+            ChromaClient,
+            chromadb.PersistentClient(path=str(path or Path(".chroma"))),
+        )
 
 
 def _field_text(field: OcsfField) -> str:

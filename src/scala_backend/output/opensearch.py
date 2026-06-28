@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import Protocol
+from typing import Protocol, cast
 
 from scala_backend.models import JsonObject
 
@@ -49,4 +49,7 @@ class OpenSearchLoader:
         module = importlib.import_module("opensearchpy")
         client_cls = module.OpenSearch
         auth = (username, password) if username and password else None
-        return client_cls(hosts=[url or "http://localhost:9200"], http_auth=auth)
+        return cast(
+            OpenSearchClient,
+            client_cls(hosts=[url or "http://localhost:9200"], http_auth=auth),
+        )

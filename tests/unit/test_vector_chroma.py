@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -98,7 +98,7 @@ def test_app_factory_bootstraps_empty_ocsf_collection(
         FakeEmbeddingProvider(),
     )
 
-    assert index is fake_index
+    assert cast(object, index) is fake_index
     assert fake_index.upserted == fields
 
 
@@ -125,7 +125,7 @@ def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
         FakeEmbeddingProvider(),
     )
 
-    assert index is fake_index
+    assert cast(object, index) is fake_index
     assert fake_index.upserted == []
 
 
