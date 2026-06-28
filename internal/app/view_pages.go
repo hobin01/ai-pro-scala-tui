@@ -108,40 +108,6 @@ func (m *Model) renderSampleFailure(b *strings.Builder, source source) {
 	}
 }
 
-func (m *Model) renderWorkflow(b *strings.Builder) {
-	fmt.Fprintln(b, "Agent Workflow Graph")
-	fmt.Fprintln(b, "How SCALA processes your data (LangGraph pipeline)")
-	fmt.Fprintln(b, "User")
-	fmt.Fprintln(b, " └─▶ Orchestrator")
-	fmt.Fprintln(b, "       └─▶ Schema Profiler   ⟷ Redis cache · ChromaDB OCSF")
-	fmt.Fprintln(b, "             └─▶ Normalization")
-	fmt.Fprintln(b, "                   └─▶ Validator   ⟷ User (feedback via OA)")
-	fmt.Fprintln(b, "                         └─▶ finalize rules")
-	fmt.Fprintln(b, "                               ├─▶ Load     ▶ OpenSearch")
-	fmt.Fprintln(b, "                               ├─▶ Caching  ▶ Redis")
-	fmt.Fprintln(b, "                               └─▶ Lineage  ▶ PostgreSQL")
-	fmt.Fprintln(b)
-	fmt.Fprintln(b, "Agent            Role                        Model")
-	fmt.Fprintln(b, "───────────────  ──────────────────────────  ─────────────")
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Orchestrator", "workflow mgmt · user chat", m.settings.orchestratorModel)
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Schema Profiler", "schema profile · cache", m.settings.profilerModel)
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Normalization", "mapping rules", m.settings.normalizationModel)
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Validator", "data consistency", m.settings.validatorModel)
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Load", "load normalized data", "-- (no LLM)")
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Caching", "store mapping cache", "-- (no LLM)")
-	fmt.Fprintf(b, "%-16s %-27s %s\n", "Lineage", "create lineage metadata", "-- (no LLM)")
-	if !m.workflowGate {
-		fmt.Fprintln(b, "\nView mode · enter returns to Main")
-		return
-	}
-	fmt.Fprintf(b, "\nready · sources: %d\n", len(m.selectedSources()))
-	fmt.Fprintf(b, "Run the normalization pipeline on %d selected sources?\n", len(m.selectedSources()))
-	options := []string{"Start pipeline", "Back to samples"}
-	for i, option := range options {
-		fmt.Fprintf(b, "%s %s\n", cursor(i == m.workflowCursor), option)
-	}
-}
-
 func (m *Model) renderFeedback(b *strings.Builder) {
 	fmt.Fprintln(b, "Human Feedback")
 	if m.pipelineRunning {

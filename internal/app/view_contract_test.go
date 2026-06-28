@@ -109,6 +109,7 @@ func TestPipelineRunningHeaderNamesActiveAgent(t *testing.T) {
 
 func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	model := NewModel()
+	model.SetSize(110, 44)
 
 	typeText(model, "/agent-workflow")
 	model.UpdateKey("enter")
@@ -120,7 +121,7 @@ func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	assertContains(t, view, "Load")
 	assertContains(t, view, "Caching")
 	assertContains(t, view, "Lineage")
-	assertContains(t, view, "-- (no LLM)")
+	assertContains(t, view, "— (no LLM)")
 
 	typeText(model, "/settings")
 	model.UpdateKey("enter")
@@ -130,6 +131,60 @@ func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	assertContains(t, view, "Normalization model")
 	assertContains(t, view, "Validator model")
 	assertContains(t, view, "OpenAI API key")
+}
+
+func TestWorkflowGraphMatchesPRDCompressedSurface(t *testing.T) {
+	model := NewModel()
+	model.SetSize(110, 44)
+
+	typeText(model, "/agent-workflow")
+	model.UpdateKey("enter")
+	view := model.View()
+
+	for _, text := range []string{
+		"How SCALA processes your data (Agent pipeline topology)",
+		"Sources: Elasticsearch · Splunk · (future)",
+		"└─▶ SIEM Connector ─▶ Orchestrator      (schema/sample)",
+		"User ─▶ Orchestrator ─▶ Schema Profiler",
+		"Schema Profiler ─▶ Redis                (cache lookup)",
+		"├─ miss ─▶ ChromaDB OCSF ─▶ Normalization",
+		"└─ hit  ─▶ reuse cached mapping ─▶ Normalization",
+		"fail ─▶ Orchestrator ─▶ User         (human feedback)",
+		"User ─▶ Orchestrator ─▶ Validator",
+		"Validator ─▶ Validator ─▶ Normalization (re-chk)",
+		"Normalization ─▶ Load    ─▶ OpenSearch",
+		"├─▶ Caching ─▶ Redis",
+		"└─▶ Lineage ─▶ PostgreSQL",
+		"Load ─▶ Lineage                         (OpenSearch _id)",
+		"Processing Agents ─▶ Orchestrator ─▶ User   (final result)",
+		"Agent            Role                        Model",
+		"workflow 관리 · 사용자 소통",
+		"스키마 프로파일 · 캐시 조회",
+		"정규화 Rule 생성 · 적용",
+		"데이터 정합성 검증",
+		"정규화 데이터 적재",
+		"매핑 캐시 저장",
+		"리니지 메타데이터 생성",
+		"enter to return to main.",
+	} {
+		assertContains(t, view, text)
+	}
+}
+
+func TestWorkflowViewModeScrollsStaticGraph(t *testing.T) {
+	model := NewModel()
+	model.SetSize(110, 12)
+
+	typeText(model, "/agent-workflow")
+	model.UpdateKey("enter")
+	assertContains(t, model.View(), "How SCALA processes your data")
+
+	for range 20 {
+		model.UpdateKey("down")
+	}
+
+	assertContains(t, model.View(), "Lineage          리니지 메타데이터 생성")
+	assertContains(t, model.View(), "↑↓ scroll · enter back")
 }
 
 func TestMonitoringIsReadOnlyWithinSharedFrame(t *testing.T) {

@@ -30,6 +30,7 @@ type Model struct {
 	sampleLoading     bool
 	workflowGate      bool
 	workflowCursor    int
+	workflowScroll    int
 	pipelineRunning   bool
 	pipelineDone      bool
 	pipelineIndex     int

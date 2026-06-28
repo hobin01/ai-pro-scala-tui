@@ -51,6 +51,8 @@ func (m *Model) inputLine() string {
 		return "_id> " + m.input
 	case m.route == routeMonitoring:
 		return "⌧ read-only view"
+	case m.route == routeWorkflow && !m.workflowGate:
+		return "enter to return to main."
 	default:
 		if m.input == "" {
 			return "> _"

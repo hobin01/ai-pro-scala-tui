@@ -31,6 +31,11 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 	if contentHeight < 1 {
 		contentHeight = 1
 	}
+	if m.route == routeWorkflow && !m.workflowGate {
+		maxOffset := len(contentRows) - contentHeight
+		offset := clamp(m.workflowScroll, 0, maxOffset)
+		contentRows = contentRows[offset:]
+	}
 
 	lines := make([]string, 0, height)
 	lines = append(lines, m.frameTop(width))
@@ -60,7 +65,7 @@ func (m *Model) footerLine() string {
 		if m.workflowGate {
 			return "↑↓ choose · enter select · /help · ctrl+c quit"
 		}
-		return "enter back · /help · ctrl+c quit"
+		return "↑↓ scroll · enter back · /help · ctrl+c quit"
 	case routeFeedback:
 		return "enter select · agents stream · ctrl+c quit"
 	case routeLineage:

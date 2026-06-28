@@ -79,8 +79,8 @@ func TestDocumentedMainAndBoundaryStates(t *testing.T) {
 	model.UpdateKey("enter")
 	model.UpdateKey("down")
 	model.UpdateKey("enter")
-	assertContains(t, model.View(), "Agent Workflow Graph")
-	assertContains(t, model.View(), "View mode")
+	assertContains(t, model.View(), "Agent workflow graph")
+	assertContains(t, model.View(), "enter to return to main.")
 
 	model = NewModel()
 	model.UpdateKey("down")
