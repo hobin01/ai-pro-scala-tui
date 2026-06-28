@@ -16,6 +16,21 @@ class ApprovingPeer:
         return {"decision": "approve"}
 
 
+class CommentThenApprovePeer:
+    def __init__(self) -> None:
+        self.requests: list[JsonObject] = []
+
+    async def request(self, method: str, params: JsonObject) -> JsonObject:
+        assert method == "feedback.request"
+        self.requests.append(params)
+        if len(self.requests) == 1:
+            return {
+                "decision": "comment",
+                "comment": "please keep_raw; this is a vendor-specific proxy client IP",
+            }
+        return {"decision": "approve"}
+
+
 def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
     fields = [
         FieldSample(name="clientip", type="string", samples=["10.0.0.5"]),
@@ -71,3 +86,30 @@ async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
     assert any(write.key == key for write in result.cache_writes)
     assert result.cache_hit_count == 0
     assert result.cache_miss_count == len(result.decisions)
+
+
+@pytest.mark.anyio
+async def test_mapping_decider_rerequests_feedback_after_comment() -> None:
+    store = InMemoryStore()
+    seed_dev_settings(store)
+    cache = InMemoryMappingCache()
+    decider = MappingDecider(store, default_connectors(), cache)
+    peer = CommentThenApprovePeer()
+
+    result = await decider.decide(
+        uuid4(),
+        [SourceSelection(solution="splunk", index="main")],
+        peer,
+    )
+
+    clientip_decision = next(
+        decision for decision in result.decisions if decision.source_field == "clientip"
+    )
+    assert len(peer.requests) == 2
+    why = str(peer.requests[1]["recommendation"]["why"])
+    assert "(updated)" in why
+    assert "keep_raw" in why
+    assert "vendor-specific proxy client IP" in why
+    assert peer.requests[1]["recommendation"]["action"] == "keep_raw"
+    assert peer.requests[1]["recommendation"]["ocsf_field"] is None
+    assert clientip_decision.action == "keep_raw"
