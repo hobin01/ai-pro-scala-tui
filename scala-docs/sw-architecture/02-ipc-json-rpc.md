@@ -19,7 +19,7 @@ TUI와 Backend 사이의 유일한 통신 경계다. 모든 데이터 접근이 
 
 | 메서드 | 화면 | 설명 |
 |---|---|---|
-| `settings.get` | 8.settings · 2.source-selection · 4.workflow · 7.monitoring | `scala_settings` 전체 반환(단일 출처). source 목록·agent 모델명도 여기서 온다. |
+| `settings.get` | 8.settings · 2.source-selection · 4.workflow · 7.monitoring | `scala_settings`의 화면 표시용 값 반환(단일 출처; 단가·system prompt는 백엔드 전용이라 제외). source 목록·agent 모델명도 여기서 온다. |
 | `settings.set` | 8.settings | 키 1개 저장(hot-reload). 반환: 저장된 값. |
 | `samples.fetch` | 3.data-samples | 선택된 (source,index)들의 field·type·sample 조회. 진행은 notification으로 스트리밍. |
 | `pipeline.run` | 4.workflow→5.feedback | 정규화 파이프라인 시작(장기 실행). `run_id` 반환은 즉시, 진행/완료는 notification·feedback로. params: 선택된 sources. |
