@@ -1,4 +1,52 @@
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["scala-backend", "serve"]
+    environment:
+      SCALA_BACKEND_HOST: 0.0.0.0
+      SCALA_BACKEND_PORT: "8765"
+      SCALA_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      SCALA_DATABASE_URL: postgresql://scala:scala@postgres:5432/scala
+      SCALA_REDIS_URL: redis://redis:6379/0
+      SCALA_CHROMA_PATH: /data/chroma
+      SCALA_CHROMA_HOST: chroma
+      SCALA_CHROMA_PORT: "8000"
+      SCALA_CHROMA_SSL: "false"
+      SCALA_OCSF_VERSION: 1.8.0
+      SCALA_OCSF_COLLECTION: ocsf-schema
+      SCALA_OPENAI_MODEL: gpt-5-mini
+      SCALA_OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+      SCALA_OPENSEARCH_URL: http://opensearch:9200
+      SCALA_OPENSEARCH_USERNAME: ""
+      SCALA_OPENSEARCH_PASSWORD: ""
+      SCALA_ELASTICSEARCH_URL: http://elasticsearch:9200
+      SCALA_ELASTICSEARCH_USERNAME: ""
+      SCALA_ELASTICSEARCH_PASSWORD: ""
+      SCALA_SPLUNK_URL: https://splunk:8089
+      SCALA_SPLUNK_USERNAME: admin
+      SCALA_SPLUNK_PASSWORD: ScalaDev123!
+    ports:
+      - "127.0.0.1:8765:8765"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      splunk:
+        condition: service_healthy
+    volumes:
+      - scala-backend-data:/data
+    secrets:
+      - openai_api_key
+
   postgres:
     image: postgres:17
     environment:
@@ -90,9 +138,14 @@ services:
       - scala-splunk-data:/opt/splunk/var
 
 volumes:
+  scala-backend-data:
   scala-postgres-data:
   scala-redis-data:
   scala-chroma-data:
   scala-opensearch-data:
   scala-elasticsearch-data:
   scala-splunk-data:
+
+secrets:
+  openai_api_key:
+    file: ${SCALA_OPENAI_SECRET_FILE:-.scala-data/secrets/openai_api_key}

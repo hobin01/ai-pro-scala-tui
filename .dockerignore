@@ -1,0 +1,15 @@
+.git
+.env
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.omo
+.scala-data
+__pycache__
+*.pyc
+bin
+dist
+build
+htmlcov
+cover

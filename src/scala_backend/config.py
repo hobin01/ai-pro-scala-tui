@@ -62,6 +62,8 @@ ENV_KEY_MAP = {
     "SCALA_SPLUNK_PASSWORD": "splunk_password",
 }
 
+SECRET_FILE_ENV_KEYS = ("SCALA_OPENAI_API_KEY_FILE", "OPENAI_API_KEY_FILE")
+
 
 def load_config(env_file: Path | None = None) -> BackendConfig:
     values: dict[str, str] = {}
@@ -80,6 +82,9 @@ def load_config(env_file: Path | None = None) -> BackendConfig:
         for env_key, field_name in ENV_KEY_MAP.items()
         if env_key in values
     }
+    file_secret = _read_first_secret_file(values)
+    if file_secret and not _has_secret(settings.get("openai_api_key")):
+        settings["openai_api_key"] = file_secret
     return BackendConfig.model_validate(settings)
 
 
@@ -89,3 +94,25 @@ def mask_secret(secret: str | None) -> str:
     if len(secret) <= 8:
         return "set"
     return f"set...{secret[-4:]}"
+
+
+def _read_first_secret_file(values: dict[str, str]) -> str | None:
+    for key in SECRET_FILE_ENV_KEYS:
+        path = values.get(key)
+        if not path:
+            continue
+        secret_path = Path(path)
+        if not secret_path.exists():
+            continue
+        secret = secret_path.read_text(encoding="utf-8").strip()
+        if _has_secret(secret):
+            return secret
+    return None
+
+
+def _has_secret(value: object) -> bool:
+    return isinstance(value, str) and value not in {
+        "",
+        "YOUR_OPENAI_API_KEY",
+        "changeme",
+    }
