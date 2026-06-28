@@ -54,6 +54,7 @@ func (m *Model) enterSamples() {
 	m.route = routeWorkflow
 	m.workflowGate = true
 	m.workflowCursor = 0
+	m.workflowScroll = 0
 	m.notice = ""
 }
 
@@ -116,6 +117,7 @@ func (m *Model) routeCommand(command string) bool {
 	case "/agent-workflow":
 		m.route = routeWorkflow
 		m.workflowGate = false
+		m.workflowScroll = 0
 	case "/lineage-viewer":
 		m.route = routeLineage
 		m.clearLineage()
@@ -145,7 +147,9 @@ func (m *Model) move(delta int) {
 	case routeWorkflow:
 		if m.workflowGate {
 			m.workflowCursor = clamp(m.workflowCursor+delta, 0, 1)
+			return
 		}
+		m.workflowScroll = clamp(m.workflowScroll+delta, 0, len(workflowViewLines(m.settings))-1)
 	case routeFeedback:
 		if m.feedbackWaiting {
 			m.feedbackCursor = clamp(m.feedbackCursor+delta, 0, 2)

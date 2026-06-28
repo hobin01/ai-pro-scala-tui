@@ -25,6 +25,7 @@ func (m *Model) openResultView() {
 	case 1:
 		m.route = routeWorkflow
 		m.workflowGate = false
+		m.workflowScroll = 0
 	case 2:
 		m.route = routeMonitoring
 		m.monitoringScope = clamp(m.monitoringScope, 0, 2)
