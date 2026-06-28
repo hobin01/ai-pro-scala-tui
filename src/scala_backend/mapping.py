@@ -5,20 +5,31 @@ from uuid import UUID
 
 from scala_backend.cache import MappingCache, MappingDecision, cache_key
 from scala_backend.connectors import SiemConnector
-from scala_backend.models import AgentName, FieldSample, SourceSelection
+from scala_backend.models import FieldSample, SourceSelection
 from scala_backend.normalization import recommend_mapping
 from scala_backend.ocsf import OcsfField
-from scala_backend.providers import LlmProvider
 from scala_backend.runtime import request
-from scala_backend.store import BackendStore, make_usage
+from scala_backend.store import BackendStore
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
+
+
+@dataclass(frozen=True)
+class CacheWrite:
+    key: str
+    decision: MappingDecision
 
 
 @dataclass(frozen=True)
 class MappingResult:
     decisions: list[MappingDecision]
-    cached_count: int
+    cache_hit_count: int
+    cache_miss_count: int
+    cache_writes: list[CacheWrite]
     feedback_requested: bool
+
+    @property
+    def cached_count(self) -> int:
+        return self.cache_hit_count
 
 
 class MappingDecider:
@@ -28,13 +39,11 @@ class MappingDecider:
         connectors: dict[str, SiemConnector],
         cache: MappingCache,
         ocsf_index: ChromaOcsfIndex | None = None,
-        llm_provider: LlmProvider | None = None,
     ) -> None:
         self._store = store
         self._connectors = connectors
         self._cache = cache
         self._ocsf_index = ocsf_index
-        self._llm_provider = llm_provider
 
     async def decide(
         self,
@@ -43,7 +52,9 @@ class MappingDecider:
         peer: object,
     ) -> MappingResult:
         decisions: list[MappingDecision] = []
-        cached_count = 0
+        cache_hit_count = 0
+        cache_miss_count = 0
+        cache_writes: list[CacheWrite] = []
         feedback_requested = False
         settings = self._store.get_settings()
         for source in sources:
@@ -52,30 +63,32 @@ class MappingDecider:
                 key = cache_key(source_url, source.index, field.name, field.type)
                 cached = self._cache.get(key)
                 if cached is not None:
-                    cached_count += 1
+                    cache_hit_count += 1
                     decisions.append(cached)
                     continue
-                decision, requested = await self._decide_uncached(
-                    run_id, field, settings, peer
-                )
+                decision, requested = await self._decide_uncached(run_id, field, peer)
                 feedback_requested = feedback_requested or requested
-                self._cache.set(key, decision)
+                cache_miss_count += 1
+                cache_writes.append(CacheWrite(key, decision))
                 decisions.append(decision)
-        return MappingResult(decisions, cached_count, feedback_requested)
+        return MappingResult(
+            decisions,
+            cache_hit_count,
+            cache_miss_count,
+            cache_writes,
+            feedback_requested,
+        )
 
     async def _decide_uncached(
         self,
         run_id: UUID,
         field: FieldSample,
-        settings: dict[str, object],
         peer: object,
     ) -> tuple[MappingDecision, bool]:
         decision = recommend_mapping(field)
         if decision.action == "map" and self._ocsf_index is not None:
             candidates = self._ocsf_index.query(_candidate_query(field), top_k=3)
             decision = _candidate_decision(field, candidates, decision)
-        if decision.action == "map":
-            self._record_llm_usage(run_id, field, settings)
         if decision.action == "map" and field.name in {"clientip", "src_ip"}:
             response = await request(
                 peer,
@@ -84,7 +97,7 @@ class MappingDecider:
             )
             if response.get("decision") == "keep_raw":
                 return (
-                    recommend_mapping(FieldSample(name="unknown", type=field.type)),
+                    MappingDecision(field.name, field.type, "keep_raw", None, None),
                     True,
                 )
             return decision, True
@@ -92,31 +105,6 @@ class MappingDecider:
 
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
         return self._connectors[source.solution].fetch_schema_samples(source.index)
-
-    def _record_llm_usage(
-        self,
-        run_id: UUID,
-        field: FieldSample,
-        settings: dict[str, object],
-    ) -> int:
-        if self._llm_provider is None:
-            return 0
-        model = _model(settings, "schema_profiler")
-        price = _price(settings, model)
-        response = self._llm_provider.complete(_candidate_query(field), model, price)
-        usage = response.usage
-        self._store.add_usage(
-            make_usage(
-                run_id,
-                AgentName.SCHEMA_PROFILER,
-                f"profiled {field.name}",
-                model,
-                usage.total_tokens,
-                usage.cost_usd,
-            ),
-        )
-        return usage.total_tokens
-
 
 def _feedback(
     run_id: UUID,
@@ -167,19 +155,3 @@ def _candidate_decision(
             ocsf_type=top.type_name,
         )
     return fallback
-
-
-def _model(settings: dict[str, object], agent: str) -> str:
-    value = settings.get(f"agent.{agent}.model")
-    return value if isinstance(value, str) else "gpt-5-mini"
-
-
-def _price(settings: dict[str, object], model: str) -> dict[str, float] | None:
-    value = settings.get(f"model.{model}.price")
-    if not isinstance(value, dict):
-        return None
-    prompt = value.get("prompt_per_1k")
-    completion = value.get("completion_per_1k")
-    if not isinstance(prompt, int | float) or not isinstance(completion, int | float):
-        return None
-    return {"prompt_per_1k": float(prompt), "completion_per_1k": float(completion)}

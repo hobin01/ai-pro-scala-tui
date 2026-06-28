@@ -45,7 +45,12 @@ async def test_pipeline_surface_returns_run_id() -> None:
         peer = InlinePeer(task_group)
         result = await app.handle(
             "pipeline.run",
-            {"sources": [{"solution": "splunk", "index": "main"}]},
+            {
+                "sources": [
+                    {"solution": "elasticsearch", "index": "logs-2026"},
+                    {"solution": "splunk", "index": "main"},
+                ]
+            },
             peer,
         )
         with anyio.fail_after(1):
@@ -80,7 +85,12 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         peer = InlinePeer(task_group)
         result = await app.handle(
             "pipeline.run",
-            {"sources": [{"solution": "splunk", "index": "main"}]},
+            {
+                "sources": [
+                    {"solution": "elasticsearch", "index": "logs-2026"},
+                    {"solution": "splunk", "index": "main"},
+                ]
+            },
             peer,
         )
         with anyio.fail_after(2):
@@ -91,7 +101,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
             for method, params in peer.messages
             if method == "progress" and params.get("agent") == "schema_profiler"
         ]
-        assert "profiled 1 docs via 7 agents" in progress_messages
+        assert "profiled 9 fields (cache 0 hit · 9 miss)" in progress_messages
         assert graph_calls == [(False, True, True)]
 
         completed = next(
@@ -101,18 +111,24 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         )
         assert completed["run_id"] == result["run_id"]
         assert completed["summary"] == {
-            "mapped": 3,
-            "kept_raw": 2,
-            "loaded": 1,
-            "lineage": 1,
-            "cached": 0,
+            "mapped": 6,
+            "kept_raw": 3,
+            "loaded": 2,
+            "lineage": 2,
+            "cached": 9,
         }
         assert completed["lineage_refs"] == [
+            {
+                "source_solution": "elasticsearch",
+                "source_index": "logs-2026",
+                "source_doc_id": "es-1",
+                "opensearch_id": f"scala-{result['run_id'][:8]}-1",
+            },
             {
                 "source_solution": "splunk",
                 "source_index": "main",
                 "source_doc_id": "_bkt-1:_cd-42",
-                "opensearch_id": f"scala-{result['run_id'][:8]}-1",
+                "opensearch_id": f"scala-{result['run_id'][:8]}-2",
             },
         ]
         task_group.cancel_scope.cancel()
@@ -126,11 +142,17 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)
-    for field in app.connectors["splunk"].fetch_schema_samples("main"):
-        app.cache.set(
-            cache_key(source_url, "main", field.name, field.type),
-            recommend_mapping(field),
-        )
+    source_urls = {
+        "elasticsearch": settings["source.elasticsearch.url"],
+        "splunk": source_url,
+    }
+    for solution, index in (("elasticsearch", "logs-2026"), ("splunk", "main")):
+        assert isinstance(source_urls[solution], str)
+        for field in app.connectors[solution].fetch_schema_samples(index):
+            app.cache.set(
+                cache_key(source_urls[solution], index, field.name, field.type),
+                recommend_mapping(field),
+            )
     graph_calls: list[tuple[bool, bool, bool]] = []
 
     def capture_graph(
@@ -148,7 +170,12 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
         peer = InlinePeer(task_group)
         await app.handle(
             "pipeline.run",
-            {"sources": [{"solution": "splunk", "index": "main"}]},
+            {
+                "sources": [
+                    {"solution": "elasticsearch", "index": "logs-2026"},
+                    {"solution": "splunk", "index": "main"},
+                ]
+            },
             peer,
         )
         with anyio.fail_after(2):
@@ -193,7 +220,12 @@ async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph
         peer = InlinePeer(task_group)
         await app.handle(
             "pipeline.run",
-            {"sources": [{"solution": "splunk", "index": "main"}]},
+            {
+                "sources": [
+                    {"solution": "elasticsearch", "index": "logs-2026"},
+                    {"solution": "splunk", "index": "main"},
+                ]
+            },
             peer,
         )
         with anyio.fail_after(2):

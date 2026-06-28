@@ -17,6 +17,7 @@ def test_seed_dev_settings_is_explicit() -> None:
     seed_dev_settings(store)
 
     assert store.get_settings()["source.splunk.indices"] == ["main"]
+    assert "agent.schema_profiler.system_prompt" in store.get_settings()
 
 
 def test_monitoring_aggregate_contains_all_agents() -> None:

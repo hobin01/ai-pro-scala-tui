@@ -1,3 +1,9 @@
+from typing import Any
+
+import pytest
+
+from scala_backend.app_factory import create_ocsf_index
+from scala_backend.config import BackendConfig
 from scala_backend.ocsf import OcsfField
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
@@ -67,3 +73,74 @@ def test_chroma_ocsf_index_upserts_and_queries_fields() -> None:
     assert count == 1
     assert candidates == fields
     assert client.collection.query_embeddings == [[16.0, 22.0]]
+
+
+def test_app_factory_bootstraps_empty_ocsf_collection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fields = [
+        OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP address")
+    ]
+    fake_index = FakeBootstrapIndex(count_value=0)
+
+    def fields_for_version(version: str) -> list[OcsfField]:
+        return fields if version == "1.8.0" else []
+
+    monkeypatch.setattr("scala_backend.app_factory.ChromaOcsfIndex", fake_index.factory)
+    monkeypatch.setattr(
+        "scala_backend.app_factory.load_official_ocsf_fields",
+        fields_for_version,
+        raising=False,
+    )
+
+    index = create_ocsf_index(
+        BackendConfig(openai_api_key="sk-test"),
+        FakeEmbeddingProvider(),
+    )
+
+    assert index is fake_index
+    assert fake_index.upserted == fields
+
+
+def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_index = FakeBootstrapIndex(count_value=3)
+
+    def fields_for_version(version: str) -> list[OcsfField]:
+        del version
+        return [
+            OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP")
+        ]
+
+    monkeypatch.setattr("scala_backend.app_factory.ChromaOcsfIndex", fake_index.factory)
+    monkeypatch.setattr(
+        "scala_backend.app_factory.load_official_ocsf_fields",
+        fields_for_version,
+        raising=False,
+    )
+
+    index = create_ocsf_index(
+        BackendConfig(openai_api_key="sk-test"),
+        FakeEmbeddingProvider(),
+    )
+
+    assert index is fake_index
+    assert fake_index.upserted == []
+
+
+class FakeBootstrapIndex:
+    def __init__(self, count_value: int) -> None:
+        self.count_value = count_value
+        self.upserted: list[OcsfField] = []
+
+    def factory(self, **kwargs: Any) -> "FakeBootstrapIndex":
+        del kwargs
+        return self
+
+    def count(self) -> int:
+        return self.count_value
+
+    def upsert(self, fields: list[OcsfField]) -> int:
+        self.upserted = fields
+        return len(fields)

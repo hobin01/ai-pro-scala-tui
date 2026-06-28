@@ -136,6 +136,7 @@ class BackendApp:
         if record is None:
             return {"found": False}
         self.refresh_connectors()
+        self.refresh_opensearch()
         raw_document = record.raw_document
         raw = self.connectors[record.source_solution].fetch_raw_document(
             record.source_index,
@@ -176,17 +177,26 @@ class BackendApp:
     async def pipeline_run(self, params: PipelineRunParams, peer: object) -> JsonObject:
         self._validate_pipeline_settings(params)
         self.refresh_connectors()
-        run_id = await self.pipeline.start(params, peer, self.connectors)
+        self.refresh_opensearch()
+        run_id = await self.pipeline.start(
+            params,
+            peer,
+            self.connectors,
+            self.opensearch,
+        )
         return {"run_id": str(run_id)}
 
     def _validate_pipeline_settings(self, params: PipelineRunParams) -> None:
-        if not params.sources:
-            raise ConfigurationError("at least one source must be selected")
+        if len(params.sources) < 2:
+            raise ConfigurationError("at least two sources must be selected")
         settings = self.store.get_settings()
         if not isinstance(settings.get("output.opensearch.url"), str):
             raise ConfigurationError("OpenSearch URL is not configured")
         if not isinstance(settings.get("output.opensearch.index"), str):
             raise ConfigurationError("OpenSearch index is not configured")
+        for agent in ("orchestrator", "schema_profiler", "normalization", "validator"):
+            if not isinstance(settings.get(f"agent.{agent}.model"), str):
+                raise ConfigurationError(f"{agent} model is not configured")
         for source in params.sources:
             if not isinstance(settings.get(f"source.{source.solution}.url"), str):
                 raise ConfigurationError(f"{source.solution} URL is not configured")
@@ -200,6 +210,18 @@ class BackendApp:
         self.connectors = connectors_from_settings(
             self.store.get_settings(),
             self.config,
+        )
+
+    def refresh_opensearch(self) -> None:
+        settings = self.store.get_settings()
+        url = settings.get("output.opensearch.url")
+        if not isinstance(url, str) or url.startswith("memory://"):
+            self.opensearch = None
+            return
+        self.opensearch = OpenSearchLoader(
+            url,
+            username=self.config.opensearch_username,
+            password=self.config.opensearch_password,
         )
 
     def set_pipeline(self) -> None:

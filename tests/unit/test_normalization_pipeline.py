@@ -1,6 +1,19 @@
+from uuid import uuid4
+
+import pytest
+
 from scala_backend.cache import InMemoryMappingCache, cache_key
-from scala_backend.models import FieldSample
+from scala_backend.connectors import default_connectors
+from scala_backend.mapping import MappingDecider
+from scala_backend.models import FieldSample, JsonObject, SourceSelection
 from scala_backend.normalization import apply_mapping, recommend_mapping
+from scala_backend.store import InMemoryStore, seed_dev_settings
+
+
+class ApprovingPeer:
+    async def request(self, method: str, params: JsonObject) -> JsonObject:
+        del method, params
+        return {"decision": "approve"}
 
 
 def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
@@ -35,3 +48,26 @@ def test_cache_key_uses_source_url_index_field_and_type() -> None:
         cache.get(cache_key("https://splunk-b:8089", "main", "clientip", "string"))
         is None
     )
+
+
+@pytest.mark.anyio
+async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
+    store = InMemoryStore()
+    seed_dev_settings(store)
+    cache = InMemoryMappingCache()
+    decider = MappingDecider(store, default_connectors(), cache)
+    settings = store.get_settings()
+    source_url = settings["source.splunk.url"]
+    assert isinstance(source_url, str)
+
+    result = await decider.decide(
+        uuid4(),
+        [SourceSelection(solution="splunk", index="main")],
+        ApprovingPeer(),
+    )
+
+    key = cache_key(source_url, "main", "clientip", "string")
+    assert cache.get(key) is None
+    assert any(write.key == key for write in result.cache_writes)
+    assert result.cache_hit_count == 0
+    assert result.cache_miss_count == len(result.decisions)

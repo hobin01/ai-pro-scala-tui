@@ -95,6 +95,23 @@ def seed_dev_settings(
         "agent.schema_profiler.model": "gpt-5-mini",
         "agent.normalization.model": "gpt-5-mini",
         "agent.validator.model": "gpt-5-mini",
+        "agent.orchestrator.system_prompt": (
+            "You are the SCALA Orchestrator Agent. Coordinate the workflow and "
+            "summarize final Load, Caching, and Lineage results for the user."
+        ),
+        "agent.schema_profiler.system_prompt": (
+            "You are the SCALA Schema Profiler Agent. Profile source fields, "
+            "reuse confirmed cache mappings, and inspect OCSF candidates for "
+            "cache misses."
+        ),
+        "agent.normalization.system_prompt": (
+            "You are the SCALA Normalization Agent. Generate OCSF mapping rules "
+            "and preserve unmapped source fields without data loss."
+        ),
+        "agent.validator.system_prompt": (
+            "You are the SCALA Validator Agent. Verify normalized mappings and "
+            "request human feedback only when a decision is ambiguous."
+        ),
         "model.gpt-5-mini.price": {
             "prompt_per_1k": 0.15,
             "completion_per_1k": 0.60,
@@ -188,14 +205,19 @@ def make_usage(
     model: str | None = None,
     tokens: int = 0,
     cost: Decimal = Decimal("0"),
+    *,
+    prompt_tokens: int | None = None,
+    completion_tokens: int = 0,
 ) -> UsageRecord:
+    prompt = tokens if prompt_tokens is None else prompt_tokens
+    total = tokens if prompt_tokens is None else prompt + completion_tokens
     return UsageRecord(
         run_id=run_id,
         agent=agent,
         model=model,
-        prompt_tokens=tokens,
-        completion_tokens=0,
-        total_tokens=tokens,
+        prompt_tokens=prompt,
+        completion_tokens=completion_tokens,
+        total_tokens=total,
         cost_usd=cost,
         last_activity=activity,
         created_at=datetime.now(UTC),
