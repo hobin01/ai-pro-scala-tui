@@ -8,11 +8,10 @@ TUI와 Backend 사이의 유일한 통신 경계다. 모든 데이터 접근이 
 - **전송 인코딩**: 메시지당 1 JSON 객체. 스트림 경계는 LSP식 `Content-Length` 헤더 또는 줄바꿈 구분(JSON Lines) 중 하나로 고정한다. (개발 시 택1)
 - **동시성**: 단일 실행(single-flight)이라 in-flight 파이프라인은 항상 1개. 단, 파이프라인 진행 중에도 notification·feedback request는 흘러야 하므로 채널은 full-duplex여야 한다.
 
-> ⚖️ 판단 필요 — **transport**: ① TCP(localhost) ② Unix domain socket ③ stdio(자식 프로세스). 
-> ① Backend를 Compose 서비스로 두고 TUI가 접속 → 분리·재사용 쉬움, 포트 관리 필요. 
-> ② 동일 호스트·소켓 파일 공유 → 네트워크 노출 없음, 파일 경로 공유 필요. 
-> ③ TUI가 Backend를 띄움 → 포트/인증 불필요·LSP식으로 단순, 단 Backend를 Compose 공유 서비스로 두기 어려움. 
-> PoC 단일 사용자 기준 ②(UDS) 또는 ③(stdio)이 단순하다. 최종 택1 필요.
+**Transport (확정): TCP(localhost).** Backend를 Docker Compose 서비스로 띄우고, TUI가 클라이언트로 `127.0.0.1:<port>`에 접속한다. 단순 PoC를 넘어 **Backend를 독립 서비스로 재사용**하기 위함이다(다른 클라이언트도 동일 포트로 접속 가능).
+
+- 연결 주소는 secret이 아니다. **Backend 리슨 주소**는 Backend 설정(`.env` 인프라 wiring)으로, **TUI가 접속할 주소**(`SCALA_BACKEND_ADDR`, 기본 `127.0.0.1:<port>`)는 TUI측 설정/플래그로 둔다. (주소는 secret이 아니므로 TUI가 가져도 무방. TUI는 여전히 store/source/LLM secret을 갖지 않는다.)
+- 단일 TCP 연결에서 full-duplex로 notification·`feedback.request`가 흐른다. 파이프라인은 여전히 single-flight(`09-run-lifecycle.md`).
 
 ## 메서드 (클라이언트 → 서버, request/response)
 
@@ -43,18 +42,18 @@ TUI와 Backend 사이의 유일한 통신 경계다. 모든 데이터 접근이 
 ### human feedback 시퀀스
 
 ```text
-TUI → Backend : pipeline.run(sources)              (request, 장기)
+TUI → Backend : pipeline.run(sources)              (request)
+Backend → TUI : (response) run_id                  (즉시 반환)
 Backend → TUI : run.status(running) / progress …   (notification)
 Backend → TUI : feedback.request(field, recommend) (request, 서버 발신)
 TUI → Backend : (response) approve | keep_raw | comment(text)
    … 모든 매핑 끝까지 progress ↔ feedback.request 반복 …
 Backend → TUI : output.chunk(결과 요약 스트리밍) + opensearch link
-Backend → TUI : run.status(completed)
-(pipeline.run response 종료)
+Backend → TUI : run.status(completed)              (run 종료)
 ```
 
 - `feedback.request`의 추천 내용은 Profiler/Normalization이 생성하고 Orchestrator가 **중계만** 한다(PRD mermaid 8~11, `FRD` Orchestrator). IPC상으로는 Backend가 단일 발신자다.
-- 캐시 히트 필드는 feedback 없이 진행되므로 `feedback.request`가 발생하지 않는다(`03-…` 캐시 분기).
+- 캐시 히트 필드는 feedback 없이 진행되므로 `feedback.request`가 발생하지 않는다(`03-agent-workflow-langgraph.md` 캐시 분기).
 
 ## 스트리밍 / 백프레셔
 

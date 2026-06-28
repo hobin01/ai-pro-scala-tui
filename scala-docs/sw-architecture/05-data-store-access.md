@@ -11,13 +11,13 @@
 | `scala_agent_usage` | 각 agent 노드(W) · monitoring 핸들러(R) | R/W | 노드 완료 시 W, `monitoring.query`(today/all-time) 시 R |
 | `scala_data_lineage_metadata` | Lineage 노드(W) · lineage viewer 핸들러(R) | R/W | 적재 후 W, `lineage.lookup` 시 R |
 | **Redis** cache | Schema Profiler(R) · Caching 노드(W) | R/W | 프로파일 시 조회, 정규화 확정 시 저장 |
-| **ChromaDB** | 임베딩 적재기(W) · Schema Profiler(R) | R/W | 최초 1회 적재(`06-…`), 캐시 미스 시 후보 조회(R) |
+| **ChromaDB** | 임베딩 적재기(W) · Schema Profiler(R) | R/W | 최초 1회 적재(`06-ocsf-rag-ingestion.md`), 캐시 미스 시 후보 조회(R) |
 | **OpenSearch** | Load 노드(W) · lineage viewer 핸들러(R) | R/W | 적재 시 W, `lineage.lookup` 시 정규화 문서 R |
 | **Elasticsearch / Splunk** | Connector(R) | R | 샘플(`3`), 파이프라인 읽기, lineage raw 조회 |
 
 ## 캐시 흐름 (Redis)
 
-cache key = `source_type+index_name+field_name+field_type` (`FRD`, 입도 판단은 `04-…`).
+cache key = `source_type+index_name+field_name+field_type` (`FRD`, 입도 판단은 `04-siem-connector.md`).
 
 ```text
 Schema Profiler ─ get(key) ─▶ Redis
@@ -35,4 +35,4 @@ Schema Profiler ─ get(key) ─▶ Redis
 ## 일관성 / 트랜잭션 (PoC 범위)
 
 - 단일 실행이라 동시 쓰기 경합이 없다. run 단위로 PG 쓰기를 처리한다.
-- 부분 실패 시 run을 `failed`로 두고 표면화한다(복구·정합 보정은 범위 밖, `09-…`).
+- 부분 실패 시 run을 `failed`로 두고 표면화한다(복구·정합 보정은 범위 밖, `09-run-lifecycle.md`).

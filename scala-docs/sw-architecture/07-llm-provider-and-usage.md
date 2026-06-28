@@ -9,7 +9,7 @@ LLM 호출을 추상화하고, 토큰·비용을 `scala_agent_usage`에 기록�
 - **모델·단가는 `scala_settings`에서 로드**한다:
   - 모델: `agent.<agent>.model`
   - 단가: `model.<name>.price` = `{ "prompt_per_1k": …, "completion_per_1k": … }` (`RDB-TABLES.md`)
-- API key는 `.env`에서 로드한다(`08-…`). TUI는 모델명만 표시(read-only).
+- API key는 `.env`에서 로드한다(`08-config-and-secrets.md`). TUI는 모델명만 표시(read-only).
 
 ## 토큰/비용 기록
 
@@ -29,5 +29,4 @@ LLM 호출을 추상화하고, 토큰·비용을 `scala_agent_usage`에 기록�
 - **All-time**: 전체 행 agent별 합산.
 - monitoring은 실시간이 아니라 `monitoring.query` 호출 시점 스냅샷이다(`FRD`/`7.agent-monitoring.md`).
 
-> ⚖️ 판단 필요 — **`model.<name>.price`의 편집 위치.** 단가는 `scala_settings`에 있으나 `8.settings.md` mockup에는 단가 입력 행이 없다. `FRD` 175는 "settings 화면에서 설정 가능한 모든 값 = scala_settings 값"이라 충돌한다. 
-> ① 단가도 Settings 화면에 편집 행 추가(일관) ② 단가는 개발 시 DB에 직접 시드하는 값으로 두고 `FRD` 175에 "단가는 예외(TUI 비노출)" 명시. 택1 필요.
+**단가 노출 (확정)**: `model.<name>.price`는 `scala_settings`에 저장하되 **Settings 화면에는 노출/편집하지 않는다.** 단가는 개발 시 DB에 시드하는 **백엔드 전용 값**이며 비용 계산(`monitoring.query`)에만 쓰인다. `8.settings.md` 화면 구성은 변경 없다. 단가 변경 UI는 **현재 scope 밖**이다(미래에 필요해지면 그때 Settings에 편집 행을 추가). `FRD` 175("settings 화면에서 설정 가능한 모든 값")는 화면→table 방향 일치를 뜻하므로, table에만 있는 단가와 충돌하지 않는다.

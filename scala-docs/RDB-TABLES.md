@@ -140,7 +140,7 @@ agent별 토큰·비용·마지막 작업 이력. monitoring 화면의 표 단�
 | `run_id` | UUID | FK → `scala_runs.run_id` | 생성 run |
 | `source_solution` | TEXT | NOT NULL | 원본 solution (elasticsearch / splunk) |
 | `source_index` | TEXT | NOT NULL | 원본 index |
-| `source_doc_id` | TEXT | NOT NULL | 원본 raw 문서 식별자 (예: `_bkt=…::host::1234`) |
+| `source_doc_id` | TEXT | NOT NULL | 원본 raw 문서 식별자. Connector가 정의하는 opaque 값 (ES `_id`, Splunk `_bkt`+`_cd` 합성 등). 상세 `sw-architecture/04-siem-connector.md` |
 | `opensearch_index` | TEXT | NOT NULL | 정규화 문서 저장 index (예: `scala-normalized`) |
 | `opensearch_id` | TEXT | NOT NULL, index | OpenSearch `_id`. 조회 키 |
 | `created_at` | TIMESTAMPTZ | NOT NULL | |

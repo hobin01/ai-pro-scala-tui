@@ -223,7 +223,7 @@ Agent 별 기능 요구사항은 다음과 같다.
 
 캐시 key는 source_type + index_name + field_name + field_type 으로 계산한다.
 
-- source_type : source가 되는 종류 (elasticsearch, splunk 또는 해당하는 url 정보)
+- source_type : source 인스턴스 식별값으로 **연결 URL**을 사용한다. (solution 이름만으로 구분하면 서로 다른 인스턴스의 동일 index 이름이 캐시를 공유해 오적용될 수 있으므로 URL 단위로 분리한다.)
 - index_name : 원본 데이터 저장된 index
 - field_name : 원본 데이터의 field 
 - field_type : 원본 데이터의 데이터 타입 

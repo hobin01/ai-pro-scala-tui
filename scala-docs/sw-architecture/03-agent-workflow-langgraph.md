@@ -33,7 +33,7 @@ deterministic 3종은 LLM을 호출하지 않는다(토큰 0). 흐름·역할은
 | `pending_feedback` | 현재 human feedback 대기 중인 필드(있으면 interrupt) |
 | `normalized` | 정규화 문서들 |
 | `load_result` | OpenSearch index·`_id` 목록 |
-| `usage` | 노드별 토큰/비용 누적(`07-…`) |
+| `usage` | 노드별 토큰/비용 누적(`07-llm-provider-and-usage.md`) |
 
 ## per-field 처리와 캐시 분기
 
@@ -63,7 +63,7 @@ fields ─▶ Schema Profiler (per field)
 ## Human feedback = LangGraph interrupt
 
 - Validator가 정합성 미달로 판단하면 그래프를 **interrupt**하고, `pending_feedback`를 채운 채 checkpoint에서 멈춘다.
-- Backend는 이를 `feedback.request`로 TUI에 보낸다(`02-…`). 사용자의 response(approve/keep_raw/comment)를 받아 **그래프를 resume**한다.
+- Backend는 이를 `feedback.request`로 TUI에 보낸다(`02-ipc-json-rpc.md`). 사용자의 response(approve/keep_raw/comment)를 받아 **그래프를 resume**한다.
 - `comment & re-review`는 재검토 후 갱신된 추천으로 다시 interrupt(= `feedback.request` 재발신).
 - 수용 결정은 Validator가 **한 번 더 자가 검증**한 뒤 반영한다(`FRD` Validator).
 

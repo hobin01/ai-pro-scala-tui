@@ -35,7 +35,7 @@ source/OpenSearch는 **url·index가 `scala_settings`**, **auth가 `.env`**로 �
 
 - source가 없으면 `2.source-selection`은 "No data sources configured → Open Settings"(State D)를 띄운다.
 - 필수 설정 누락 시 `pipeline.run`은 시작 전에 **검증 실패를 반환**하고 TUI가 에러로 표면화한다.
-- **필수 설정**(최소 실행 요건): source url·index ≥ (2개 이상 선택 가능), agent 모델 4종, OpenSearch url·index. (`8.settings.md` 필수 설정값과 일치)
+- **필수 설정**(최소 실행 요건): source url·연결 가능 index(2개 이상 선택 가능하도록), agent 모델 4종, OpenSearch url·result index. (`8.settings.md` 필수 설정값 중 **`scala_settings`에 속하는 run-critical 항목**. API key는 `.env`, 웹 콘솔 URL은 실행 비필수라 이 목록에서 제외)
 
 > API key는 `scala_settings`가 아닌 `.env`에 있으므로, 빈 settings 상태와 무관하게 `.env`에 있어야 한다. TUI는 read-only 마스킹 표시만 한다(`8.settings.md`).
 

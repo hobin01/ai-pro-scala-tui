@@ -53,13 +53,13 @@ TUI ↔ Backend는 **JSON-RPC 2.0**으로만 통신한다(상세 `02-ipc-json-rp
 |---|---|---|
 | TUI | Go, Bubbletea, Lipgloss | mockup·색상은 `TUI-DESIGN.md` |
 | Backend 언어 | Python | 단일 프로세스 |
-| Agent orchestration | LangGraph | human feedback = interrupt/checkpoint (`03-…`) |
-| LLM | OpenAI (provider 추상화) | 모델·단가는 `scala_settings` (`07-…`) |
+| Agent orchestration | LangGraph | human feedback = interrupt/checkpoint (`03-agent-workflow-langgraph.md`) |
+| LLM | OpenAI (provider 추상화) | 모델·단가는 `scala_settings` (`07-llm-provider-and-usage.md`) |
 | RDB | PostgreSQL | 스키마는 `RDB-TABLES.md` |
 | Cache | Redis | key = `source_type+index+field+type` |
-| Vector DB | ChromaDB | OCSF RAG (`06-…`) |
+| Vector DB | ChromaDB | OCSF RAG (`06-ocsf-rag-ingestion.md`) |
 | 결과 저장 | OpenSearch | 정규화 문서 |
-| Source SDK | Elasticsearch / Splunk SDK | Connector 추상화 뒤 (`04-…`) |
+| Source SDK | Elasticsearch / Splunk SDK | Connector 추상화 뒤 (`04-siem-connector.md`) |
 | 패키징 | Docker Compose | 인프라 + Backend (PLANS 11) |
 
 > 라이브러리 정확한 버전 핀은 백엔드 개발(step 9)에서 `requirements`/`go.mod`로 확정한다. 본 문서는 스택 선택까지만 고정한다.
@@ -68,4 +68,4 @@ TUI ↔ Backend는 **JSON-RPC 2.0**으로만 통신한다(상세 `02-ipc-json-rp
 
 PLANS 11에서 Docker Compose로 묶는 대상은 **인프라(PostgreSQL/Redis/ChromaDB/OpenSearch/ES/Splunk)와 Backend**다. TUI는 사용자가 터미널에서 실행하는 클라이언트 바이너리다.
 
-> ⚖️ 판단 필요 — **IPC transport 및 Backend 실행 형태.** Backend를 (a) Compose 서비스로 띄우고 TUI가 소켓(TCP localhost 또는 Unix domain socket)으로 접속할지, (b) TUI가 Backend를 자식 프로세스로 띄워 stdio로 통신할지. 토폴로지·Compose 구성이 갈린다. 상세 트레이드오프는 `02-ipc-json-rpc.md`.
+**확정**: Backend는 **Docker Compose 서비스**로 띄우고 **TCP(localhost) 포트를 리슨**한다. TUI는 터미널 클라이언트로 `127.0.0.1:<port>`에 접속한다. Backend를 독립 서비스로 두어 단순 PoC를 넘어 **재사용**할 수 있게 한다(다른 클라이언트도 동일 포트로 접속 가능). transport 상세는 `02-ipc-json-rpc.md`.
