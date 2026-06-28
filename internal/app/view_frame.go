@@ -114,8 +114,6 @@ func (m *Model) headerStatus() string {
 	switch {
 	case m.pipelineRunning:
 		return "running: Normalization"
-	case m.restarting:
-		return "running: restart..."
 	case m.route == routeSources:
 		return "selected: " + fmtInt(len(m.selectedSources()))
 	case m.route == routeSamples && m.sampleLoading:
@@ -136,8 +134,6 @@ func (m *Model) headerStatus() string {
 		return "done"
 	case m.route == routeLineage && m.lineageLoading:
 		return "running: lineage..."
-	case m.route == routeSettings && m.pendingRestart > 0:
-		return fmtInt(m.pendingRestart) + " changes pending restart"
 	case m.route == routeMonitoring:
 		return "scope: " + defaultMonitoring(m.settings)[clamp(m.monitoringScope, 0, 2)].scope
 	default:

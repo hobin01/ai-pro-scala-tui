@@ -81,9 +81,6 @@ func (m *Model) enterLineage() {
 
 func (m *Model) submitInput() {
 	value := strings.TrimSpace(m.input)
-	if m.restarting {
-		return
-	}
 	if m.route == routeLineage && value != "" && !strings.HasPrefix(value, "/") {
 		m.lookupLineage(value)
 		m.input = ""
@@ -166,10 +163,6 @@ func (m *Model) page(delta int) {
 		m.sampleErrorCursor = 0
 	case routeMonitoring:
 		m.monitoringScope = clamp(m.monitoringScope+delta, 0, 2)
-	case routeSettings:
-		if m.settingsConfirm {
-			m.confirmCursor = clamp(m.confirmCursor+delta, 0, 2)
-		}
 	}
 }
 
