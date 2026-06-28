@@ -91,9 +91,7 @@ def load_config(env_file: Path | None = None) -> BackendConfig:
 def mask_secret(secret: str | None) -> str:
     if not secret or secret in {"YOUR_OPENAI_API_KEY", "changeme"}:
         return "(not set)"
-    if len(secret) <= 8:
-        return "set"
-    return f"set...{secret[-4:]}"
+    return "set"
 
 
 def _read_first_secret_file(values: dict[str, str]) -> str | None:

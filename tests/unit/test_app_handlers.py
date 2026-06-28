@@ -98,7 +98,7 @@ def test_settings_handlers_are_hot_reload() -> None:
 
     assert result["applied"] == "hot-reload"
     assert app.settings_get()["sources"]["splunk"]["indices"] == ["security"]
-    assert app.settings_get()["openai_api_key_masked"] == "set...5678"
+    assert app.settings_get()["openai_api_key_masked"] == "set"
 
 
 def test_settings_get_redacts_source_url_credentials() -> None:
