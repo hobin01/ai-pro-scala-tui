@@ -35,9 +35,13 @@ type Model struct {
 	pipelineDone      bool
 	pipelineIndex     int
 	stream            []string
+	activeRunID       string
+	lastRunStatus     *RunStatus
 	feedbackWaiting   bool
 	feedbackCursor    int
 	feedbackComment   bool
+	feedbackRequestID string
+	feedbackRequest   *FeedbackRequest
 	lineageLoading    bool
 	lineageLookupID   string
 	lineageResult     *lineageRecord
@@ -50,6 +54,8 @@ type Model struct {
 	sources           []source
 	lineage           map[string]lineageRecord
 	monitoring        []monitoringSnapshot
+	backendRuntime    bool
+	backendActions    []BackendAction
 }
 
 func NewModel() *Model {
@@ -124,6 +130,9 @@ func (m *Model) UpdateKey(key string) bool {
 }
 
 func (m *Model) AdvanceLoading() {
+	if m.backendRuntime {
+		return
+	}
 	if m.sampleLoading {
 		m.sampleLoading = false
 		m.notice = "Samples loaded from dummy fixtures."

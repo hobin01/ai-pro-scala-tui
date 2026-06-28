@@ -9,6 +9,9 @@ type pipelineEvent struct {
 
 func (m *Model) AdvancePipeline() {
 	m.AdvanceLoading()
+	if m.backendRuntime {
+		return
+	}
 	if !m.pipelineRunning || m.pipelineDone {
 		return
 	}
@@ -50,8 +53,15 @@ func (m *Model) startPipeline() {
 	m.feedbackWaiting = false
 	m.feedbackCursor = 0
 	m.pipelineIndex = 0
+	m.lastRunStatus = nil
+	m.feedbackRequestID = ""
+	m.feedbackRequest = nil
 	m.stream = []string{"Pipeline started with dummy runner"}
 	m.notice = ""
+	if m.backendRuntime {
+		m.stream = []string{"Pipeline requested from backend"}
+	}
+	m.queuePipelineRun()
 }
 
 func (m *Model) enterFeedback() {
@@ -65,9 +75,11 @@ func (m *Model) enterFeedback() {
 	switch m.feedbackCursor {
 	case 0:
 		m.stream = append(m.stream, "Approved recommendation")
+		m.queueFeedbackResponse("approve", "")
 		m.resumePipeline()
 	case 1:
 		m.stream = append(m.stream, "Kept raw field as custom_attr")
+		m.queueFeedbackResponse("keep_raw", "")
 		m.resumePipeline()
 	case 2:
 		m.feedbackComment = true
@@ -96,8 +108,14 @@ func (m *Model) updateFeedbackComment(key string) {
 			comment = "no comment"
 		}
 		m.stream = append(m.stream, "Reviewer comment: "+comment, "Re-review complete: clientip remains best source field")
+		m.queueFeedbackResponse("comment", comment)
 		m.input = ""
 		m.feedbackComment = false
+		if m.backendRuntime {
+			m.feedbackWaiting = false
+			m.pipelineRunning = true
+			return
+		}
 		m.feedbackWaiting = true
 		m.feedbackCursor = 0
 	case "backspace":

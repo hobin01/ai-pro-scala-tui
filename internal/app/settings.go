@@ -11,10 +11,6 @@ func (m *Model) enterSettings() {
 		m.notice = "API key is read-only and must stay in .env."
 		return
 	}
-	if m.settingsCursor == 7 || m.settingsCursor == 8 {
-		m.notice = "Source index rows are read-only demo fixtures."
-		return
-	}
 	if m.settingsCursor >= 11 && m.settingsCursor <= 13 {
 		m.notice = "Web console URLs are read-only display links."
 		return
@@ -57,6 +53,10 @@ func (m *Model) currentSettingValue() string {
 		return m.settings.normalizationModel
 	case 5:
 		return m.settings.validatorModel
+	case 7:
+		return strings.Join(m.settings.elasticsearchIndices, ", ")
+	case 8:
+		return strings.Join(m.settings.splunkIndices, ", ")
 	case 9:
 		return m.settings.openSearchURL
 	case 10:
@@ -89,12 +89,63 @@ func (m *Model) saveSetting() {
 	case 5:
 		m.settings.validatorModel = value
 		m.monitoring = defaultMonitoring(m.settings)
+	case 7:
+		indices := parseCSV(value)
+		if len(indices) == 0 {
+			m.notice = "Setting cannot be empty."
+			return
+		}
+		m.settings.elasticsearchIndices = indices
+		m.sources = sourcesFromSettings(m.settings)
+		m.selected = reconcileSelected(m.selected, m.sources)
+	case 8:
+		indices := parseCSV(value)
+		if len(indices) == 0 {
+			m.notice = "Setting cannot be empty."
+			return
+		}
+		m.settings.splunkIndices = indices
+		m.sources = sourcesFromSettings(m.settings)
+		m.selected = reconcileSelected(m.selected, m.sources)
 	case 9:
 		m.settings.openSearchURL = value
 	case 10:
 		m.settings.resultIndex = value
 	}
+	if key, backendValue, ok := m.currentSettingBackendValue(value); ok {
+		m.queueBackendAction(BackendAction{
+			Method: "settings.set",
+			Params: SettingsSetParams{Key: key, Value: backendValue},
+		})
+	}
 	m.editingSetting = false
 	m.editValue = ""
 	m.notice = "Setting saved."
+}
+
+func (m *Model) currentSettingBackendValue(value string) (string, any, bool) {
+	switch m.settingsCursor {
+	case 0:
+		return "source.elasticsearch.url", value, true
+	case 1:
+		return "source.splunk.url", value, true
+	case 2:
+		return "agent.orchestrator.model", value, true
+	case 3:
+		return "agent.schema_profiler.model", value, true
+	case 4:
+		return "agent.normalization.model", value, true
+	case 5:
+		return "agent.validator.model", value, true
+	case 7:
+		return "source.elasticsearch.indices", parseCSV(value), true
+	case 8:
+		return "source.splunk.indices", parseCSV(value), true
+	case 9:
+		return "output.opensearch.url", value, true
+	case 10:
+		return "output.opensearch.index", value, true
+	default:
+		return "", nil, false
+	}
 }

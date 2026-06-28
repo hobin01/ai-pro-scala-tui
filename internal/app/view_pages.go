@@ -118,12 +118,27 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 		fmt.Fprintf(b, "- %s\n", line)
 	}
 	if m.feedbackWaiting {
+		request := m.feedbackRequest
+		fieldName := "clientip"
+		fieldType := "string"
+		samples := []string{"\"10.0.0.5\"", "\"192.168.1.20\""}
+		ocsfField := "src_endpoint.ip"
+		ocsfType := "ip"
+		why := "name+value look like a source IP; cast string→ip"
+		if request != nil {
+			fieldName = request.Field.SourceField
+			fieldType = request.Field.Type
+			samples = displayValues(request.Field.Samples)
+			ocsfField = request.Recommendation.OCSFField
+			ocsfType = request.Recommendation.OCSFType
+			why = request.Recommendation.Why
+		}
 		fmt.Fprintln(b, "\nReview field recommendation")
 		fmt.Fprintln(b, "⚑ The agent is unsure about this field.")
-		fmt.Fprintln(b, "  Source field   clientip          (string)")
-		fmt.Fprintln(b, "  Sample values  \"10.0.0.5\" · \"192.168.1.20\"")
-		fmt.Fprintln(b, "  Recommended    src_endpoint.ip   (OCSF, ip)")
-		fmt.Fprintln(b, "  Why            name+value look like a source IP; cast string→ip")
+		fmt.Fprintf(b, "  Source field   %-15s (%s)\n", fieldName, fieldType)
+		fmt.Fprintf(b, "  Sample values  %s\n", strings.Join(samples, " · "))
+		fmt.Fprintf(b, "  Recommended    %-15s (OCSF, %s)\n", ocsfField, ocsfType)
+		fmt.Fprintf(b, "  Why            %s\n", why)
 		fmt.Fprintln(b, "How should this map?")
 		options := []string{"Approve recommendation", "Keep raw", "Comment & re-review"}
 		for i, option := range options {
@@ -131,12 +146,20 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 		}
 	}
 	if m.pipelineDone {
-		fmt.Fprintln(b, "\n✓ Normalization complete   13 mapped · 2 kept raw (custom_attr)")
-		fmt.Fprintln(b, "✓ Loaded 2,000 docs to OpenSearch  (scala-normalized)")
-		fmt.Fprintln(b, "✓ Lineage recorded for 2,000 docs  (PostgreSQL)")
-		fmt.Fprintln(b, "✓ 5 mappings cached  (Redis)")
+		summary := RunSummary{Mapped: 13, KeptRaw: 2, Loaded: 2000, Lineage: 2000, Cached: 5}
+		link := m.settings.openSearchDash
+		if m.lastRunStatus != nil {
+			summary = m.lastRunStatus.Summary
+			if m.lastRunStatus.OpenSearchLink != "" {
+				link = m.lastRunStatus.OpenSearchLink
+			}
+		}
+		fmt.Fprintf(b, "\n✓ Normalization complete   %d mapped · %d kept raw (custom_attr)\n", summary.Mapped, summary.KeptRaw)
+		fmt.Fprintf(b, "✓ Loaded %s docs to OpenSearch  (%s)\n", fmtInt(summary.Loaded), m.settings.resultIndex)
+		fmt.Fprintf(b, "✓ Lineage recorded for %s docs  (PostgreSQL)\n", fmtInt(summary.Lineage))
+		fmt.Fprintf(b, "✓ %s mappings cached  (Redis)\n", fmtInt(summary.Cached))
 		fmt.Fprintln(b, "View results in OpenSearch:")
-		fmt.Fprintln(b, "  https://opensearch.local/_dashboards/…  (scala-normalized)")
+		fmt.Fprintf(b, "  %s\n", link)
 		fmt.Fprintln(b, "Press enter to return to main.")
 	}
 }
@@ -173,7 +196,7 @@ func (m *Model) renderLineage(b *strings.Builder) {
 }
 
 func (m *Model) renderMonitoring(b *strings.Builder) {
-	snapshots := defaultMonitoring(m.settings)
+	snapshots := m.monitoring
 	scope := clamp(m.monitoringScope, 0, len(snapshots)-1)
 	snapshot := snapshots[scope]
 	fmt.Fprintln(b, "Agent Monitoring")
@@ -183,11 +206,19 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 		fmt.Fprintln(b, "Run a normalization pipeline first (Collect & Normalize).")
 		return
 	}
-	fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
+	if snapshot.totalTokens > 0 || snapshot.totalDocs == 0 {
+		fmt.Fprintf(b, "Total  %d runs · %s · %d tokens   (last run %s)\n\n", snapshot.totalRuns, snapshot.totalCost, snapshot.totalTokens, snapshot.lastRunID)
+	} else {
+		fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
+	}
 	fmt.Fprintln(b, "Agent             Model          Last activity         Cost        Tokens")
 	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ────────    ──────")
 	for _, row := range snapshot.agentRows {
-		fmt.Fprintf(b, "%-17s %-14s %-20s %-10s %s\n", row.name, row.model, agentActivity(row.name), row.cost, row.tokens)
+		activity := row.activity
+		if activity == "" {
+			activity = agentActivity(row.name)
+		}
+		fmt.Fprintf(b, "%-17s %-14s %-20s %-10s %s\n", row.name, row.model, activity, row.cost, row.tokens)
 	}
 }
 

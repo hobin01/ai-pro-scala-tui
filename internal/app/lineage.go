@@ -5,6 +5,10 @@ func (m *Model) lookupLineage(id string) {
 	m.lineageLookupID = id
 	m.lineageResult = nil
 	m.lineageNotFound = ""
+	m.queueBackendAction(BackendAction{
+		Method: "lineage.lookup",
+		Params: LineageLookupParams{OpenSearchID: id},
+	})
 }
 
 func (m *Model) resolveLineage() {

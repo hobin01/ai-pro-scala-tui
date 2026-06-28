@@ -41,6 +41,7 @@ func (m *Model) enterSources() {
 	m.samplePage = 0
 	m.sampleLoading = true
 	m.notice = ""
+	m.queueSamplesFetch()
 }
 
 func (m *Model) enterSamples() {
@@ -114,6 +115,7 @@ func (m *Model) routeCommand(command string) bool {
 		}
 		m.route = routeSamples
 		m.sampleLoading = true
+		m.queueSamplesFetch()
 	case "/agent-workflow":
 		m.route = routeWorkflow
 		m.workflowGate = false
@@ -123,7 +125,7 @@ func (m *Model) routeCommand(command string) bool {
 		m.clearLineage()
 	case "/agent-monitoring":
 		m.route = routeMonitoring
-		m.monitoring = defaultMonitoring(m.settings)
+		m.queueMonitoringQuery()
 	case "/settings":
 		m.route = routeSettings
 		m.settingsCursor = 0
@@ -216,6 +218,7 @@ func (m *Model) enterSampleError() {
 	case 0:
 		m.sampleLoading = true
 		m.notice = ""
+		m.queueSamplesFetch()
 	case 1:
 		m.route = routeSources
 		m.notice = ""

@@ -29,6 +29,7 @@ func (m *Model) openResultView() {
 	case 2:
 		m.route = routeMonitoring
 		m.monitoringScope = clamp(m.monitoringScope, 0, 2)
+		m.queueMonitoringQuery()
 	}
 }
 
@@ -47,8 +48,10 @@ func (m *Model) updateMonitoringKey(key string) {
 	switch key {
 	case "left":
 		m.page(-1)
+		m.queueMonitoringQuery()
 	case "right":
 		m.page(1)
+		m.queueMonitoringQuery()
 	case "enter":
 		m.route = routeMain
 	}

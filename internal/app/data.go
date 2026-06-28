@@ -17,18 +17,20 @@ type field struct {
 }
 
 type settings struct {
-	elasticsearchURL   string
-	splunkURL          string
-	openSearchURL      string
-	orchestratorModel  string
-	profilerModel      string
-	normalizationModel string
-	validatorModel     string
-	apiKeyMasked       string
-	resultIndex        string
-	kibanaURL          string
-	splunkWebURL       string
-	openSearchDash     string
+	elasticsearchURL     string
+	splunkURL            string
+	elasticsearchIndices []string
+	splunkIndices        []string
+	openSearchURL        string
+	orchestratorModel    string
+	profilerModel        string
+	normalizationModel   string
+	validatorModel       string
+	apiKeyMasked         string
+	resultIndex          string
+	kibanaURL            string
+	splunkWebURL         string
+	openSearchDash       string
 }
 
 type lineageRecord struct {
@@ -41,21 +43,23 @@ type lineageRecord struct {
 }
 
 type monitoringSnapshot struct {
-	scope      string
-	totalRuns  int
-	totalDocs  int
-	totalCost  string
-	asOf       string
-	lastRunID  string
-	agentRows  []monitoringRow
-	emptyState bool
+	scope       string
+	totalRuns   int
+	totalDocs   int
+	totalTokens int
+	totalCost   string
+	asOf        string
+	lastRunID   string
+	agentRows   []monitoringRow
+	emptyState  bool
 }
 
 type monitoringRow struct {
-	name   string
-	model  string
-	tokens string
-	cost   string
+	name     string
+	model    string
+	tokens   string
+	cost     string
+	activity string
 }
 
 func defaultSources() []source {
@@ -120,18 +124,20 @@ func defaultSources() []source {
 
 func defaultSettings() settings {
 	return settings{
-		elasticsearchURL:   "https://es.local:9200",
-		splunkURL:          "https://splunk.local:8089",
-		openSearchURL:      "https://opensearch.local:9200",
-		orchestratorModel:  "gpt-5.4",
-		profilerModel:      "gpt-5.4",
-		normalizationModel: "gpt-5.4",
-		validatorModel:     "gpt-5.4",
-		apiKeyMasked:       "sk-****-demo",
-		resultIndex:        "scala-normalized/security-events",
-		kibanaURL:          "https://kibana.local:5601",
-		splunkWebURL:       "https://splunk-soc:8000",
-		openSearchDash:     "https://opensearch.local:5601",
+		elasticsearchURL:     "https://es.local:9200",
+		splunkURL:            "https://splunk.local:8089",
+		elasticsearchIndices: []string{"logs-2024", "firewall-idx"},
+		splunkIndices:        []string{"main", "security"},
+		openSearchURL:        "https://opensearch.local:9200",
+		orchestratorModel:    "gpt-5.4",
+		profilerModel:        "gpt-5.4",
+		normalizationModel:   "gpt-5.4",
+		validatorModel:       "gpt-5.4",
+		apiKeyMasked:         "sk-****-demo",
+		resultIndex:          "scala-normalized/security-events",
+		kibanaURL:            "https://kibana.local:5601",
+		splunkWebURL:         "https://splunk-soc:8000",
+		openSearchDash:       "https://opensearch.local:5601",
 	}
 }
 

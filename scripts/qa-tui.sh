@@ -6,7 +6,7 @@ evidence_dir="${2:-.omo/ulw-loop/evidence}"
 mkdir -p "$evidence_dir"
 if command -v tmux >/dev/null 2>&1; then
 	tmux kill-session -t "$session" 2>/dev/null || true
-	tmux new-session -d -s "$session" 'TERM=xterm-256color ./bin/scala-tui'
+	tmux new-session -d -s "$session" 'TERM=xterm-256color SCALA_TUI_MOCK=1 ./bin/scala-tui'
 	sleep 1
 	tmux send-keys -t "$session" Enter Space Down Space Enter
 	sleep 1
@@ -23,7 +23,7 @@ if command -v expect >/dev/null 2>&1; then
 	expect <<EOF
 log_file -noappend "$evidence_dir/tui-happy-path.txt"
 set timeout 10
-spawn env TERM=xterm-256color ./bin/scala-tui
+spawn env TERM=xterm-256color SCALA_TUI_MOCK=1 ./bin/scala-tui
 after 1000
 send "\r"
 after 150
