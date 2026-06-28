@@ -90,17 +90,40 @@ class MappingDecider:
             candidates = self._ocsf_index.query(_candidate_query(field), top_k=3)
             decision = _candidate_decision(field, candidates, decision)
         if decision.action == "map" and field.name in {"clientip", "src_ip"}:
-            response = await request(
-                peer,
-                "feedback.request",
-                _feedback(run_id, field, decision),
-            )
-            if response.get("decision") == "keep_raw":
-                return (
-                    MappingDecision(field.name, field.type, "keep_raw", None, None),
-                    True,
+            feedback = _feedback(run_id, field, decision)
+            while True:
+                response = await request(peer, "feedback.request", feedback)
+                if response.get("decision") == "keep_raw":
+                    return (
+                        MappingDecision(field.name, field.type, "keep_raw", None, None),
+                        True,
+                    )
+                if response.get("decision") != "comment":
+                    return decision, True
+                comment = response.get("comment")
+                comment_text = comment if isinstance(comment, str) else None
+                if comment_text is not None:
+                    lowered = comment_text.lower()
+                    if any(
+                        phrase in lowered
+                        for phrase in (
+                            "keep_raw",
+                            "keep raw",
+                            "custom_attr",
+                            "unmapped",
+                            "do not map",
+                            "don't map",
+                        )
+                    ):
+                        decision = MappingDecision(
+                            field.name, field.type, "keep_raw", None, None
+                        )
+                feedback = _feedback(
+                    run_id,
+                    field,
+                    decision,
+                    comment_text,
                 )
-            return decision, True
         return decision, False
 
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
@@ -110,7 +133,15 @@ def _feedback(
     run_id: UUID,
     field: FieldSample,
     decision: MappingDecision,
+    comment: str | None = None,
 ) -> dict[str, object]:
+    why = "name and value look like a source IP"
+    if comment is not None:
+        why = f"{why} (updated); user comment: {comment}"
+    if decision.action == "keep_raw":
+        why = "user comment requested raw preservation (updated)"
+        if comment is not None:
+            why = f"{why}: {comment}"
     return {
         "run_id": str(run_id),
         "field": {
@@ -122,7 +153,7 @@ def _feedback(
             "ocsf_field": decision.ocsf_field,
             "ocsf_type": decision.ocsf_type,
             "action": decision.action,
-            "why": "name and value look like a source IP",
+            "why": why,
         },
         "options": ["approve", "keep_raw", "comment"],
     }
