@@ -206,3 +206,4 @@ pyrightconfig.json
 .agent/
 .agents/
 .claude/
+.scala-data/
