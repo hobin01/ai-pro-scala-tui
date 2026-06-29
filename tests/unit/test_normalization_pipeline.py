@@ -1,12 +1,15 @@
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 
 from scala_backend.cache import InMemoryMappingCache, cache_key
 from scala_backend.connectors import default_connectors
+from scala_backend.errors import ProviderError
 from scala_backend.mapping import MappingDecider
 from scala_backend.models import FieldSample, JsonObject, SourceSelection
 from scala_backend.normalization import apply_mapping, recommend_mapping
+from scala_backend.providers import LlmResponse, ProviderUsage
 from scala_backend.store import InMemoryStore, seed_dev_settings
 
 
@@ -29,6 +32,23 @@ class CommentThenApprovePeer:
                 "comment": "please keep_raw; this is a vendor-specific proxy client IP",
             }
         return {"decision": "approve"}
+
+
+class InvalidJsonProvider:
+    def validate(self, model: str) -> None:
+        del model
+
+    def complete(
+        self,
+        prompt: str,
+        model: str,
+        price: dict[str, float] | None,
+    ) -> LlmResponse:
+        del prompt, model, price
+        return LlmResponse(
+            text="not-json",
+            usage=ProviderUsage(1, 1, 2, Decimal("0")),
+        )
 
 
 def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
@@ -104,6 +124,25 @@ async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
     assert any(write.key == key for write in result.cache_writes)
     assert result.cache_hit_count == 0
     assert result.cache_miss_count == len(result.decisions)
+
+
+@pytest.mark.anyio
+async def test_mapping_decider_rejects_invalid_agent_json_without_fallback() -> None:
+    store = InMemoryStore()
+    seed_dev_settings(store)
+    decider = MappingDecider(
+        store,
+        default_connectors(),
+        InMemoryMappingCache(),
+        llm_provider=InvalidJsonProvider(),
+    )
+
+    with pytest.raises(ProviderError, match="invalid mapping JSON"):
+        await decider.decide(
+            uuid4(),
+            [SourceSelection(solution="splunk", index="main")],
+            ApprovingPeer(),
+        )
 
 
 @pytest.mark.anyio

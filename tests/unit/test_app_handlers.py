@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -13,7 +14,7 @@ from scala_backend.app_factory import create_app
 from scala_backend.cache import InMemoryMappingCache
 from scala_backend.config import BackendConfig
 from scala_backend.connectors import default_connectors
-from scala_backend.errors import ConfigurationError, RunInProgressError
+from scala_backend.errors import ConfigurationError, ProviderError, RunInProgressError
 from scala_backend.models import (
     AgentName,
     JsonObject,
@@ -41,6 +42,10 @@ class RecordingPeer:
 class RecordingProvider:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
+        self.validate_calls: list[str] = []
+
+    def validate(self, model: str) -> None:
+        self.validate_calls.append(model)
 
     def complete(
         self,
@@ -49,8 +54,14 @@ class RecordingProvider:
         price: dict[str, float] | None,
     ) -> LlmResponse:
         self.calls.append({"prompt": prompt, "model": model, "price": price})
+        payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
+        if not isinstance(payload, dict):
+            raise AssertionError("mapping prompt must contain JSON")
+        fallback = payload.get("fallback")
+        if not isinstance(fallback, dict):
+            raise AssertionError("mapping prompt must contain fallback")
         return LlmResponse(
-            text="ok",
+            text=json.dumps(fallback),
             usage=ProviderUsage(
                 prompt_tokens=11,
                 completion_tokens=5,
@@ -58,6 +69,26 @@ class RecordingProvider:
                 cost_usd=Decimal("0"),
             ),
         )
+
+
+class FailingProvider(RecordingProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self.complete_called = False
+
+    def validate(self, model: str) -> None:
+        super().validate(model)
+        raise ProviderError("OpenAI API key is invalid")
+
+    def complete(
+        self,
+        prompt: str,
+        model: str,
+        price: dict[str, float] | None,
+    ) -> LlmResponse:
+        del prompt, model, price
+        self.complete_called = True
+        raise AssertionError("pipeline should not request mappings with invalid key")
 
 
 class BlockingFeedbackPeer:
@@ -193,22 +224,50 @@ async def test_pipeline_run_requires_agent_models() -> None:
 
 
 @pytest.mark.anyio
+async def test_pipeline_run_requires_openai_provider() -> None:
+    app = create_app(BackendConfig())
+
+    with pytest.raises(ProviderError, match="OpenAI API key is not configured"):
+        await app.pipeline_run(
+            PipelineRunParams(
+                sources=[
+                    SourceSelection(solution="elasticsearch", index="logs-2026"),
+                    SourceSelection(solution="splunk", index="main"),
+                ],
+            ),
+            RecordingPeer(),
+        )
+
+
+@pytest.mark.anyio
+async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
+    provider = FailingProvider()
+    app = BackendApp(
+        BackendConfig(),
+        store=_configured_store(),
+        connectors=default_connectors(),
+        cache=InMemoryMappingCache(),
+        llm_provider=provider,
+    )
+
+    with pytest.raises(ProviderError, match="OpenAI API key is invalid"):
+        await app.pipeline_run(
+            PipelineRunParams(
+                sources=[
+                    SourceSelection(solution="elasticsearch", index="logs-2026"),
+                    SourceSelection(solution="splunk", index="main"),
+                ],
+            ),
+            RecordingPeer(),
+        )
+
+    assert provider.validate_calls == ["gpt-normalizer"]
+    assert provider.complete_called is False
+
+
+@pytest.mark.anyio
 async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
-    store = InMemoryStore()
-    for key, value in {
-        "source.elasticsearch.url": "memory://elasticsearch",
-        "source.elasticsearch.indices": ["logs-2026"],
-        "source.splunk.url": "memory://splunk",
-        "source.splunk.indices": ["main"],
-        "output.opensearch.url": "memory://opensearch",
-        "output.opensearch.index": "scala-normalized",
-        "agent.orchestrator.model": "gpt-orchestrator",
-        "agent.schema_profiler.model": "gpt-profiler",
-        "agent.normalization.model": "gpt-normalizer",
-        "agent.validator.model": "gpt-validator",
-        "agent.normalization.system_prompt": "NORMALIZE SYSTEM",
-    }.items():
-        store.set_setting(key, value)
+    store = _configured_store()
     provider = RecordingProvider()
     app = BackendApp(
         BackendConfig(),
@@ -240,6 +299,25 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
     assert all(row.prompt_tokens == 11 for row in normalizer_usage)
     assert all(row.completion_tokens == 5 for row in normalizer_usage)
     assert all(row.cost_usd == 0 for row in normalizer_usage)
+
+
+def _configured_store() -> InMemoryStore:
+    store = InMemoryStore()
+    for key, value in {
+        "source.elasticsearch.url": "memory://elasticsearch",
+        "source.elasticsearch.indices": ["logs-2026"],
+        "source.splunk.url": "memory://splunk",
+        "source.splunk.indices": ["main"],
+        "output.opensearch.url": "memory://opensearch",
+        "output.opensearch.index": "scala-normalized",
+        "agent.orchestrator.model": "gpt-orchestrator",
+        "agent.schema_profiler.model": "gpt-profiler",
+        "agent.normalization.model": "gpt-normalizer",
+        "agent.validator.model": "gpt-validator",
+        "agent.normalization.system_prompt": "NORMALIZE SYSTEM",
+    }.items():
+        store.set_setting(key, value)
+    return store
 
 
 @pytest.mark.anyio
@@ -289,7 +367,13 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_overlap_while_waiting_for_feedback() -> None:
-    app = create_app(BackendConfig())
+    app = BackendApp(
+        BackendConfig(),
+        store=_configured_store(),
+        connectors=default_connectors(),
+        cache=InMemoryMappingCache(),
+        llm_provider=RecordingProvider(),
+    )
     params = PipelineRunParams(
         sources=[
             SourceSelection(solution="elasticsearch", index="logs-2026"),

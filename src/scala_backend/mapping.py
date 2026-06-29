@@ -149,10 +149,7 @@ class MappingDecider:
             AgentName.NORMALIZATION,
             _mapping_prompt(field, candidates, fallback),
         )
-        try:
-            response = self._llm_provider.complete(prompt, model, None)
-        except ProviderError:
-            return fallback
+        response = self._llm_provider.complete(prompt, model, None)
         usage = response.usage
         self._store.add_usage(
             make_usage(
@@ -165,7 +162,7 @@ class MappingDecider:
                 completion_tokens=usage.completion_tokens,
             ),
         )
-        return _parse_agent_decision(field, response.text, fallback)
+        return _parse_agent_decision(field, response.text)
 
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
         return self._connectors[source.solution].fetch_schema_samples(source.index)
@@ -292,25 +289,26 @@ def _mapping_prompt(
 def _parse_agent_decision(
     field: FieldSample,
     text: str,
-    fallback: MappingDecision,
 ) -> MappingDecision:
     try:
         payload = json.loads(_extract_json(text))
-    except json.JSONDecodeError:
-        return fallback
+    except json.JSONDecodeError as exc:
+        raise ProviderError(
+            "Normalization agent returned invalid mapping JSON"
+        ) from exc
     if not isinstance(payload, dict):
-        return fallback
+        raise ProviderError("Normalization agent returned invalid mapping JSON")
     action = payload.get("action")
     if action == "keep_raw":
         return MappingDecision(field.name, field.type, "keep_raw", None, None)
     if action != "map":
-        return fallback
+        raise ProviderError("Normalization agent returned invalid mapping action")
     ocsf_field = payload.get("ocsf_field")
     ocsf_type = payload.get("ocsf_type")
     if not isinstance(ocsf_field, str) or not ocsf_field:
-        return fallback
+        raise ProviderError("Normalization agent returned invalid OCSF field")
     if ocsf_type is not None and not isinstance(ocsf_type, str):
-        return fallback
+        raise ProviderError("Normalization agent returned invalid OCSF type")
     return MappingDecision(field.name, field.type, "map", ocsf_field, ocsf_type)
 
 

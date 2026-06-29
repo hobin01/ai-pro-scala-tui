@@ -1,17 +1,21 @@
+import json
 from collections.abc import Callable, Coroutine
+from decimal import Decimal
 from typing import Any
 
 import anyio
 import pytest
 from anyio.abc import TaskGroup
 
+from scala_backend.app import BackendApp
 from scala_backend.app_factory import create_app
 from scala_backend.cache import cache_key
 from scala_backend.config import BackendConfig
 from scala_backend.connector_fixtures import default_connectors
 from scala_backend.models import JsonObject
 from scala_backend.normalization import recommend_mapping
-from scala_backend.pipeline import _stable_opensearch_id
+from scala_backend.pipeline import stable_opensearch_id
+from scala_backend.providers import LlmResponse, ProviderUsage
 
 
 class InlinePeer:
@@ -40,9 +44,39 @@ class InlinePeer:
         self.task_group.start_soon(func, *args)
 
 
+class AgentJsonProvider:
+    def validate(self, model: str) -> None:
+        del model
+
+    def complete(
+        self,
+        prompt: str,
+        model: str,
+        price: dict[str, float] | None,
+    ) -> LlmResponse:
+        del model, price
+        payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
+        if not isinstance(payload, dict):
+            raise AssertionError("mapping prompt must contain JSON")
+        fallback = payload.get("fallback")
+        if not isinstance(fallback, dict):
+            raise AssertionError("mapping prompt must contain fallback")
+        return LlmResponse(
+            text=json.dumps(fallback),
+            usage=ProviderUsage(1, 1, 2, Decimal("0")),
+        )
+
+
+def app_with_agent_provider() -> BackendApp:
+    app = create_app(BackendConfig())
+    app.llm_provider = AgentJsonProvider()
+    app.set_pipeline()
+    return app
+
+
 @pytest.mark.anyio
 async def test_pipeline_surface_returns_run_id() -> None:
-    app = create_app(BackendConfig())
+    app = app_with_agent_provider()
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
         result = await app.handle(
@@ -69,7 +103,7 @@ async def test_pipeline_surface_returns_run_id() -> None:
 async def test_pipeline_surface_reports_prd_agent_count_and_completes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    app = app_with_agent_provider()
     graph_calls: list[tuple[bool, bool, bool]] = []
 
     def capture_graph(
@@ -129,13 +163,13 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
                 "source_solution": "elasticsearch",
                 "source_index": "logs-2026",
                 "source_doc_id": "es-1",
-                "opensearch_id": _stable_opensearch_id(es_doc),
+                "opensearch_id": stable_opensearch_id(es_doc),
             },
             {
                 "source_solution": "splunk",
                 "source_index": "main",
                 "source_doc_id": "_bkt-1:_cd-42",
-                "opensearch_id": _stable_opensearch_id(splunk_doc),
+                "opensearch_id": stable_opensearch_id(splunk_doc),
             },
         ]
         task_group.cancel_scope.cancel()
@@ -145,7 +179,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
 async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)
@@ -197,7 +231,7 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
 async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)

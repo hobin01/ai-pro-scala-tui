@@ -28,6 +28,8 @@ class LlmResponse:
 
 
 class LlmProvider(Protocol):
+    def validate(self, model: str) -> None: ...
+
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
     ) -> LlmResponse: ...
@@ -41,6 +43,9 @@ class FakeProvider:
     def __init__(self) -> None:
         self.complete_calls = 0
         self.embed_calls = 0
+
+    def validate(self, model: str) -> None:
+        del model
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
@@ -70,6 +75,14 @@ class OpenAiProvider:
         self._cost_api_key = admin_api_key or api_key
         self._cost_api_key_id = cost_api_key_id
         self._cost_project_id = cost_project_id
+
+    def validate(self, model: str) -> None:
+        try:
+            self._client.models.retrieve(model)
+        except Exception as exc:
+            raise ProviderError(
+                "OpenAI API key is invalid or the configured model is unavailable"
+            ) from exc
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None

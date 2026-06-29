@@ -208,6 +208,12 @@ class BackendApp:
         for agent in ("orchestrator", "schema_profiler", "normalization", "validator"):
             if not isinstance(settings.get(f"agent.{agent}.model"), str):
                 raise ConfigurationError(f"{agent} model is not configured")
+        provider = self.llm_provider
+        if provider is None:
+            raise ProviderError("OpenAI API key is not configured")
+        normalization_model = settings.get("agent.normalization.model")
+        assert isinstance(normalization_model, str)
+        provider.validate(normalization_model)
         for source in params.sources:
             if not isinstance(settings.get(f"source.{source.solution}.url"), str):
                 raise ConfigurationError(f"{source.solution} URL is not configured")

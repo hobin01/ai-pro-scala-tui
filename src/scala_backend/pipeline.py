@@ -117,7 +117,7 @@ class PipelineRunner:
             opensearch_index = _opensearch_index(settings)
             for doc in docs:
                 normalized = apply_mapping(doc.body, decisions)
-                opensearch_id = _stable_opensearch_id(doc)
+                opensearch_id = stable_opensearch_id(doc)
                 if self._opensearch is not None:
                     opensearch_id = self._opensearch.index_normalized(
                         opensearch_index,
@@ -277,7 +277,7 @@ def _opensearch_link(settings: dict[str, object]) -> str:
     return f"{base.rstrip('/')}/app/discover#/?_a=(index:'{index}')"
 
 
-def _stable_opensearch_id(doc: RawDocument) -> str:
+def stable_opensearch_id(doc: RawDocument) -> str:
     source_key = "\x00".join(
         [doc.source_solution, doc.source_index, doc.source_doc_id],
     )
