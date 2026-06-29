@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Final
 
 from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field
+
+DEFAULT_OPENAI_MODEL: Final = "gpt-5.4-mini"
 
 
 class BackendConfig(BaseModel):
@@ -24,7 +27,7 @@ class BackendConfig(BaseModel):
     openai_admin_api_key: str | None = None
     openai_cost_api_key_id: str | None = None
     openai_cost_project_id: str | None = None
-    openai_model: str = "gpt-5-mini"
+    openai_model: str = DEFAULT_OPENAI_MODEL
     openai_embedding_model: str = "text-embedding-3-small"
     opensearch_url: str = "memory://opensearch"
     opensearch_username: str | None = None

@@ -36,10 +36,10 @@ def test_usage_records_tokens_without_local_cost_estimate() -> None:
 def test_fake_provider_is_deterministic() -> None:
     provider = FakeProvider()
 
-    response = provider.complete("map clientip", "gpt-5-mini", None)
+    response = provider.complete("map clientip", "gpt-5.4-mini", None)
     vectors = provider.embed(["clientip"], "text-embedding-3-small")
 
-    assert response.text == "gpt-5-mini: approved"
+    assert response.text == "gpt-5.4-mini: approved"
     assert response.usage.total_tokens > 0
     assert vectors == [[1.0, 2.0, 1.0]]
 
@@ -58,4 +58,4 @@ def test_openai_provider_validate_converts_sdk_error_to_provider_error(
     provider = OpenAiProvider("sk-invalid")
 
     with pytest.raises(ProviderError, match="OpenAI API key is invalid"):
-        provider.validate("gpt-5-mini")
+        provider.validate("gpt-5.4-mini")

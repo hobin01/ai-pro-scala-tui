@@ -9,6 +9,7 @@ from scala_backend.store import (
     BackendStore,
     InMemoryStore,
     PostgresStore,
+    agent_model_settings,
     seed_dev_settings,
 )
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
@@ -17,7 +18,7 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 def create_app(config: BackendConfig) -> BackendApp:
     store = _store(config)
     if config.database_url == "memory://":
-        seed_dev_settings(store)
+        seed_dev_settings(store, agent_model_settings(config.openai_model))
     provider = None if config.database_url == "memory://" else _provider(config)
     app = BackendApp(
         config,

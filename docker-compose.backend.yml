@@ -19,7 +19,7 @@ services:
       SCALA_CHROMA_SSL: "false"
       SCALA_OCSF_VERSION: 1.8.0
       SCALA_OCSF_COLLECTION: ocsf-schema
-      SCALA_OPENAI_MODEL: gpt-5-mini
+      SCALA_OPENAI_MODEL: gpt-5.4-mini
       SCALA_OPENAI_EMBEDDING_MODEL: text-embedding-3-small
       SCALA_OPENSEARCH_URL: http://opensearch:9200
       SCALA_OPENSEARCH_USERNAME: ""

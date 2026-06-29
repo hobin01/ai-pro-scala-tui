@@ -30,7 +30,7 @@ def _select_model(api_key: str) -> str:
         return configured
     client = OpenAI(api_key=api_key)
     available = {model.id for model in client.models.list().data}
-    for candidate in ("gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"):
+    for candidate in ("gpt-5.4-mini", "gpt-4.1-mini", "gpt-4o-mini"):
         if candidate in available:
             return candidate
     pytest.skip("no preferred small OpenAI model is available")

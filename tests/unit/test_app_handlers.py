@@ -153,14 +153,14 @@ def test_monitoring_session_starts_at_backend_process_start() -> None:
         uuid4(),
         AgentName.ORCHESTRATOR,
         "old run",
-        "gpt-5-mini",
+        "gpt-5.4-mini",
         100,
     ).model_copy(update={"created_at": app.started_at - timedelta(seconds=1)})
     new_usage = make_usage(
         uuid4(),
         AgentName.ORCHESTRATOR,
         "new run",
-        "gpt-5-mini",
+        "gpt-5.4-mini",
         7,
     ).model_copy(update={"created_at": datetime.now(UTC)})
     app.store.add_usage(old_usage)

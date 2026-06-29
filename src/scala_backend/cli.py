@@ -16,7 +16,7 @@ from scala_backend.postgres import migrate_postgres, seed_postgres
 from scala_backend.providers import OpenAiProvider
 from scala_backend.seed.external import seed_elasticsearch_documents, seed_splunk_events
 from scala_backend.server import serve as serve_backend
-from scala_backend.store import seed_dev_settings
+from scala_backend.store import agent_model_settings, seed_dev_settings
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 app = typer.Typer(no_args_is_help=True)
@@ -110,6 +110,7 @@ async def _serve_async(config: BackendConfig, backend: BackendApp) -> None:
 
 def _settings_overrides(config: BackendConfig) -> dict[str, object]:
     return {
+        **agent_model_settings(config.openai_model),
         "source.elasticsearch.url": config.elasticsearch_url,
         "source.elasticsearch.indices": ["scala-es-logs"],
         "source.splunk.url": config.splunk_url,

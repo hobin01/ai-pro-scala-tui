@@ -204,7 +204,7 @@ def _usage_record(run_id: UUID, created_at: datetime) -> UsageRecord:
     return UsageRecord(
         run_id=run_id,
         agent=AgentName.NORMALIZATION,
-        model="gpt-5-mini",
+        model="gpt-5.4-mini",
         prompt_tokens=10,
         completion_tokens=5,
         total_tokens=15,

@@ -7,6 +7,7 @@ from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
+from scala_backend.config import DEFAULT_OPENAI_MODEL
 from scala_backend.models import (
     ALL_AGENTS,
     AgentName,
@@ -91,10 +92,7 @@ def seed_dev_settings(
     overrides: dict[str, JsonValue] | None = None,
 ) -> None:
     entries: dict[str, JsonValue] = {
-        "agent.orchestrator.model": "gpt-5-mini",
-        "agent.schema_profiler.model": "gpt-5-mini",
-        "agent.normalization.model": "gpt-5-mini",
-        "agent.validator.model": "gpt-5-mini",
+        **agent_model_settings(DEFAULT_OPENAI_MODEL),
         "agent.orchestrator.system_prompt": (
             "You are the SCALA Orchestrator Agent. Coordinate the workflow and "
             "summarize final Load, Caching, and Lineage results for the user."
@@ -126,6 +124,15 @@ def seed_dev_settings(
         entries.update(overrides)
     for key, value in entries.items():
         store.set_setting(key, value)
+
+
+def agent_model_settings(model: str) -> dict[str, JsonValue]:
+    return {
+        "agent.orchestrator.model": model,
+        "agent.schema_profiler.model": model,
+        "agent.normalization.model": model,
+        "agent.validator.model": model,
+    }
 
 
 def settings_to_display(

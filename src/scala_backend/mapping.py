@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from uuid import UUID
 
 from scala_backend.cache import MappingCache, MappingDecision, cache_key
+from scala_backend.config import DEFAULT_OPENAI_MODEL
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import ProviderError
 from scala_backend.models import AgentName, FieldSample, SourceSelection
@@ -235,7 +236,7 @@ def _candidate_decision(
 
 def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
     value = settings.get(f"agent.{agent.value}.model")
-    return value if isinstance(value, str) else "gpt-5-mini"
+    return value if isinstance(value, str) else DEFAULT_OPENAI_MODEL
 
 
 def _agent_prompt(
