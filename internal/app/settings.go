@@ -2,12 +2,12 @@ package app
 
 import "strings"
 
-// moveSettings는 관련 동작을 처리한다.
+// moveSettings는 현재 화면 cursor를 유효 범위 안에서 이동한다.
 func (m *Model) moveSettings(delta int) {
 	m.settingsCursor = clamp(m.settingsCursor+delta, 0, len(settingsRows(m))-1)
 }
 
-// enterSettings는 관련 동작을 처리한다.
+// enterSettings는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterSettings() {
 	if m.settingsCursor == 6 {
 		m.notice = "API key is read-only and must stay in .env."
@@ -25,7 +25,7 @@ func (m *Model) enterSettings() {
 	m.editValue = m.currentSettingValue()
 }
 
-// updateSettingEdit는 관련 동작을 처리한다.
+// updateSettingEdit는 settings 편집 모드의 저장, 취소, 문자 입력을 처리한다.
 func (m *Model) updateSettingEdit(key string) {
 	switch key {
 	case "enter":
@@ -42,7 +42,7 @@ func (m *Model) updateSettingEdit(key string) {
 	}
 }
 
-// currentSettingValue는 관련 동작을 처리한다.
+// currentSettingValue는 cursor가 가리키는 settings 행의 편집 문자열을 만든다.
 func (m *Model) currentSettingValue() string {
 	switch m.settingsCursor {
 	case 0:
@@ -70,7 +70,7 @@ func (m *Model) currentSettingValue() string {
 	}
 }
 
-// saveSetting는 관련 동작을 처리한다.
+// saveSetting은 편집 값을 local settings와 backend settings.set 요청으로 반영한다.
 func (m *Model) saveSetting() {
 	value := strings.TrimSpace(m.editValue)
 	if value == "" {
@@ -128,7 +128,7 @@ func (m *Model) saveSetting() {
 	m.notice = "Setting saved."
 }
 
-// currentSettingBackendValue는 관련 동작을 처리한다.
+// currentSettingBackendValue는 settings 행을 백엔드 key/value payload로 변환한다.
 func (m *Model) currentSettingBackendValue(value string) (string, any, bool) {
 	switch m.settingsCursor {
 	case 0:

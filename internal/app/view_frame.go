@@ -9,7 +9,7 @@ import (
 const minFrameWidth = 60
 const minFrameHeight = 12
 
-// renderFrame는 화면 문자열을 렌더링한다.
+// renderFrame는 본문, notice, input, footer를 전체 터미널 frame에 배치한다.
 func (m *Model) renderFrame(content string, notice string, input string, footer string) string {
 	width := m.width
 	if width < minFrameWidth {
@@ -63,7 +63,7 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 	return strings.Join(lines, "\n")
 }
 
-// footerLine는 관련 동작을 처리한다.
+// footerLine은 현재 route에서 사용할 키 안내 문구를 고른다.
 func (m *Model) footerLine() string {
 	switch m.route {
 	case routeSources:
@@ -88,12 +88,12 @@ func (m *Model) footerLine() string {
 	}
 }
 
-// frameTop는 관련 동작을 처리한다.
+// frameTop은 현재 context와 status를 넣은 상단 border 줄을 만든다.
 func (m *Model) frameTop(width int) string {
 	return frameHeaderLine(m.headerContext(), m.headerStatus(), width)
 }
 
-// headerContext는 관련 동작을 처리한다.
+// headerContext는 route별 header title 문구를 반환한다.
 func (m *Model) headerContext() string {
 	switch m.route {
 	case routeMain:
@@ -126,7 +126,7 @@ func (m *Model) headerContext() string {
 	}
 }
 
-// headerStatus는 관련 동작을 처리한다.
+// headerStatus는 route별 현재 상태 badge 문구를 반환한다.
 func (m *Model) headerStatus() string {
 	switch {
 	case m.pipelineRunning:
@@ -158,12 +158,12 @@ func (m *Model) headerStatus() string {
 	}
 }
 
-// frameBottom는 관련 동작을 처리한다.
+// frameBottom은 footer 문구를 포함한 하단 border 줄을 만든다.
 func frameBottom(footer string, width int) string {
 	return frameTitleLine("└", "┘", footer, width)
 }
 
-// frameTitleLine는 관련 동작을 처리한다.
+// frameTitleLine은 좌우 모서리와 label을 폭에 맞춰 한 줄로 조립한다.
 func frameTitleLine(left string, right string, text string, width int) string {
 	bodyWidth := width - 2
 	label := "─ " + text + " "
@@ -176,7 +176,7 @@ func frameTitleLine(left string, right string, text string, width int) string {
 		borderStyle.Render(strings.Repeat("─", padding)+right)
 }
 
-// frameHeaderLine는 관련 동작을 처리한다.
+// frameHeaderLine은 SCALA title과 status badge가 들어간 header 줄을 만든다.
 func frameHeaderLine(context string, status string, width int) string {
 	bodyWidth := width - 2
 	prefix := "─ SCALA · " + context + " "
@@ -195,22 +195,22 @@ func frameHeaderLine(context string, status string, width int) string {
 		borderStyle.Render("┐")
 }
 
-// frameSeparator는 관련 동작을 처리한다.
+// frameSeparator는 content와 input 영역을 나누는 border 줄을 만든다.
 func frameSeparator(width int) string {
 	return borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
 }
 
-// frameRow는 관련 동작을 처리한다.
+// frameRow는 본문 한 줄을 frame 폭에 맞춰 감싼다.
 func frameRow(value string, width int) string {
 	return borderStyle.Render("│") + " " + fitLine(value, width) + " " + borderStyle.Render("│")
 }
 
-// frameInputRow는 관련 동작을 처리한다.
+// frameInputRow는 입력 줄에 색상 스타일을 입혀 frame 안에 배치한다.
 func frameInputRow(value string, width int) string {
 	return borderStyle.Render("│") + " " + renderInput(fitLine(value, width)) + " " + borderStyle.Render("│")
 }
 
-// fitLine는 관련 동작을 처리한다.
+// fitLine은 표시 폭을 넘지 않도록 문자열을 자르고 padding을 채운다.
 func fitLine(value string, width int) string {
 	if width <= 0 {
 		return ""
@@ -226,7 +226,7 @@ func fitLine(value string, width int) string {
 	return value + strings.Repeat(" ", width-lipgloss.Width(value))
 }
 
-// wrapRows는 관련 동작을 처리한다.
+// wrapRows는 긴 본문 줄을 lipgloss 표시 폭 기준으로 접는다.
 func wrapRows(rows []string, width int) []string {
 	if width <= 0 {
 		return []string{""}

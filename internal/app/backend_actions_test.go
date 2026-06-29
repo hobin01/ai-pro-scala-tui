@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// TestBackendActionContract는 관련 동작을 검증한다.
+// TestBackendActionContract는 backend actions test의 화면 출력과 상태 전이를 확인한다.
 func TestBackendActionContract(t *testing.T) {
 	model := NewModel()
 
@@ -140,7 +140,7 @@ func TestBackendActionContract(t *testing.T) {
 	assertContains(t, model.View(), "$0.1200")
 }
 
-// floatPtr는 관련 동작을 처리한다.
+// floatPtr는 backend actions test의 화면 출력과 상태 전이를 확인한다.
 func floatPtr(value float64) *float64 {
 	return &value
 }

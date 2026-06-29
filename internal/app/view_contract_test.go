@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// TestFrameRendersSharedRegionsAndResponsiveSize는 관련 동작을 검증한다.
+// TestFrameRendersSharedRegionsAndResponsiveSize는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestFrameRendersSharedRegionsAndResponsiveSize(t *testing.T) {
 	model := NewModel()
 	model.SetSize(100, 30)
@@ -18,7 +18,7 @@ func TestFrameRendersSharedRegionsAndResponsiveSize(t *testing.T) {
 	assertNotContains(t, view, "Header | Content | Input | Footer")
 }
 
-// TestFrameUsesBrightBlueTerminalPalette는 관련 동작을 검증한다.
+// TestFrameUsesBrightBlueTerminalPalette는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestFrameUsesBrightBlueTerminalPalette(t *testing.T) {
 	view := NewModel().View()
 
@@ -27,7 +27,7 @@ func TestFrameUsesBrightBlueTerminalPalette(t *testing.T) {
 	assertContainsRaw(t, view, "\x1b[1;38;5;226m")
 }
 
-// TestMainPageMatchesDocumentedLandingCopy는 관련 동작을 검증한다.
+// TestMainPageMatchesDocumentedLandingCopy는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestMainPageMatchesDocumentedLandingCopy(t *testing.T) {
 	model := NewModel()
 
@@ -47,7 +47,7 @@ func TestMainPageMatchesDocumentedLandingCopy(t *testing.T) {
 	assertContains(t, view, "sources · indices · models")
 }
 
-// TestHeaderStatusBadgesFollowRouteState는 관련 동작을 검증한다.
+// TestHeaderStatusBadgesFollowRouteState는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestHeaderStatusBadgesFollowRouteState(t *testing.T) {
 	model := NewModel()
 	assertContains(t, model.View(), "idle")
@@ -67,7 +67,7 @@ func TestHeaderStatusBadgesFollowRouteState(t *testing.T) {
 	assertContains(t, model.View(), "[1/2] Elasticsearch · logs-2024")
 }
 
-// TestMainEnterSplitBetweenCommandInputAndMenuSelection는 관련 동작을 검증한다.
+// TestMainEnterSplitBetweenCommandInputAndMenuSelection는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestMainEnterSplitBetweenCommandInputAndMenuSelection(t *testing.T) {
 	model := NewModel()
 
@@ -80,7 +80,7 @@ func TestMainEnterSplitBetweenCommandInputAndMenuSelection(t *testing.T) {
 	assertContains(t, model.View(), "Source Selection")
 }
 
-// TestSourceSelectionUsesDocumentedDummyInputsOnly는 관련 동작을 검증한다.
+// TestSourceSelectionUsesDocumentedDummyInputsOnly는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestSourceSelectionUsesDocumentedDummyInputsOnly(t *testing.T) {
 	model := NewModel()
 	model.UpdateKey("enter")
@@ -102,7 +102,7 @@ func TestSourceSelectionUsesDocumentedDummyInputsOnly(t *testing.T) {
 	assertContains(t, model.View(), "selected: 2 · Elasticsearch ×1, Splunk ×1")
 }
 
-// TestPipelineRunningHeaderNamesActiveAgent는 관련 동작을 검증한다.
+// TestPipelineRunningHeaderNamesActiveAgent는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestPipelineRunningHeaderNamesActiveAgent(t *testing.T) {
 	model := newModelAtWorkflowGate()
 
@@ -114,7 +114,7 @@ func TestPipelineRunningHeaderNamesActiveAgent(t *testing.T) {
 	assertNotContains(t, view, "running: agents")
 }
 
-// TestWorkflowAndSettingsShowAgentSpecificModels는 관련 동작을 검증한다.
+// TestWorkflowAndSettingsShowAgentSpecificModels는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	model := NewModel()
 	model.SetSize(110, 44)
@@ -141,7 +141,7 @@ func TestWorkflowAndSettingsShowAgentSpecificModels(t *testing.T) {
 	assertContains(t, view, "OpenAI API key")
 }
 
-// TestWorkflowGraphMatchesPRDCompressedSurface는 관련 동작을 검증한다.
+// TestWorkflowGraphMatchesPRDCompressedSurface는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestWorkflowGraphMatchesPRDCompressedSurface(t *testing.T) {
 	model := NewModel()
 	model.SetSize(110, 44)
@@ -180,7 +180,7 @@ func TestWorkflowGraphMatchesPRDCompressedSurface(t *testing.T) {
 	}
 }
 
-// TestWorkflowViewModeScrollsStaticGraph는 관련 동작을 검증한다.
+// TestWorkflowViewModeScrollsStaticGraph는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestWorkflowViewModeScrollsStaticGraph(t *testing.T) {
 	model := NewModel()
 	model.SetSize(110, 12)
@@ -197,7 +197,7 @@ func TestWorkflowViewModeScrollsStaticGraph(t *testing.T) {
 	assertContains(t, model.View(), "↑↓ scroll · enter back")
 }
 
-// TestMonitoringIsReadOnlyWithinSharedFrame는 관련 동작을 검증한다.
+// TestMonitoringIsReadOnlyWithinSharedFrame는 view contract test의 화면 출력과 상태 전이를 확인한다.
 func TestMonitoringIsReadOnlyWithinSharedFrame(t *testing.T) {
 	model := NewModel()
 

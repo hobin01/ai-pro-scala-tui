@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// TestInitialModelRendersSCALA는 관련 동작을 검증한다.
+// TestInitialModelRendersSCALA는 model basic test의 화면 출력과 상태 전이를 확인한다.
 func TestInitialModelRendersSCALA(t *testing.T) {
 	model := NewModel()
 
@@ -15,7 +15,7 @@ func TestInitialModelRendersSCALA(t *testing.T) {
 	assertContains(t, view, "ctrl+c quit")
 }
 
-// TestSourceSelectionToWorkflowGate는 관련 동작을 검증한다.
+// TestSourceSelectionToWorkflowGate는 model basic test의 화면 출력과 상태 전이를 확인한다.
 func TestSourceSelectionToWorkflowGate(t *testing.T) {
 	model := NewModel()
 
@@ -40,7 +40,7 @@ func TestSourceSelectionToWorkflowGate(t *testing.T) {
 	assertContains(t, model.View(), "Start pipeline")
 }
 
-// TestUnknownCommandAndEmptySelectionGuard는 관련 동작을 검증한다.
+// TestUnknownCommandAndEmptySelectionGuard는 model basic test의 화면 출력과 상태 전이를 확인한다.
 func TestUnknownCommandAndEmptySelectionGuard(t *testing.T) {
 	model := NewModel()
 
@@ -55,7 +55,7 @@ func TestUnknownCommandAndEmptySelectionGuard(t *testing.T) {
 	assertContains(t, model.View(), "selected: 0")
 }
 
-// TestCommandHelpAndDataSamplePagination는 관련 동작을 검증한다.
+// TestCommandHelpAndDataSamplePagination는 model basic test의 화면 출력과 상태 전이를 확인한다.
 func TestCommandHelpAndDataSamplePagination(t *testing.T) {
 	model := newModelAtDataSamples()
 
@@ -72,7 +72,7 @@ func TestCommandHelpAndDataSamplePagination(t *testing.T) {
 	assertContains(t, model.View(), "/settings")
 }
 
-// TestUnknownCommandRendersErrorAndKeepsInput는 관련 동작을 검증한다.
+// TestUnknownCommandRendersErrorAndKeepsInput는 model basic test의 화면 출력과 상태 전이를 확인한다.
 func TestUnknownCommandRendersErrorAndKeepsInput(t *testing.T) {
 	model := NewModel()
 

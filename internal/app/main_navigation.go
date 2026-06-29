@@ -1,6 +1,6 @@
 package app
 
-// enterMain는 관련 동작을 처리한다.
+// enterMain는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterMain() {
 	switch m.menuCursor {
 	case 0:
@@ -18,7 +18,7 @@ func (m *Model) enterMain() {
 	}
 }
 
-// openResultView는 관련 동작을 처리한다.
+// openResultView는 View Results 하위 메뉴 선택을 실제 result route로 연다.
 func (m *Model) openResultView() {
 	switch m.viewResultsCursor {
 	case 0:
@@ -37,7 +37,7 @@ func (m *Model) openResultView() {
 	}
 }
 
-// moveMain는 관련 동작을 처리한다.
+// moveMain는 현재 화면 cursor를 유효 범위 안에서 이동한다.
 func (m *Model) moveMain(delta int) {
 	if m.viewResultsOpen && m.menuCursor == 1 {
 		nextCursor := m.viewResultsCursor + delta
@@ -49,7 +49,7 @@ func (m *Model) moveMain(delta int) {
 	m.menuCursor = clamp(m.menuCursor+delta, 0, 2)
 }
 
-// updateMonitoringKey는 관련 동작을 처리한다.
+// updateMonitoringKey는 monitoring scope 이동과 본문 스크롤 키를 처리한다.
 func (m *Model) updateMonitoringKey(key string) {
 	switch key {
 	case "left":

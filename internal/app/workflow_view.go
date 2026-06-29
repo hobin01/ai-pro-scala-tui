@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// renderWorkflow는 화면 문자열을 렌더링한다.
+// renderWorkflow는 workflow gate 또는 static graph 본문을 출력한다.
 func (m *Model) renderWorkflow(b *strings.Builder) {
 	if m.workflowGate {
 		m.renderWorkflowGate(b)
@@ -16,7 +16,7 @@ func (m *Model) renderWorkflow(b *strings.Builder) {
 	}
 }
 
-// renderWorkflowGate는 화면 문자열을 렌더링한다.
+// renderWorkflowGate는 pipeline 시작 전 확인 선택지를 출력한다.
 func (m *Model) renderWorkflowGate(b *strings.Builder) {
 	fmt.Fprintln(b, "Agent Workflow Graph")
 	fmt.Fprintln(b, "State A와 동일한 흐름도 + agent 레전드")
@@ -27,7 +27,7 @@ func (m *Model) renderWorkflowGate(b *strings.Builder) {
 	}
 }
 
-// workflowViewLines는 관련 동작을 처리한다.
+// workflowViewLines는 static agent graph와 agent legend 줄을 만든다.
 func workflowViewLines(settings settings) []string {
 	return []string{
 		"How SCALA processes your data (Agent pipeline topology)",

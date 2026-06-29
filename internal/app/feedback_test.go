@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestHumanFeedbackStreamingCompletion는 관련 동작을 검증한다.
+// TestHumanFeedbackStreamingCompletion는 feedback test의 화면 출력과 상태 전이를 확인한다.
 func TestHumanFeedbackStreamingCompletion(t *testing.T) {
 	model := newModelAtWorkflowGate()
 
@@ -33,7 +33,7 @@ func TestHumanFeedbackStreamingCompletion(t *testing.T) {
 	assertContains(t, view, "opensearch://scala-normalized/security-events")
 }
 
-// TestHumanFeedbackBlocksInputWhileAgentsRun는 관련 동작을 검증한다.
+// TestHumanFeedbackBlocksInputWhileAgentsRun는 feedback test의 화면 출력과 상태 전이를 확인한다.
 func TestHumanFeedbackBlocksInputWhileAgentsRun(t *testing.T) {
 	model := newModelAtWorkflowGate()
 
@@ -48,7 +48,7 @@ func TestHumanFeedbackBlocksInputWhileAgentsRun(t *testing.T) {
 	assertNotContains(t, view, "/settings")
 }
 
-// TestScriptedFullFlowTranscript는 관련 동작을 검증한다.
+// TestScriptedFullFlowTranscript는 feedback test의 화면 출력과 상태 전이를 확인한다.
 func TestScriptedFullFlowTranscript(t *testing.T) {
 	model := NewModel()
 	views := []string{model.View()}

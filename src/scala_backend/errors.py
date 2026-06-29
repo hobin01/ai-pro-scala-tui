@@ -12,7 +12,7 @@ JSON_RPC_PARSE_ERROR: Final = -32700
 
 @dataclass(frozen=True)
 class JsonRpcErrorPayload:
-    """JsonRpcErrorPayload 데이터 구조를 표현한다."""
+    """JSON-RPC 오류 변환에서 함께 이동해야 하는 상태를 묶는다."""
 
     code: int
     message: str
@@ -26,12 +26,12 @@ class ScalaBackendError(Exception):
     public_message = "backend_error"
 
     def __init__(self, detail: str = "") -> None:
-        """객체 초기 상태를 준비한다."""
+        """JSON-RPC 오류 payload 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
         super().__init__(detail)
         self.detail = detail
 
     def to_payload(self) -> JsonRpcErrorPayload:
-        """to payload 동작을 처리한다."""
+        """ScalaBackendError detail을 JSON-RPC error body로 옮긴다."""
         data = {"detail": self.detail} if self.detail else None
         return JsonRpcErrorPayload(
             code=self.rpc_code,
@@ -90,7 +90,7 @@ class ProviderError(ScalaBackendError):
 
 
 def payload_from_exception(exc: BaseException) -> JsonRpcErrorPayload:
-    """payload from exception 동작을 처리한다."""
+    """내부 예외를 JSON-RPC error payload로 변환한다."""
     if isinstance(exc, ScalaBackendError):
         return exc.to_payload()
     return JsonRpcErrorPayload(

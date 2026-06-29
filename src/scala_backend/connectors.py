@@ -20,10 +20,10 @@ ELASTICSEARCH_PAGE_SIZE = 1000
 
 
 class SiemConnector(Protocol):
-    """SiemConnector 객체의 책임을 정의한다."""
+    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """fetch schema samples 데이터를 조회한다."""
+        """원본 index에서 field 타입과 sample 값을 수집한다."""
         ...
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
@@ -31,13 +31,13 @@ class SiemConnector(Protocol):
         ...
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """fetch raw document 데이터를 조회한다."""
+        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
         ...
 
 
 @dataclass(frozen=True)
 class ServiceUrl:
-    """ServiceUrl 객체의 책임을 정의한다."""
+    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
 
     scheme: str
     host: str
@@ -45,15 +45,15 @@ class ServiceUrl:
 
 
 def default_connectors() -> dict[str, SiemConnector]:
-    """default connectors 동작을 처리한다."""
+    """memory:// 설정에서 사용할 Elasticsearch/Splunk fixture connector를 반환한다."""
     return dict[str, SiemConnector](fixture_default_connectors())
 
 
 class ElasticsearchConnector:
-    """ElasticsearchConnector 객체의 책임을 정의한다."""
+    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
 
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
-        """객체 초기 상태를 준비한다."""
+        """외부 SDK client와 접속 URL 정보를 초기화한다."""
         module = importlib.import_module("elasticsearch")
         client_cls = module.Elasticsearch
         self.url = parse_service_url(url, default_port=9200)
@@ -62,7 +62,7 @@ class ElasticsearchConnector:
         self.solution = "elasticsearch"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """fetch schema samples 데이터를 조회한다."""
+        """원본 index에서 field 타입과 sample 값을 수집한다."""
         response = self._client.search(index=index, size=limit)
         docs = [
             RawDocument(
@@ -94,7 +94,7 @@ class ElasticsearchConnector:
             )
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """fetch raw document 데이터를 조회한다."""
+        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
         try:
             response = self._client.get(index=index, id=doc_id)
         except (KeyError, ValueError) as exc:
@@ -105,10 +105,10 @@ class ElasticsearchConnector:
 
 
 class SplunkConnector:
-    """SplunkConnector 객체의 책임을 정의한다."""
+    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
 
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
-        """객체 초기 상태를 준비한다."""
+        """외부 SDK client와 접속 URL 정보를 초기화한다."""
         splunk_client = importlib.import_module("splunklib.client")
         parsed = parse_service_url(url, default_port=8089)
         self._service = splunk_client.connect(
@@ -123,7 +123,7 @@ class SplunkConnector:
         self.solution = "splunk"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """fetch schema samples 데이터를 조회한다."""
+        """원본 index에서 field 타입과 sample 값을 수집한다."""
         return FixtureConnector(
             "splunk", list(self.iter_documents(index))
         ).fetch_schema_samples(
@@ -148,7 +148,7 @@ class SplunkConnector:
             yield RawDocument("splunk", index, doc_id, body)
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """fetch raw document 데이터를 조회한다."""
+        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
         return next(
             (doc for doc in self.iter_documents(index) if doc.source_doc_id == doc_id),
             None,
@@ -159,7 +159,7 @@ def connectors_from_settings(
     settings: dict[str, JsonValue],
     config: BackendConfig,
 ) -> dict[str, SiemConnector]:
-    """connectors from settings 연결 구성을 만든다."""
+    """settings/config 값으로 memory fixture 또는 실제 SIEM connector를 만든다."""
     elasticsearch_url = _setting_url(
         settings,
         "source.elasticsearch.url",
@@ -183,7 +183,7 @@ def connectors_from_settings(
 
 
 def parse_service_url(url: str, default_port: int = 443) -> ServiceUrl:
-    """parse service url 값을 파싱한다."""
+    """URL 문자열에서 scheme, host, port를 뽑고 기본 port를 채운다."""
     value = url if "://" in url else f"//{url}"
     parsed = urlparse(value, scheme="https")
     scheme = parsed.scheme if "://" in url else "https"
@@ -197,13 +197,13 @@ def _setting_url(
     key: str,
     fallback: str,
 ) -> str:
-    """setting url 내부 처리를 수행한다."""
+    """settings 값이 문자열이면 쓰고 아니면 config fallback URL을 반환한다."""
     value = settings.get(key)
     return value if isinstance(value, str) else fallback
 
 
 def splunk_source_doc_id(body: JsonObject) -> str:
-    """splunk source doc id 동작을 처리한다."""
+    """Splunk event에서 seed id 또는 _serial/_raw 기반 식별자를 뽑는다."""
     bucket = str(body.get("_bkt", ""))
     offset = str(body.get("_cd", ""))
     if bucket or offset:
@@ -214,7 +214,7 @@ def splunk_source_doc_id(body: JsonObject) -> str:
 
 
 def _coerce_json(value: object) -> JsonValue:
-    """coerce json 내부 처리를 수행한다."""
+    """Splunk SDK 값을 JSON으로 보존 가능한 타입으로 정리한다."""
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, list):

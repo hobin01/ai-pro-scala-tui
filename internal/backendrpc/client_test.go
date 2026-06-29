@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestClient_Call_matches_response_by_id는 관련 동작을 검증한다.
+// TestClient_Call_matches_response_by_id는 client test의 화면 출력과 상태 전이를 확인한다.
 func TestClient_Call_matches_response_by_id(t *testing.T) {
 	server, addr := startRPCServer(t)
 	defer server.close(t)
@@ -30,7 +30,7 @@ func TestClient_Call_matches_response_by_id(t *testing.T) {
 	requireCallResult(t, secondDone, "second-result")
 }
 
-// TestClient_Incoming_emits_notifications_and_server_requests는 관련 동작을 검증한다.
+// TestClient_Incoming_emits_notifications_and_server_requests는 client test의 화면 출력과 상태 전이를 확인한다.
 func TestClient_Incoming_emits_notifications_and_server_requests(t *testing.T) {
 	server, addr := startRPCServer(t)
 	defer server.close(t)
@@ -78,7 +78,7 @@ func TestClient_Incoming_emits_notifications_and_server_requests(t *testing.T) {
 	}
 }
 
-// TestClient_Call_wraps_json_rpc_errors는 관련 동작을 검증한다.
+// TestClient_Call_wraps_json_rpc_errors는 client test의 화면 출력과 상태 전이를 확인한다.
 func TestClient_Call_wraps_json_rpc_errors(t *testing.T) {
 	server, addr := startRPCServer(t)
 	defer server.close(t)
@@ -117,7 +117,7 @@ func TestClient_Call_wraps_json_rpc_errors(t *testing.T) {
 	}
 }
 
-// TestClient_Close_closes_incoming_channel는 관련 동작을 검증한다.
+// TestClient_Close_closes_incoming_channel는 client test의 화면 출력과 상태 전이를 확인한다.
 func TestClient_Close_closes_incoming_channel(t *testing.T) {
 	server, addr := startRPCServer(t)
 	defer server.close(t)
@@ -138,13 +138,13 @@ func TestClient_Close_closes_incoming_channel(t *testing.T) {
 	}
 }
 
-// callResult는 client_test에서 사용하는 타입을 정의한다.
+// callResult는 client test의 화면 출력과 상태 전이를 확인한다.
 type callResult struct {
 	value string
 	err   error
 }
 
-// callEcho는 관련 동작을 처리한다.
+// callEcho는 client test의 화면 출력과 상태 전이를 확인한다.
 func callEcho(t *testing.T, client *Client, method string, done chan<- callResult) {
 	t.Helper()
 
@@ -158,7 +158,7 @@ func callEcho(t *testing.T, client *Client, method string, done chan<- callResul
 	done <- callResult{value: result.Value, err: err}
 }
 
-// requireCallResult는 관련 동작을 처리한다.
+// requireCallResult는 client test의 화면 출력과 상태 전이를 확인한다.
 func requireCallResult(t *testing.T, ch <-chan callResult, want string) {
 	t.Helper()
 
@@ -175,7 +175,7 @@ func requireCallResult(t *testing.T, ch <-chan callResult, want string) {
 	}
 }
 
-// receiveInbound는 관련 동작을 처리한다.
+// receiveInbound는 client test의 화면 출력과 상태 전이를 확인한다.
 func receiveInbound(t *testing.T, ch <-chan Inbound) Inbound {
 	t.Helper()
 
@@ -191,7 +191,7 @@ func receiveInbound(t *testing.T, ch <-chan Inbound) Inbound {
 	return Inbound{}
 }
 
-// receiveErr는 관련 동작을 처리한다.
+// receiveErr는 client test의 화면 출력과 상태 전이를 확인한다.
 func receiveErr(t *testing.T, ch <-chan error) error {
 	t.Helper()
 

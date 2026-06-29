@@ -12,7 +12,7 @@ import (
 
 var testANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-// TestPasteMsg_appendsToActiveCommandInput는 관련 동작을 검증한다.
+// TestPasteMsg_appendsToActiveCommandInput는 input test의 화면 출력과 상태 전이를 확인한다.
 func TestPasteMsg_appendsToActiveCommandInput(t *testing.T) {
 	// Given
 	model := tuiModel{
@@ -31,7 +31,7 @@ func TestPasteMsg_appendsToActiveCommandInput(t *testing.T) {
 	}
 }
 
-// TestPasteMsg_appendsToActiveSettingEdit는 관련 동작을 검증한다.
+// TestPasteMsg_appendsToActiveSettingEdit는 input test의 화면 출력과 상태 전이를 확인한다.
 func TestPasteMsg_appendsToActiveSettingEdit(t *testing.T) {
 	// Given
 	core := app.NewModel()
@@ -53,7 +53,7 @@ func TestPasteMsg_appendsToActiveSettingEdit(t *testing.T) {
 	}
 }
 
-// TestPasteMsg_appendsToActiveFeedbackComment는 관련 동작을 검증한다.
+// TestPasteMsg_appendsToActiveFeedbackComment는 input test의 화면 출력과 상태 전이를 확인한다.
 func TestPasteMsg_appendsToActiveFeedbackComment(t *testing.T) {
 	// Given
 	core := app.NewModel()
@@ -79,7 +79,7 @@ func TestPasteMsg_appendsToActiveFeedbackComment(t *testing.T) {
 	}
 }
 
-// TestCopyKey_returnsClipboardCommandForLineageID는 관련 동작을 검증한다.
+// TestCopyKey_returnsClipboardCommandForLineageID는 input test의 화면 출력과 상태 전이를 확인한다.
 func TestCopyKey_returnsClipboardCommandForLineageID(t *testing.T) {
 	// Given
 	core := app.NewModel()
@@ -113,14 +113,14 @@ func TestCopyKey_returnsClipboardCommandForLineageID(t *testing.T) {
 	}
 }
 
-// typeKeys는 관련 동작을 처리한다.
+// typeKeys는 input test의 화면 출력과 상태 전이를 확인한다.
 func typeKeys(model *app.Model, text string) {
 	for _, r := range text {
 		model.UpdateKey(string(r))
 	}
 }
 
-// stripANSI는 관련 동작을 처리한다.
+// stripANSI는 input test의 화면 출력과 상태 전이를 확인한다.
 func stripANSI(value string) string {
 	return testANSIPattern.ReplaceAllString(value, "")
 }

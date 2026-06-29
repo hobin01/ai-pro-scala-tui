@@ -10,27 +10,27 @@ from scala_backend.models import JsonObject
 
 
 class ElasticsearchSeedClient(Protocol):
-    """ElasticsearchSeedClient 호출 계약을 정의한다."""
+    """외부 SIEM seed에서 외부 구현체가 제공할 메서드를 명시한다."""
 
     def index(self, *, index: str, id: str, document: JsonObject) -> JsonObject:
-        """index 동작을 처리한다."""
+        """외부 SIEM seed의 index 변경을 저장 계층에 반영한다."""
         ...
 
 
 class SplunkIndex(Protocol):
-    """SplunkIndex 객체의 책임을 정의한다."""
+    """외부 SIEM seed에서 함께 이동해야 하는 상태를 묶는다."""
 
     def submit(self, event: str) -> None:
-        """submit 동작을 처리한다."""
+        """외부 SIEM seed의 submit 변경을 저장 계층에 반영한다."""
         ...
 
 
 class SplunkSeedService(Protocol):
-    """SplunkSeedService 객체의 책임을 정의한다."""
+    """외부 SIEM seed에서 함께 이동해야 하는 상태를 묶는다."""
 
     @property
     def indexes(self) -> Mapping[str, SplunkIndex]:
-        """indexes 동작을 처리한다."""
+        """Splunk SDK service에서 index collection을 노출한다."""
         ...
 
 
@@ -39,7 +39,7 @@ def seed_elasticsearch_documents(
     index: str,
     documents: list[JsonObject],
 ) -> list[str]:
-    """seed elasticsearch documents 데이터를 시드한다."""
+    """외부 SIEM seed의 seed elasticsearch documents 변경을 저장 계층에 반영한다."""
     ids: list[str] = []
     for offset, document in enumerate(documents, start=1):
         doc_id = str(document.get("source_doc_id", f"es-seed-{offset}"))
@@ -53,7 +53,7 @@ def seed_splunk_events(
     index: str,
     events: list[JsonObject],
 ) -> list[str]:
-    """seed splunk events 데이터를 시드한다."""
+    """외부 SIEM seed의 seed splunk events 변경을 저장 계층에 반영한다."""
     ids = [
         str(event.get("source_doc_id", f"splunk-seed-{offset}"))
         for offset, event in enumerate(events, start=1)
@@ -71,7 +71,7 @@ def _seeded_splunk_ids(
     index: str,
     expected_ids: list[str],
 ) -> int:
-    """seeded splunk ids 내부 처리를 수행한다."""
+    """외부 SIEM seed의 seeded splunk ids 보조 경로를 분리한다."""
     jobs = getattr(service, "jobs", None)
     export = getattr(jobs, "export", None)
     if export is None:

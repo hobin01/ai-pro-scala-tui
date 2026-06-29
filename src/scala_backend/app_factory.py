@@ -16,7 +16,7 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 def create_app(config: BackendConfig) -> BackendApp:
-    """create app 동작을 처리한다."""
+    """설정값으로 저장소, 캐시, provider, index를 묶어 BackendApp을 만든다."""
     store = _store(config)
     if config.database_url == "memory://":
         seed_dev_settings(store, agent_model_settings(config.openai_model))
@@ -35,21 +35,21 @@ def create_app(config: BackendConfig) -> BackendApp:
 
 
 def _store(config: BackendConfig) -> BackendStore:
-    """store 내부 처리를 수행한다."""
+    """database_url에 맞춰 메모리 또는 PostgreSQL 저장소를 선택한다."""
     if config.database_url == "memory://":
         return InMemoryStore()
     return PostgresStore(config.database_url)
 
 
 def _cache(config: BackendConfig) -> MappingCache:
-    """cache 내부 처리를 수행한다."""
+    """redis_url에 맞춰 메모리 또는 Redis 매핑 캐시를 선택한다."""
     if config.redis_url == "memory://":
         return InMemoryMappingCache()
     return RedisMappingCache(redis_url=config.redis_url)
 
 
 def _provider(config: BackendConfig) -> OpenAiProvider | None:
-    """provider 내부 처리를 수행한다."""
+    """유효한 OpenAI key가 있을 때만 실제 provider를 만든다."""
     if not config.openai_api_key or config.openai_api_key == "YOUR_OPENAI_API_KEY":
         return None
     return OpenAiProvider(
@@ -64,7 +64,7 @@ def create_ocsf_index(
     config: BackendConfig,
     provider: EmbeddingProvider | None,
 ) -> ChromaOcsfIndex | None:
-    """create ocsf index 동작을 처리한다."""
+    """OpenAI embedding provider로 Chroma OCSF index를 준비한다."""
     if provider is None:
         return None
     index = ChromaOcsfIndex(

@@ -2,7 +2,7 @@ from scala_backend.jsonrpc import decode_message_line
 
 
 def test_jsonrpc_parse_error_response_is_emitted() -> None:
-    """jsonrpc parse error response is emitted 동작을 검증한다."""
+    """테스트 목적: JSON-RPC envelope 오류 처리."""
     message, error = decode_message_line(b"{bad json")
 
     assert message is None
@@ -14,7 +14,7 @@ def test_jsonrpc_parse_error_response_is_emitted() -> None:
 
 
 def test_jsonrpc_invalid_request_response_is_emitted() -> None:
-    """jsonrpc invalid request response is emitted 동작을 검증한다."""
+    """테스트 목적: JSON-RPC envelope 오류 처리."""
     message, error = decode_message_line(b'["not", "an", "object"]')
 
     assert message is None

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// renderMain는 화면 문자열을 렌더링한다.
+// renderMain은 main menu와 View Results 하위 메뉴를 출력한다.
 func (m *Model) renderMain(b *strings.Builder) {
 	fmt.Fprintln(b, "Welcome. SCALA normalizes heterogeneous SIEM data into OCSF and loads")
 	fmt.Fprintln(b, "it into OpenSearch with full document lineage.")
@@ -32,7 +32,7 @@ func (m *Model) renderMain(b *strings.Builder) {
 	}
 }
 
-// renderSources는 화면 문자열을 렌더링한다.
+// renderSources는 source 목록과 선택 상태를 출력한다.
 func (m *Model) renderSources(b *strings.Builder) {
 	fmt.Fprintln(b, "Source Selection")
 	if len(m.sources) == 0 {
@@ -61,7 +61,7 @@ func (m *Model) renderSources(b *strings.Builder) {
 	}
 }
 
-// renderSamples는 화면 문자열을 렌더링한다.
+// renderSamples는 선택 source의 field sample 또는 loading 상태를 출력한다.
 func (m *Model) renderSamples(b *strings.Builder) {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -100,7 +100,7 @@ func (m *Model) renderSamples(b *strings.Builder) {
 	fmt.Fprintln(b, "\nPress enter to continue to the agent workflow graph.")
 }
 
-// renderSampleFailure는 화면 문자열을 렌더링한다.
+// renderSampleFailure는 sample fetch 실패 원인과 복구 선택지를 출력한다.
 func (m *Model) renderSampleFailure(b *strings.Builder, source source) {
 	fmt.Fprintln(b, "fetch failed")
 	fmt.Fprintln(b, "✗ Could not fetch samples from this source.")
@@ -112,7 +112,7 @@ func (m *Model) renderSampleFailure(b *strings.Builder, source source) {
 	}
 }
 
-// renderFeedback는 화면 문자열을 렌더링한다.
+// renderFeedback은 agent stream, human review 질문, 완료 요약을 출력한다.
 func (m *Model) renderFeedback(b *strings.Builder) {
 	fmt.Fprintln(b, "Human Feedback")
 	if m.pipelineRunning {
@@ -172,7 +172,7 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 	}
 }
 
-// renderLineage는 화면 문자열을 렌더링한다.
+// renderLineage는 OpenSearch _id 기준 raw/normalized 추적 결과를 출력한다.
 func (m *Model) renderLineage(b *strings.Builder) {
 	fmt.Fprintln(b, "Lineage Viewer")
 	if m.lineageLoading {
@@ -204,7 +204,7 @@ func (m *Model) renderLineage(b *strings.Builder) {
 	renderBlock(b, "Normalized document (OCSF)", record.normalDoc)
 }
 
-// renderMonitoring는 화면 문자열을 렌더링한다.
+// renderMonitoring은 scope별 agent token/activity snapshot을 출력한다.
 func (m *Model) renderMonitoring(b *strings.Builder) {
 	snapshots := m.monitoring
 	scope := clamp(m.monitoringScope, 0, len(snapshots)-1)
@@ -232,7 +232,7 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 	}
 }
 
-// renderSettings는 화면 문자열을 렌더링한다.
+// renderSettings는 편집 가능한 설정 행과 read-only URL 행을 출력한다.
 func (m *Model) renderSettings(b *strings.Builder) {
 	fmt.Fprintln(b, "Settings")
 	for i, row := range settingsRows(m) {

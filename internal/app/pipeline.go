@@ -2,13 +2,13 @@ package app
 
 import "strings"
 
-// pipelineEvent는 pipeline에서 사용하는 타입을 정의한다.
+// pipelineEvent는 mock pipeline stream에 출력할 문장과 feedback 중단 여부다.
 type pipelineEvent struct {
 	text     string
 	feedback bool
 }
 
-// AdvancePipeline는 관련 동작을 처리한다.
+// AdvancePipeline는 mock pipeline event를 순서대로 흘리고 feedback 지점에서 멈춘다.
 func (m *Model) AdvancePipeline() {
 	m.AdvanceLoading()
 	if m.backendRuntime {
@@ -44,12 +44,12 @@ func (m *Model) AdvancePipeline() {
 	}
 }
 
-// IsPipelineRunning는 관련 동작을 처리한다.
+// IsPipelineRunning은 현재 pipeline 입력 잠금 여부를 알려준다.
 func (m *Model) IsPipelineRunning() bool {
 	return m.pipelineRunning
 }
 
-// startPipeline는 관련 동작을 처리한다.
+// startPipeline은 선택된 source로 pipeline 실행 상태와 백엔드 요청을 시작한다.
 func (m *Model) startPipeline() {
 	m.route = routeFeedback
 	m.pipelineRunning = true
@@ -68,7 +68,7 @@ func (m *Model) startPipeline() {
 	m.queuePipelineRun()
 }
 
-// enterFeedback는 관련 동작을 처리한다.
+// enterFeedback는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterFeedback() {
 	if m.pipelineDone {
 		m.route = routeMain
@@ -93,13 +93,13 @@ func (m *Model) enterFeedback() {
 	}
 }
 
-// resumePipeline는 관련 동작을 처리한다.
+// resumePipeline은 feedback 응답 뒤 pipeline stream을 다시 진행 상태로 바꾼다.
 func (m *Model) resumePipeline() {
 	m.feedbackWaiting = false
 	m.pipelineRunning = true
 }
 
-// finishPipeline는 관련 동작을 처리한다.
+// finishPipeline은 mock pipeline 완료 메시지와 result 링크를 남긴다.
 func (m *Model) finishPipeline() {
 	m.pipelineRunning = false
 	m.feedbackWaiting = false
@@ -107,7 +107,7 @@ func (m *Model) finishPipeline() {
 	m.stream = append(m.stream, "Pipeline complete", "Loaded 2,000 docs", "Lineage recorded", "opensearch://"+m.settings.resultIndex)
 }
 
-// updateFeedbackComment는 관련 동작을 처리한다.
+// updateFeedbackComment는 사용자 comment 입력을 feedback 응답으로 확정한다.
 func (m *Model) updateFeedbackComment(key string) {
 	switch key {
 	case "enter":

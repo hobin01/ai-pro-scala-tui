@@ -13,7 +13,7 @@ from scala_backend.connectors import (
 
 
 def test_parse_service_url_extracts_scheme_host_and_port() -> None:
-    """parse service url extracts scheme host and port 동작을 검증한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     parsed = parse_service_url("https://splunk.local:8089")
 
     assert parsed.scheme == "https"
@@ -22,7 +22,7 @@ def test_parse_service_url_extracts_scheme_host_and_port() -> None:
 
 
 def test_splunk_source_doc_id_preserves_seeded_and_native_ids() -> None:
-    """splunk source doc id preserves seeded and native ids 동작을 검증한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     seeded = splunk_source_doc_id({"source_doc_id": "splunk-seed-1"})
     native = splunk_source_doc_id({"_bkt": "bucket", "_cd": "42"})
     native_with_seed_id = splunk_source_doc_id(
@@ -35,15 +35,15 @@ def test_splunk_source_doc_id_preserves_seeded_and_native_ids() -> None:
 
 
 class FakeElasticsearchClient:
-    """FakeElasticsearchClient 호출 계약을 정의한다."""
+    """ElasticsearchConnector가 import한 client 생성자를 대신한다."""
 
     def __init__(self, url: str, basic_auth: object = None) -> None:
-        """객체 초기 상태를 준비한다."""
+        """테스트 목적: Elasticsearch/Splunk connector 조회."""
         del url, basic_auth
 
 
 class FakeElasticsearchHelpers:
-    """FakeElasticsearchHelpers 테스트 대상을 표현한다."""
+    """helpers.scan 호출 옵션과 반환 문서를 제어한다."""
 
     calls: ClassVar[list[dict[str, object]]] = []
 
@@ -52,7 +52,7 @@ class FakeElasticsearchHelpers:
         client: FakeElasticsearchClient,
         **kwargs: object,
     ) -> list[dict[str, object]]:
-        """scan 동작을 처리한다."""
+        """테스트 목적: Elasticsearch/Splunk connector 조회."""
         del client
         FakeElasticsearchHelpers.calls.append(kwargs)
         return [
@@ -63,7 +63,7 @@ class FakeElasticsearchHelpers:
 def test_elasticsearch_connector_scans_without_document_cap(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """elasticsearch connector scans without document cap 동작을 검증한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     FakeElasticsearchHelpers.calls = []
     module = types.SimpleNamespace(Elasticsearch=FakeElasticsearchClient)
     helpers = types.SimpleNamespace(scan=FakeElasticsearchHelpers.scan)
@@ -80,10 +80,10 @@ def test_elasticsearch_connector_scans_without_document_cap(
 
 
 class FakeSplunkJobs:
-    """FakeSplunkJobs 테스트 대상을 표현한다."""
+    """Splunk export 검색문과 결과 row를 기록한다."""
 
     def __init__(self) -> None:
-        """객체 초기 상태를 준비한다."""
+        """테스트 목적: Elasticsearch/Splunk connector 조회."""
         self.search = ""
 
     def export(
@@ -91,22 +91,22 @@ class FakeSplunkJobs:
         search: str,
         output_mode: str,
     ) -> list[dict[str, str]]:
-        """export 동작을 처리한다."""
+        """테스트 목적: Elasticsearch/Splunk connector 조회."""
         del output_mode
         self.search = search
         return [{"source_doc_id": f"splunk-{index}"} for index in range(5001)]
 
 
 class FakeSplunkService:
-    """FakeSplunkService 테스트 대상을 표현한다."""
+    """Splunk SDK service의 jobs 속성을 제공한다."""
 
     def __init__(self) -> None:
-        """객체 초기 상태를 준비한다."""
+        """테스트 목적: Elasticsearch/Splunk connector 조회."""
         self.jobs = FakeSplunkJobs()
 
 
 def fake_splunk_connect(**kwargs: object) -> FakeSplunkService:
-    """fake splunk connect 동작을 처리한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     del kwargs
     return fake_splunk_service
 
@@ -114,7 +114,7 @@ def fake_splunk_connect(**kwargs: object) -> FakeSplunkService:
 def fake_json_results_reader(
     stream: list[dict[str, str]],
 ) -> list[dict[str, str]]:
-    """fake json results reader 동작을 처리한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     return stream
 
 
@@ -124,7 +124,7 @@ fake_splunk_service = FakeSplunkService()
 def test_splunk_connector_exports_without_document_cap(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    """splunk connector exports without document cap 동작을 검증한다."""
+    """테스트 목적: Elasticsearch/Splunk connector 조회."""
     fake_splunk_service.jobs.search = ""
     client_module = types.SimpleNamespace(connect=fake_splunk_connect)
     results_module = types.SimpleNamespace(JSONResultsReader=fake_json_results_reader)
