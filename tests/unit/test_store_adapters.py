@@ -199,7 +199,7 @@ def test_postgres_store_reads_lineage_metadata_when_opensearch_id_exists(
 
 
 def test_redis_mapping_cache_round_trips_mapping_decision_as_json() -> None:
-    """테스트 목적: Redis mapping cache hit/miss 분기."""
+    """Redis mapping cache가 MappingDecision을 JSON으로 저장하고 복원하는지 확인한다."""
     client = FakeRedis()
     cache = RedisMappingCache(client)
     decision = MappingDecision(

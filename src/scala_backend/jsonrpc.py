@@ -26,17 +26,17 @@ RpcHandler = Callable[[str, JsonObject, "JsonRpcPeer"], Awaitable[JsonObject]]
 
 @dataclass
 class _PendingResponse:
-    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
+    """요청 id별 future와 timeout handle을 함께 추적한다."""
 
     event: anyio.Event
     payload: JsonObject | None = None
 
 
 class JsonRpcPeer:
-    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
+    """TUI와 backend 사이의 JSON-RPC request/notification 왕복을 관리한다."""
 
     def __init__(self, stream: SocketStream, task_group: TaskGroup) -> None:
-        """JSON-RPC peer 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """reader/writer와 pending 요청 table을 JSON-RPC peer에 연결한다."""
         self._stream = stream
         self._task_group = task_group
         self._send_lock = anyio.Lock()
@@ -95,14 +95,14 @@ class JsonRpcPeer:
 
 
 class JsonRpcConnection:
-    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
+    """stdio 기반 JSON-RPC peer의 생명주기를 감싼다."""
 
     def __init__(self, handler: RpcHandler) -> None:
-        """JSON-RPC peer 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """입출력 stream으로 backend peer를 생성한다."""
         self._handler = handler
 
     async def run(self, stream: SocketStream) -> None:
-        """run 진입 동작을 실행한다."""
+        """stdio에서 JSON-RPC message loop를 시작한다."""
         async with anyio.create_task_group() as task_group:
             peer = JsonRpcPeer(stream, task_group)
             buffered = BufferedByteReceiveStream(stream)

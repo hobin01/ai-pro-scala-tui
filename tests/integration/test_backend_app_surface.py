@@ -22,14 +22,14 @@ class InlinePeer:
     """BackendApp surface 테스트에서 notification/request를 즉시 기록하는 peer다."""
 
     def __init__(self, task_group: TaskGroup) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """integration peer가 수집할 notification, request 목록과 이벤트를 준비한다."""
         self.task_group = task_group
         self.messages: list[tuple[str, JsonObject]] = []
         self.running = anyio.Event()
         self.completed = anyio.Event()
 
     async def notify(self, method: str, params: JsonObject) -> None:
-        """notification을 저장하고 필요한 anyio 이벤트를 표시한다."""
+        """notification payload를 저장하고 완료 이벤트를 표시한다."""
         self.messages.append((method, params))
         if method == "run.status" and params.get("status") == "running":
             self.running.set()
@@ -37,7 +37,7 @@ class InlinePeer:
             self.completed.set()
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """request를 저장하고 테스트용 응답 payload를 반환한다."""
+        """feedback request payload를 저장하고 approve 응답을 반환한다."""
         self.messages.append((method, params))
         return {"decision": "approve"}
 
@@ -54,7 +54,7 @@ class AgentJsonProvider:
     """fallback mapping JSON을 그대로 돌려주는 LLM provider 대역이다."""
 
     def validate(self, model: str) -> None:
-        """테스트 provider의 model preflight 결과를 만든다."""
+        """integration provider의 model preflight 성공을 반환한다."""
         del model
 
     def complete(
@@ -63,7 +63,7 @@ class AgentJsonProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
-        """prompt를 기록하고 테스트용 LLM 응답을 반환한다."""
+        """prompt를 기록하고 fallback JSON mapping 응답을 반환한다."""
         del model, price
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
@@ -78,7 +78,7 @@ class AgentJsonProvider:
 
 
 def app_with_agent_provider() -> BackendApp:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """fallback LLM provider를 붙인 BackendApp fixture를 만든다."""
     app = create_app(BackendConfig())
     app.llm_provider = AgentJsonProvider()
     app.set_pipeline()
@@ -87,7 +87,7 @@ def app_with_agent_provider() -> BackendApp:
 
 @pytest.mark.anyio
 async def test_pipeline_surface_returns_run_id() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """pipeline.run JSON-RPC handler가 run_id를 즉시 반환하는지 확인한다."""
     app = app_with_agent_provider()
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
@@ -115,7 +115,7 @@ async def test_pipeline_surface_returns_run_id() -> None:
 async def test_pipeline_surface_reports_prd_agent_count_and_completes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """pipeline 실행이 PRD agent trace와 완료 notification을 내보내는지 확인한다."""
     app = app_with_agent_provider()
     graph_calls: list[tuple[bool, bool, bool]] = []
 
@@ -126,7 +126,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
-        """agent_graph 호출 입력을 잡아 assertions에서 확인할 수 있게 한다."""
+        """agent_graph 입력을 캡처하고 PRD trace fixture를 반환한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 
@@ -193,7 +193,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
 async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """cache hit source가 agent graph의 cache-hit 분기로 기록되는지 확인한다."""
     app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
@@ -218,7 +218,7 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
-        """agent_graph 호출 입력을 잡아 assertions에서 확인할 수 있게 한다."""
+        """cache hit 입력을 캡처하고 cache-hit trace fixture를 반환한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 
@@ -270,7 +270,7 @@ async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
-        """agent_graph 호출 입력을 잡아 assertions에서 확인할 수 있게 한다."""
+        """mixed cache/feedback 입력을 캡처하고 feedback trace fixture를 반환한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 

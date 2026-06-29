@@ -20,7 +20,7 @@ class FakeCollection:
     """Chroma collection upsert/query 계약을 메모리 record로 대신한다."""
 
     def __init__(self) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """Chroma collection 대역의 add/query/count 상태를 초기화한다."""
         self.records: dict[str, dict[str, str]] = {}
         self.query_embeddings: list[list[float]] = []
 
@@ -56,7 +56,7 @@ class FakeChromaClient:
     """테스트 collection을 반환하는 Chroma client 대역이다."""
 
     def __init__(self) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """fake Chroma client가 반환할 collection 대역을 만든다."""
         self.collection = FakeCollection()
 
     def get_or_create_collection(self, name: str) -> FakeCollection:
@@ -65,7 +65,7 @@ class FakeChromaClient:
 
 
 def test_chroma_ocsf_index_upserts_and_queries_fields() -> None:
-    """테스트 목적: OCSF schema token 검색."""
+    """Chroma OCSF index가 field를 적재하고 유사 field를 조회하는지 확인한다."""
     client = FakeChromaClient()
     index = ChromaOcsfIndex(
         client=client,
@@ -92,7 +92,7 @@ def test_chroma_ocsf_index_upserts_and_queries_fields() -> None:
 def test_app_factory_bootstraps_empty_ocsf_collection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: OCSF schema token 검색."""
+    """빈 Chroma collection이면 app factory가 OCSF field를 bootstrap하는지 확인한다."""
     fields = [
         OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP address")
     ]
@@ -121,7 +121,7 @@ def test_app_factory_bootstraps_empty_ocsf_collection(
 def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: OCSF schema token 검색."""
+    """이미 데이터가 있는 Chroma collection은 bootstrap을 건너뛰는지 확인한다."""
     fake_index = FakeBootstrapIndex(count_value=3)
 
     def fields_for_version(version: str) -> list[OcsfField]:
@@ -149,7 +149,7 @@ class FakeBootstrapIndex:
     """app_factory가 bootstrap하는 OCSF field 목록을 기록하는 index다."""
 
     def __init__(self, count_value: int) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """OCSF bootstrap 호출 여부를 기록할 flag를 초기화한다."""
         self.count_value = count_value
         self.upserted: list[OcsfField] = []
 

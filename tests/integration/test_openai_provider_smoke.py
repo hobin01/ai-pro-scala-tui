@@ -12,7 +12,7 @@ from scala_backend.providers import OpenAiProvider
     reason="set SCALA_OPENAI_SMOKE=1 to run real OpenAI smoke",
 )
 def test_openai_provider_real_responses_smoke() -> None:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """실제 OpenAI provider가 response text와 token usage를 반환하는지 확인한다."""
     load_dotenv()
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -26,7 +26,7 @@ def test_openai_provider_real_responses_smoke() -> None:
 
 
 def _select_model(api_key: str) -> str:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """환경변수 model override가 없을 때 smoke test 기본 model을 선택한다."""
     configured = os.environ.get("SCALA_OPENAI_MODEL")
     if configured:
         return configured

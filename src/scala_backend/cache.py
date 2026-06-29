@@ -7,7 +7,7 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class MappingDecision:
-    """필드 매핑 캐시에서 함께 이동해야 하는 상태를 묶는다."""
+    """source field 하나에 대한 OCSF mapping 결정이다."""
 
     source_field: str
     source_type: str
@@ -17,54 +17,54 @@ class MappingDecision:
 
 
 class MappingCache(Protocol):
-    """필드 매핑 캐시에서 함께 이동해야 하는 상태를 묶는다."""
+    """mapping 결정 cache 구현이 제공해야 하는 get/set 계약이다."""
 
     def get(self, key: str) -> MappingDecision | None:
-        """필드 매핑 캐시에서 필요한 get 결과를 읽어 온다."""
+        """cache key에 저장된 mapping 결정을 읽는다."""
         ...
 
     def set(self, key: str, decision: MappingDecision) -> None:
-        """필드 매핑 캐시의 set 변경을 저장 계층에 반영한다."""
+        """cache key에 mapping 결정을 저장한다."""
         ...
 
 
 class RedisClient(Protocol):
-    """필드 매핑 캐시에서 외부 구현체가 제공할 메서드를 명시한다."""
+    """RedisMappingCache가 의존하는 Redis get/set 최소 surface다."""
 
     def get(self, name: str) -> bytes | str | None:
-        """필드 매핑 캐시에서 필요한 get 결과를 읽어 온다."""
+        """Redis key의 raw payload를 읽는다."""
         ...
 
     def set(self, name: str, value: str) -> object:
-        """필드 매핑 캐시의 set 변경을 저장 계층에 반영한다."""
+        """Redis key에 JSON 문자열 payload를 저장한다."""
         ...
 
 
 class InMemoryMappingCache:
-    """필드 매핑 캐시에서 함께 이동해야 하는 상태를 묶는다."""
+    """테스트와 memory mode에서 mapping 결정을 dict에 보관한다."""
 
     def __init__(self) -> None:
-        """필드 매핑 캐시 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """mapping decision 저장용 in-memory dict를 준비한다."""
         self._items: dict[str, MappingDecision] = {}
 
     def get(self, key: str) -> MappingDecision | None:
-        """필드 매핑 캐시에서 필요한 get 결과를 읽어 온다."""
+        """dict에서 cache key의 mapping 결정을 읽는다."""
         return self._items.get(key)
 
     def set(self, key: str, decision: MappingDecision) -> None:
-        """필드 매핑 캐시의 set 변경을 저장 계층에 반영한다."""
+        """dict에 cache key와 mapping 결정을 저장한다."""
         self._items[key] = decision
 
 
 class RedisMappingCache:
-    """필드 매핑 캐시에서 함께 이동해야 하는 상태를 묶는다."""
+    """Redis에 mapping 결정을 JSON으로 저장하는 cache 구현이다."""
 
     def __init__(
         self,
         client: RedisClient | None = None,
         redis_url: str = "redis://localhost:6379/0",
     ) -> None:
-        """필드 매핑 캐시 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """주입된 Redis client가 없으면 redis_url로 client를 만든다."""
         self._client: RedisClient
         if client is None:
             import redis
@@ -74,7 +74,7 @@ class RedisMappingCache:
             self._client = client
 
     def get(self, key: str) -> MappingDecision | None:
-        """필드 매핑 캐시에서 필요한 get 결과를 읽어 온다."""
+        """Redis JSON payload를 MappingDecision으로 복원한다."""
         payload = self._client.get(key)
         if payload is None:
             return None
@@ -83,7 +83,7 @@ class RedisMappingCache:
         return MappingDecision(**json.loads(payload))
 
     def set(self, key: str, decision: MappingDecision) -> None:
-        """필드 매핑 캐시의 set 변경을 저장 계층에 반영한다."""
+        """MappingDecision을 JSON payload로 직렬화해 Redis에 저장한다."""
         self._client.set(key, json.dumps(asdict(decision)))
 
 

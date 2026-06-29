@@ -52,7 +52,7 @@ class MappingDecider:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
-        """OCSF 매핑 결정 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """매핑 판단에 필요한 store, connector, cache, LLM provider를 연결한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache

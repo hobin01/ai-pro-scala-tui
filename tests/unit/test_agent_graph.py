@@ -6,7 +6,7 @@ from scala_backend.agent_graph import (
 
 
 def test_langgraph_runtime_edges_follow_prd_mermaid_topology() -> None:
-    """테스트 목적: PRD agent graph 분기 순서."""
+    """LangGraph edge 구성이 PRD mermaid topology와 일치하는지 확인한다."""
     graph = build_agent_graph().get_graph()
     edges = {(edge.source, edge.target) for edge in graph.edges}
 
@@ -51,7 +51,7 @@ def test_langgraph_runtime_edges_follow_prd_mermaid_topology() -> None:
 
 
 def test_agent_graph_runs_default_prd_path() -> None:
-    """테스트 목적: PRD agent graph 분기 순서."""
+    """cache miss 기본 경로가 normalization과 persistence까지 도달하는지 확인한다."""
     state = run_agent_graph("run-1")
 
     assert state["run_id"] == "run-1"
@@ -67,7 +67,7 @@ def test_agent_graph_runs_default_prd_path() -> None:
 
 
 def test_agent_graph_cache_hit_skips_rag_validator_and_feedback() -> None:
-    """테스트 목적: human feedback 요청과 응답 loop."""
+    """cache hit 경로가 RAG, validator, feedback node를 건너뛰는지 확인한다."""
     state = run_agent_graph("run-1", cache_hit=True, cache_miss=False)
 
     assert "chromadb_ocsf" not in state["nodes"]
@@ -77,7 +77,7 @@ def test_agent_graph_cache_hit_skips_rag_validator_and_feedback() -> None:
 
 
 def test_agent_graph_feedback_routes_through_orchestrator() -> None:
-    """테스트 목적: human feedback 요청과 응답 loop."""
+    """feedback 필요 시 orchestrator와 feedback loop trace를 확인한다."""
     state = run_agent_graph("run-1", needs_feedback=True)
 
     assert "orchestrator_feedback_request" in state["nodes"]
@@ -88,7 +88,7 @@ def test_agent_graph_feedback_routes_through_orchestrator() -> None:
 
 
 def test_agent_graph_mixed_cache_hit_and_miss_keeps_feedback_path() -> None:
-    """테스트 목적: human feedback 요청과 응답 loop."""
+    """cache hit와 miss가 섞여도 feedback 경로가 보존되는지 확인한다."""
     state = run_agent_graph(
         "run-1",
         cache_hit=True,

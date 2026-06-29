@@ -8,13 +8,13 @@ class FakeElasticsearchClient:
     """seed script가 Elasticsearch bulk payload를 보낼 client 대역이다."""
 
     def __init__(self) -> None:
-        """테스트 목적: 개발 seed 데이터 중복 방지."""
+        """Elasticsearch seed 테스트가 기록할 index 호출 목록을 초기화한다."""
         self.calls: list[dict[str, object]] = []
 
     def index(
         self, *, index: str, id: str, document: dict[str, object]
     ) -> dict[str, str]:
-        """테스트 목적: 개발 seed 데이터 중복 방지."""
+        """seeded Elasticsearch document index 호출을 저장한다."""
         self.calls.append({"index": index, "id": id, "document": document})
         return {"_id": id}
 
@@ -23,11 +23,11 @@ class FakeSplunkIndex:
     """Splunk seed가 submit할 event batch를 기록한다."""
 
     def __init__(self) -> None:
-        """테스트 목적: 개발 seed 데이터 중복 방지."""
+        """Splunk seed가 submit할 event batch를 초기화한다."""
         self.events: list[str] = []
 
     def submit(self, event: str) -> None:
-        """테스트 목적: 개발 seed 데이터 중복 방지."""
+        """Splunk event payload와 sourcetype을 batch에 저장한다."""
         self.events.append(event)
 
 
@@ -35,12 +35,12 @@ class FakeSplunkService:
     """seed script가 접근하는 Splunk index collection을 제공한다."""
 
     def __init__(self) -> None:
-        """테스트 목적: 개발 seed 데이터 중복 방지."""
+        """Splunk seed 테스트용 HEC client 대역을 연결한다."""
         self.indexes = {"main": FakeSplunkIndex()}
 
 
 def test_seed_elasticsearch_documents_indexes_with_stable_source_ids() -> None:
-    """테스트 목적: 개발 seed 데이터 중복 방지."""
+    """Elasticsearch seed가 안정적인 source id로 문서를 index하는지 확인한다."""
     client = FakeElasticsearchClient()
     docs = [{"message": "allowed"}, {"message": "blocked"}]
 
@@ -51,7 +51,7 @@ def test_seed_elasticsearch_documents_indexes_with_stable_source_ids() -> None:
 
 
 def test_seed_splunk_events_submits_json_events() -> None:
-    """테스트 목적: 개발 seed 데이터 중복 방지."""
+    """Splunk seed가 JSON event를 HEC로 제출하는지 확인한다."""
     service = FakeSplunkService()
 
     ids = seed_splunk_events(service, "main", [{"clientip": "10.0.0.5"}])

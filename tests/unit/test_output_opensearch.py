@@ -5,23 +5,23 @@ class FakeOpenSearchClient:
     """OpenSearchLoader가 보내는 index/get 호출을 메모리에 기록한다."""
 
     def __init__(self) -> None:
-        """테스트 목적: OpenSearch 적재와 단건 조회."""
+        """OpenSearch 대역의 in-memory index 저장소를 초기화한다."""
         self.index_calls: list[dict[str, object]] = []
         self.docs: dict[str, dict[str, object]] = {}
 
     def index(self, *, index: str, id: str, body: dict[str, object]) -> dict[str, str]:
-        """테스트 목적: OpenSearch 적재와 단건 조회."""
+        """index API 호출 문서를 in-memory 저장소에 기록한다."""
         self.index_calls.append({"index": index, "id": id, "body": body})
         self.docs[id] = body
         return {"_id": id}
 
     def get(self, *, index: str, id: str) -> dict[str, object]:
-        """테스트 목적: OpenSearch 적재와 단건 조회."""
+        """get API 호출 id로 in-memory 문서를 반환한다."""
         return {"found": id in self.docs, "_source": self.docs.get(id, {})}
 
 
 def test_opensearch_loader_indexes_normalized_document() -> None:
-    """테스트 목적: OpenSearch 적재와 단건 조회."""
+    """OpenSearch loader가 정규화 문서를 대상 index에 적재하는지 확인한다."""
     client = FakeOpenSearchClient()
     loader = OpenSearchLoader(client=client)
     doc = {"activity_name": "allow", "src_endpoint": {"ip": "10.0.0.5"}}
@@ -35,7 +35,7 @@ def test_opensearch_loader_indexes_normalized_document() -> None:
 
 
 def test_opensearch_loader_fetches_normalized_document_by_id() -> None:
-    """테스트 목적: OpenSearch 적재와 단건 조회."""
+    """OpenSearch loader가 normalized document id로 단건 조회하는지 확인한다."""
     client = FakeOpenSearchClient()
     loader = OpenSearchLoader(client=client)
     doc = {"activity_name": "allow"}

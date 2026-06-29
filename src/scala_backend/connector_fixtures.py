@@ -15,7 +15,7 @@ class FixtureConnector:
         self._documents = documents
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """원본 index에서 field 타입과 sample 값을 수집한다."""
+        """fixture 문서에서 field별 타입과 최대 limit개 sample을 수집한다."""
         rows = [doc for doc in self._documents if doc.source_index == index]
         fields: dict[str, list[JsonValue]] = {}
         types: dict[str, str] = {}
@@ -31,11 +31,11 @@ class FixtureConnector:
         ]
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
-        """iter documents 데이터를 순회한다."""
+        """fixture 문서 중 요청 index에 속한 원본 문서만 반환한다."""
         return (doc for doc in self._documents if doc.source_index == index)
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
+        """fixture 저장 문서에서 doc_id와 일치하는 RawDocument를 찾는다."""
         return next(
             (
                 doc

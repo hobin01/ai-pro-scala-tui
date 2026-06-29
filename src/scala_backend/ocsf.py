@@ -19,7 +19,7 @@ OCSF_RELEASE_URL = "https://github.com/ocsf/ocsf-schema/archive/refs/tags/{versi
 
 @dataclass(frozen=True)
 class OcsfField:
-    """OCSF 스키마 로딩에서 함께 이동해야 하는 상태를 묶는다."""
+    """OCSF field name, type, 설명을 검색 가능한 단위로 보관한다."""
 
     name: str
     type_name: str
@@ -28,10 +28,10 @@ class OcsfField:
 
 
 class LocalOcsfIndex:
-    """OCSF 스키마 로딩에서 함께 이동해야 하는 상태를 묶는다."""
+    """OCSF schema zip에서 field 후보를 읽고 간단한 token 검색을 제공한다."""
 
     def __init__(self, path: Path) -> None:
-        """OCSF schema loader 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """OCSF schema zip 경로를 검색 index 로더에 연결한다."""
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
