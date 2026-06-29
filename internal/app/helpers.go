@@ -7,7 +7,7 @@ func normalizeKey(key string) string {
 		return "space"
 	}
 	switch strings.ToLower(key) {
-	case "enter", "up", "down", "left", "right", "space", "backspace", "ctrl+c", "esc":
+	case "enter", "up", "down", "left", "right", "space", "backspace", "ctrl+c", "ctrl+v", "ctrl+y", "alt+y", "esc":
 		return strings.ToLower(key)
 	default:
 		return key

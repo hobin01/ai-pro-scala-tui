@@ -177,12 +177,12 @@ def _setting_url(
 
 
 def splunk_source_doc_id(body: JsonObject) -> str:
-    if "source_doc_id" in body:
-        return str(body["source_doc_id"])
     bucket = str(body.get("_bkt", ""))
     offset = str(body.get("_cd", ""))
     if bucket or offset:
         return f"{bucket}:{offset}"
+    if "source_doc_id" in body:
+        return str(body["source_doc_id"])
     return str(body.get("_serial", body.get("_raw", body.get("_time", ""))))
 
 

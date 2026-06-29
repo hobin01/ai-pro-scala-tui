@@ -15,7 +15,7 @@ Python JSON-RPC service and Docker Compose infrastructure.
   human feedback, lineage lookup, monitoring, and settings.
 - Python backend exposed over TCP JSON-RPC on `127.0.0.1:8765`.
 - Docker Compose runtime for PostgreSQL, Redis, ChromaDB, OpenSearch,
-  Elasticsearch, Splunk, and the backend service.
+  OpenSearch Dashboards, Elasticsearch, Kibana, Splunk, and the backend service.
 - Development seed commands for settings, OCSF vector data, Elasticsearch
   documents, and Splunk events.
 
@@ -42,9 +42,15 @@ make build
 SCALA_BACKEND_ADDR=127.0.0.1:8765 ./bin/scala-tui
 ```
 
-The TUI runs on the host terminal. Docker Compose exposes only the backend JSON-RPC
-port to `127.0.0.1:8765`; inside Compose the backend uses service DNS for
-PostgreSQL, Redis, ChromaDB, OpenSearch, Elasticsearch, and Splunk.
+The TUI runs on the host terminal. Docker Compose exposes the backend JSON-RPC
+port to `127.0.0.1:8765` and the development consoles at:
+
+- Kibana: `http://127.0.0.1:5601`
+- Splunk Web: `http://127.0.0.1:8000`
+- OpenSearch Dashboards: `http://127.0.0.1:5602`
+
+Inside Compose the backend uses service DNS for PostgreSQL, Redis, ChromaDB,
+OpenSearch, Elasticsearch, and Splunk.
 
 Useful commands:
 
@@ -54,6 +60,7 @@ make docker-backend-logs
 make docker-backend-qa
 COUNT=1000 make docker-backend-seed
 make docker-backend-down
+make docker-backend-clean
 ```
 
 For fixture-only TUI checks without the backend:

@@ -8,8 +8,10 @@ from anyio.abc import TaskGroup
 from scala_backend.app_factory import create_app
 from scala_backend.cache import cache_key
 from scala_backend.config import BackendConfig
+from scala_backend.connector_fixtures import default_connectors
 from scala_backend.models import JsonObject
 from scala_backend.normalization import recommend_mapping
+from scala_backend.pipeline import _stable_opensearch_id
 
 
 class InlinePeer:
@@ -111,24 +113,29 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         )
         assert completed["run_id"] == result["run_id"]
         assert completed["summary"] == {
-            "mapped": 6,
-            "kept_raw": 3,
+            "mapped": 7,
+            "kept_raw": 2,
             "loaded": 2,
             "lineage": 2,
             "cached": 9,
         }
+        fixture_connectors = default_connectors()
+        es_doc = next(
+            iter(fixture_connectors["elasticsearch"].iter_documents("logs-2026"))
+        )
+        splunk_doc = next(iter(fixture_connectors["splunk"].iter_documents("main")))
         assert completed["lineage_refs"] == [
             {
                 "source_solution": "elasticsearch",
                 "source_index": "logs-2026",
                 "source_doc_id": "es-1",
-                "opensearch_id": f"scala-{result['run_id'][:8]}-1",
+                "opensearch_id": _stable_opensearch_id(es_doc),
             },
             {
                 "source_solution": "splunk",
                 "source_index": "main",
                 "source_doc_id": "_bkt-1:_cd-42",
-                "opensearch_id": f"scala-{result['run_id'][:8]}-2",
+                "opensearch_id": _stable_opensearch_id(splunk_doc),
             },
         ]
         task_group.cancel_scope.cancel()

@@ -31,6 +31,7 @@ type Model struct {
 	workflowGate      bool
 	workflowCursor    int
 	workflowScroll    int
+	contentScroll     int
 	pipelineRunning   bool
 	pipelineDone      bool
 	pipelineIndex     int
@@ -127,6 +128,51 @@ func (m *Model) UpdateKey(key string) bool {
 		}
 	}
 	return false
+}
+
+func (m *Model) Paste(text string) {
+	if text == "" || m.pipelineRunning {
+		return
+	}
+	switch {
+	case m.editingSetting:
+		m.editValue += text
+	case m.feedbackComment:
+		m.input += text
+	case m.route != routeMonitoring:
+		m.input += text
+	}
+}
+
+func (m *Model) CopyKey(key string) (string, bool) {
+	key = normalizeKey(key)
+	switch key {
+	case "ctrl+y", "alt+y":
+		return m.CopyOpenSearchID()
+	case "y":
+		if m.route == routeLineage && m.input == "" && m.lineageResult != nil {
+			return m.CopyOpenSearchID()
+		}
+	}
+	return "", false
+}
+
+func (m *Model) CopyOpenSearchID() (string, bool) {
+	if m.lineageResult == nil || m.lineageResult.id == "" {
+		if m.lastRunStatus == nil || len(m.lastRunStatus.LineageRefs) == 0 {
+			m.notice = "No OpenSearch _id visible to copy."
+			return "", false
+		}
+		id := m.lastRunStatus.LineageRefs[0].OpenSearchID
+		m.notice = "Copied OpenSearch _id: " + id
+		return id, true
+	}
+	m.notice = "Copied OpenSearch _id: " + m.lineageResult.id
+	return m.lineageResult.id, true
+}
+
+func (m *Model) scrollContent(delta int) {
+	m.contentScroll = max(0, m.contentScroll+delta)
 }
 
 func (m *Model) AdvanceLoading() {

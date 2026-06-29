@@ -8,6 +8,9 @@ services:
       SCALA_BACKEND_HOST: 0.0.0.0
       SCALA_BACKEND_PORT: "8765"
       SCALA_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      SCALA_OPENAI_ADMIN_API_KEY: ${SCALA_OPENAI_ADMIN_API_KEY:-}
+      SCALA_OPENAI_COST_API_KEY_ID: ${SCALA_OPENAI_COST_API_KEY_ID:-}
+      SCALA_OPENAI_COST_PROJECT_ID: ${SCALA_OPENAI_COST_PROJECT_ID:-}
       SCALA_DATABASE_URL: postgresql://scala:scala@postgres:5432/scala
       SCALA_REDIS_URL: redis://redis:6379/0
       SCALA_CHROMA_PATH: /data/chroma
@@ -46,6 +49,40 @@ services:
       - scala-backend-data:/data
     secrets:
       - openai_api_key
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.2.3
+    environment:
+      SERVER_HOST: 0.0.0.0
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      XPACK_SECURITY_ENABLED: "false"
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5601/api/status >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.2.0
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+      SERVER_HOST: 0.0.0.0
+    ports:
+      - "5602:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5601/api/status >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
 
   postgres:
     image: postgres:17

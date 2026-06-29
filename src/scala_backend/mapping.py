@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from uuid import UUID
 
 from scala_backend.cache import MappingCache, MappingDecision, cache_key
 from scala_backend.connectors import SiemConnector
-from scala_backend.models import FieldSample, SourceSelection
+from scala_backend.errors import ProviderError
+from scala_backend.models import AgentName, FieldSample, SourceSelection
 from scala_backend.normalization import recommend_mapping
 from scala_backend.ocsf import OcsfField
+from scala_backend.providers import LlmProvider
 from scala_backend.runtime import request
-from scala_backend.store import BackendStore
+from scala_backend.store import BackendStore, make_usage
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
@@ -39,11 +42,13 @@ class MappingDecider:
         connectors: dict[str, SiemConnector],
         cache: MappingCache,
         ocsf_index: ChromaOcsfIndex | None = None,
+        llm_provider: LlmProvider | None = None,
     ) -> None:
         self._store = store
         self._connectors = connectors
         self._cache = cache
         self._ocsf_index = ocsf_index
+        self._llm_provider = llm_provider
 
     async def decide(
         self,
@@ -86,9 +91,11 @@ class MappingDecider:
         peer: object,
     ) -> tuple[MappingDecision, bool]:
         decision = recommend_mapping(field)
+        candidates: list[OcsfField] = []
         if decision.action == "map" and self._ocsf_index is not None:
             candidates = self._ocsf_index.query(_candidate_query(field), top_k=3)
             decision = _candidate_decision(field, candidates, decision)
+        decision = self._agent_decision(run_id, field, candidates, decision)
         if decision.action == "map" and field.name in {"clientip", "src_ip"}:
             feedback = _feedback(run_id, field, decision)
             while True:
@@ -126,8 +133,43 @@ class MappingDecider:
                 )
         return decision, False
 
+    def _agent_decision(
+        self,
+        run_id: UUID,
+        field: FieldSample,
+        candidates: list[OcsfField],
+        fallback: MappingDecision,
+    ) -> MappingDecision:
+        if self._llm_provider is None:
+            return fallback
+        settings = self._store.get_settings()
+        model = _agent_model(settings, AgentName.NORMALIZATION)
+        prompt = _agent_prompt(
+            settings,
+            AgentName.NORMALIZATION,
+            _mapping_prompt(field, candidates, fallback),
+        )
+        try:
+            response = self._llm_provider.complete(prompt, model, None)
+        except ProviderError:
+            return fallback
+        usage = response.usage
+        self._store.add_usage(
+            make_usage(
+                run_id,
+                AgentName.NORMALIZATION,
+                f"mapped field {field.name}",
+                model,
+                usage.total_tokens,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+            ),
+        )
+        return _parse_agent_decision(field, response.text, fallback)
+
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
         return self._connectors[source.solution].fetch_schema_samples(source.index)
+
 
 def _feedback(
     run_id: UUID,
@@ -177,7 +219,13 @@ def _candidate_decision(
     if not candidates:
         return fallback
     top = candidates[0]
-    if top.name in {"src_endpoint.ip", "dst_endpoint.port", "activity_name"}:
+    if top.name in {
+        "src_endpoint.ip",
+        "dst_endpoint.port",
+        "activity_name",
+        "raw_data",
+        "time",
+    }:
         return MappingDecision(
             source_field=field.name,
             source_type=field.type,
@@ -186,3 +234,94 @@ def _candidate_decision(
             ocsf_type=top.type_name,
         )
     return fallback
+
+
+def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
+    value = settings.get(f"agent.{agent.value}.model")
+    return value if isinstance(value, str) else "gpt-5-mini"
+
+
+def _agent_prompt(
+    settings: dict[str, object],
+    agent: AgentName,
+    task_prompt: str,
+) -> str:
+    system_prompt = settings.get(f"agent.{agent.value}.system_prompt")
+    if not isinstance(system_prompt, str):
+        system_prompt = f"You are the SCALA {agent.value} agent."
+    return f"{system_prompt}\n\n{task_prompt}"
+
+
+def _mapping_prompt(
+    field: FieldSample,
+    candidates: list[OcsfField],
+    fallback: MappingDecision,
+) -> str:
+    candidate_payload = [
+        {
+            "name": candidate.name,
+            "type": candidate.type_name,
+            "caption": candidate.caption,
+        }
+        for candidate in candidates[:5]
+    ]
+    payload = {
+        "task": "Choose the best OCSF mapping for one source field.",
+        "source_field": {
+            "name": field.name,
+            "type": field.type,
+            "samples": field.samples,
+        },
+        "ocsf_candidates": candidate_payload,
+        "fallback": asdict(fallback),
+        "rules": [
+            "Return JSON only.",
+            "Use action=map only when the OCSF field is semantically correct.",
+            "Use action=keep_raw for vendor-specific or ambiguous fields.",
+            "Never drop data.",
+        ],
+        "response_schema": {
+            "action": "map | keep_raw",
+            "ocsf_field": "string or null",
+            "ocsf_type": "string or null",
+        },
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _parse_agent_decision(
+    field: FieldSample,
+    text: str,
+    fallback: MappingDecision,
+) -> MappingDecision:
+    try:
+        payload = json.loads(_extract_json(text))
+    except json.JSONDecodeError:
+        return fallback
+    if not isinstance(payload, dict):
+        return fallback
+    action = payload.get("action")
+    if action == "keep_raw":
+        return MappingDecision(field.name, field.type, "keep_raw", None, None)
+    if action != "map":
+        return fallback
+    ocsf_field = payload.get("ocsf_field")
+    ocsf_type = payload.get("ocsf_type")
+    if not isinstance(ocsf_field, str) or not ocsf_field:
+        return fallback
+    if ocsf_type is not None and not isinstance(ocsf_type, str):
+        return fallback
+    return MappingDecision(field.name, field.type, "map", ocsf_field, ocsf_type)
+
+
+def _extract_json(text: str) -> str:
+    value = text.strip()
+    if value.startswith("```"):
+        lines = value.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    start = value.find("{")
+    end = value.rfind("}")
+    if start >= 0 and end >= start:
+        return value[start : end + 1]
+    return value

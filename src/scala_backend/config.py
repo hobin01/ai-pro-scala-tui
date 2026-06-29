@@ -21,6 +21,9 @@ class BackendConfig(BaseModel):
     ocsf_version: str = "1.8.0"
     ocsf_collection: str = "ocsf-schema"
     openai_api_key: str | None = None
+    openai_admin_api_key: str | None = None
+    openai_cost_api_key_id: str | None = None
+    openai_cost_project_id: str | None = None
     openai_model: str = "gpt-5-mini"
     openai_embedding_model: str = "text-embedding-3-small"
     opensearch_url: str = "memory://opensearch"
@@ -49,6 +52,10 @@ ENV_KEY_MAP = {
     "SCALA_OCSF_COLLECTION": "ocsf_collection",
     "SCALA_OPENAI_API_KEY": "openai_api_key",
     "OPENAI_API_KEY": "openai_api_key",
+    "SCALA_OPENAI_ADMIN_API_KEY": "openai_admin_api_key",
+    "OPENAI_ADMIN_API_KEY": "openai_admin_api_key",
+    "SCALA_OPENAI_COST_API_KEY_ID": "openai_cost_api_key_id",
+    "SCALA_OPENAI_COST_PROJECT_ID": "openai_cost_project_id",
     "SCALA_OPENAI_MODEL": "openai_model",
     "SCALA_OPENAI_EMBEDDING_MODEL": "openai_embedding_model",
     "SCALA_OPENSEARCH_URL": "opensearch_url",

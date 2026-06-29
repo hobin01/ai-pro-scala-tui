@@ -23,9 +23,13 @@ def test_parse_service_url_extracts_scheme_host_and_port() -> None:
 def test_splunk_source_doc_id_preserves_seeded_and_native_ids() -> None:
     seeded = splunk_source_doc_id({"source_doc_id": "splunk-seed-1"})
     native = splunk_source_doc_id({"_bkt": "bucket", "_cd": "42"})
+    native_with_seed_id = splunk_source_doc_id(
+        {"source_doc_id": "splunk-seed-1", "_bkt": "bucket", "_cd": "43"}
+    )
 
     assert seeded == "splunk-seed-1"
     assert native == "bucket:42"
+    assert native_with_seed_id == "bucket:43"
 
 
 class FakeElasticsearchClient:

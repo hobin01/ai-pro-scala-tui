@@ -164,7 +164,8 @@ class PostgresStore:
             cursor.execute(
                 "SELECT run_id, source_solution, source_index, source_doc_id, "
                 "opensearch_index, opensearch_id, created_at "
-                "FROM scala_data_lineage_metadata WHERE opensearch_id = %s",
+                "FROM scala_data_lineage_metadata WHERE opensearch_id = %s "
+                "ORDER BY created_at DESC LIMIT 1",
                 (opensearch_id,),
             )
             row = cursor.fetchone()

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from scala_backend.models import FieldSample, JsonValue, RawDocument
+from scala_backend.normalization import expand_raw_json
 
 
 class FixtureConnector:
@@ -15,7 +16,7 @@ class FixtureConnector:
         fields: dict[str, list[JsonValue]] = {}
         types: dict[str, str] = {}
         for row in rows:
-            for key, value in row.body.items():
+            for key, value in expand_raw_json(row.body).items():
                 samples = fields.setdefault(key, [])
                 if len(samples) < limit:
                     samples.append(value)

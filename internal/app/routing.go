@@ -122,9 +122,11 @@ func (m *Model) routeCommand(command string) bool {
 		m.workflowScroll = 0
 	case "/lineage-viewer":
 		m.route = routeLineage
+		m.contentScroll = 0
 		m.clearLineage()
 	case "/agent-monitoring":
 		m.route = routeMonitoring
+		m.contentScroll = 0
 		m.queueMonitoringQuery()
 	case "/settings":
 		m.route = routeSettings
@@ -152,6 +154,8 @@ func (m *Model) move(delta int) {
 			return
 		}
 		m.workflowScroll = clamp(m.workflowScroll+delta, 0, len(workflowViewLines(m.settings))-1)
+	case routeLineage, routeMonitoring:
+		m.scrollContent(delta)
 	case routeFeedback:
 		if m.feedbackWaiting {
 			m.feedbackCursor = clamp(m.feedbackCursor+delta, 0, 2)
@@ -169,6 +173,7 @@ func (m *Model) page(delta int) {
 		m.sampleErrorCursor = 0
 	case routeMonitoring:
 		m.monitoringScope = clamp(m.monitoringScope+delta, 0, 2)
+		m.contentScroll = 0
 	}
 }
 

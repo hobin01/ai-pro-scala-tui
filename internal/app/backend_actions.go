@@ -168,10 +168,11 @@ type MonitoringResult struct {
 }
 
 type MonitoringTotal struct {
-	Runs      int     `json:"runs"`
-	Tokens    int     `json:"tokens"`
-	Cost      float64 `json:"cost"`
-	LastRunID string  `json:"last_run_id"`
+	Runs       int      `json:"runs"`
+	Tokens     int      `json:"tokens"`
+	Cost       *float64 `json:"cost"`
+	CostSource string   `json:"cost_source"`
+	LastRunID  string   `json:"last_run_id"`
 }
 
 type MonitoringAgent struct {
@@ -382,7 +383,7 @@ func (m *Model) ApplyMonitoring(result MonitoringResult) {
 		scope:       displayScope(result.Scope),
 		totalRuns:   result.Total.Runs,
 		totalTokens: result.Total.Tokens,
-		totalCost:   fmt.Sprintf("$%.4f", result.Total.Cost),
+		totalCost:   monitoringTotalCost(result.Total),
 		asOf:        result.AsOf,
 		lastRunID:   result.Total.LastRunID,
 		emptyState:  result.Total.Runs == 0 && result.Total.Tokens == 0,
@@ -392,7 +393,7 @@ func (m *Model) ApplyMonitoring(result MonitoringResult) {
 			name:     agentLabel(agent.Agent),
 			model:    emptyDash(agent.Model),
 			tokens:   fmt.Sprintf("%d tokens", agent.Tokens),
-			cost:     fmt.Sprintf("$%.4f", agent.Cost),
+			cost:     "--",
 			activity: emptyDash(agent.LastActivity),
 		})
 	}
@@ -616,6 +617,13 @@ func emptyDash(value string) string {
 		return "-"
 	}
 	return value
+}
+
+func monitoringTotalCost(total MonitoringTotal) string {
+	if total.Cost == nil || total.CostSource == "unavailable" {
+		return "cost unavailable"
+	}
+	return fmt.Sprintf("$%.4f", *total.Cost)
 }
 
 func parseCSV(value string) []string {

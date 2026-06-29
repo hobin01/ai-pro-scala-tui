@@ -130,13 +130,17 @@ func TestBackendActionContract(t *testing.T) {
 	model.ApplyMonitoring(MonitoringResult{
 		Scope: "session",
 		AsOf:  "12:00",
-		Total: MonitoringTotal{Runs: 1, Tokens: 100, Cost: 0.12, LastRunID: "run-1"},
+		Total: MonitoringTotal{Runs: 1, Tokens: 100, Cost: floatPtr(0.12), CostSource: "openai_costs_api", LastRunID: "run-1"},
 		Agents: []MonitoringAgent{
 			{Agent: "orchestrator", Model: "gpt-5.4", LastActivity: "showed final result", Tokens: 100, Cost: 0.12},
 		},
 	})
 	assertContains(t, model.View(), "run-1")
 	assertContains(t, model.View(), "$0.1200")
+}
+
+func floatPtr(value float64) *float64 {
+	return &value
 }
 
 func mustConsumeAction(t *testing.T, model *Model, method string) BackendAction {

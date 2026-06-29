@@ -109,9 +109,7 @@ def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
 
     def fields_for_version(version: str) -> list[OcsfField]:
         del version
-        return [
-            OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP")
-        ]
+        return [OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP")]
 
     monkeypatch.setattr("scala_backend.app_factory.ChromaOcsfIndex", fake_index.factory)
     monkeypatch.setattr(

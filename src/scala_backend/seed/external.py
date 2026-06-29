@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib
 import json
-from collections.abc import Mapping
-from typing import Protocol
+from collections.abc import Iterable, Mapping
+from contextlib import suppress
+from typing import Protocol, cast
 
 from scala_backend.models import JsonObject
 
@@ -38,10 +40,41 @@ def seed_splunk_events(
     index: str,
     events: list[JsonObject],
 ) -> list[str]:
-    ids: list[str] = []
+    ids = [
+        str(event.get("source_doc_id", f"splunk-seed-{offset}"))
+        for offset, event in enumerate(events, start=1)
+    ]
+    if _seeded_splunk_ids(service, index, ids) >= len(ids):
+        return ids
     target = service.indexes[index]
-    for offset, event in enumerate(events, start=1):
-        doc_id = str(event.get("source_doc_id", f"splunk-seed-{offset}"))
+    for doc_id, event in zip(ids, events, strict=True):
         target.submit(json.dumps(event | {"source_doc_id": doc_id}, sort_keys=True))
-        ids.append(doc_id)
     return ids
+
+
+def _seeded_splunk_ids(
+    service: SplunkSeedService,
+    index: str,
+    expected_ids: list[str],
+) -> int:
+    jobs = getattr(service, "jobs", None)
+    export = getattr(jobs, "export", None)
+    if export is None:
+        return 0
+    query = (
+        f"search index={index} source_doc_id=splunk-seed-* "
+        "| fields source_doc_id | dedup source_doc_id"
+    )
+    with suppress(Exception):
+        stream = export(query, output_mode="json")
+        results_module = importlib.import_module("splunklib.results")
+        reader = cast(
+            "Iterable[object]",
+            results_module.JSONResultsReader(stream),
+        )
+
+        seen = {
+            str(row.get("source_doc_id")) for row in reader if isinstance(row, dict)
+        }
+        return len(set(expected_ids) & seen)
+    return 0

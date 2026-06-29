@@ -16,13 +16,15 @@ const (
 )
 
 var (
-	accentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightCyan))
-	borderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightBlue))
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightRed))
-	footerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiSoftBlue))
-	inputStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiSoftBlue))
-	statusStyle = lipgloss.NewStyle().Bold(true)
-	titleStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightCyan)).Bold(true)
+	accentStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightCyan))
+	borderStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightBlue))
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightRed))
+	footerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiSoftBlue))
+	inputStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiSoftBlue))
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightGreen))
+	statusStyle  = lipgloss.NewStyle().Bold(true)
+	titleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightCyan)).Bold(true)
+	warningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightYellow))
 )
 
 func renderStatus(value string) string {
@@ -45,4 +47,12 @@ func renderInput(value string) string {
 
 func renderCursor(value string) string {
 	return accentStyle.Bold(true).Render(value)
+}
+
+func renderSuccess(value string) string {
+	return successStyle.Render(value)
+}
+
+func renderWarning(value string) string {
+	return warningStyle.Render(value)
 }

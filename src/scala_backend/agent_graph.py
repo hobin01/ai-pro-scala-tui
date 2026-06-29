@@ -29,6 +29,7 @@ AGENT_STAGE_ORDER = (
     "lineage",
 )
 
+
 def build_agent_graph() -> Any:
     builder = StateGraph(AgentGraphState)
     for node, stage in _runtime_nodes():

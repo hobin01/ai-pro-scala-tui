@@ -96,9 +96,21 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.core.SetSize(msg.Width, msg.Height)
 		return m, nil
 	case tea.KeyPressMsg:
+		if msg.String() == "ctrl+v" {
+			return m, tea.ReadClipboard
+		}
+		if text, ok := m.core.CopyKey(msg.String()); ok {
+			return m, tea.SetClipboard(text)
+		}
 		if m.core.UpdateKey(msg.String()) {
 			return m, tea.Quit
 		}
+		return m, m.afterStateChange(nil)
+	case tea.PasteMsg:
+		m.core.Paste(msg.Content)
+		return m, m.afterStateChange(nil)
+	case tea.ClipboardMsg:
+		m.core.Paste(msg.Content)
 		return m, m.afterStateChange(nil)
 	case backendSettingsMsg:
 		m.core.ApplySettings(app.BackendSettings(msg))

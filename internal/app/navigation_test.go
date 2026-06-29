@@ -39,7 +39,7 @@ func TestAgentMonitoringScopesAndNoLLMRows(t *testing.T) {
 	assertContains(t, view, "Load")
 	assertContains(t, view, "-- (no LLM)")
 	assertContains(t, view, "Caching")
-	assertContains(t, view, "$0.0000")
+	assertContains(t, view, "cost unavailable")
 }
 
 func TestAgentMonitoringRejectsHiddenTextInput(t *testing.T) {

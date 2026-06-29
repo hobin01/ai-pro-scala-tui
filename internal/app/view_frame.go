@@ -19,7 +19,10 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 		height = minFrameHeight
 	}
 	innerWidth := width - 4
-	contentRows := strings.Split(strings.TrimRight(content, "\n"), "\n")
+	contentRows := wrapRows(
+		strings.Split(strings.TrimRight(content, "\n"), "\n"),
+		innerWidth,
+	)
 	if len(contentRows) == 1 && contentRows[0] == "" {
 		contentRows = nil
 	}
@@ -35,6 +38,10 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 		maxOffset := len(contentRows) - contentHeight
 		offset := clamp(m.workflowScroll, 0, maxOffset)
 		contentRows = contentRows[offset:]
+	} else if m.route == routeLineage || m.route == routeMonitoring {
+		maxOffset := len(contentRows) - contentHeight
+		m.contentScroll = clamp(m.contentScroll, 0, maxOffset)
+		contentRows = contentRows[m.contentScroll:]
 	}
 
 	lines := make([]string, 0, height)
@@ -69,9 +76,9 @@ func (m *Model) footerLine() string {
 	case routeFeedback:
 		return "enter select · agents stream · ctrl+c quit"
 	case routeLineage:
-		return "enter lookup/back · /help · ctrl+c quit"
+		return "↑↓ scroll · ctrl+v paste · ctrl+y copy _id · enter lookup/back"
 	case routeMonitoring:
-		return "←/→ scope · enter back · /help · ctrl+c quit"
+		return "←/→ scope · ↑↓ scroll · enter back · /help · ctrl+c quit"
 	case routeSettings:
 		return "↑↓ move · enter edit/select · /help · ctrl+c quit"
 	default:
@@ -205,4 +212,17 @@ func fitLine(value string, width int) string {
 		value = string(runes[:len(runes)-1])
 	}
 	return value + strings.Repeat(" ", width-lipgloss.Width(value))
+}
+
+func wrapRows(rows []string, width int) []string {
+	if width <= 0 {
+		return []string{""}
+	}
+	wrapped := make([]string, 0, len(rows))
+	for _, row := range rows {
+		row = strings.ReplaceAll(row, "\t", "  ")
+		parts := strings.Split(lipgloss.Wrap(row, width, ""), "\n")
+		wrapped = append(wrapped, parts...)
+	}
+	return wrapped
 }

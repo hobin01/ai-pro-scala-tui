@@ -34,6 +34,9 @@ func noticeStyle(value string) string {
 	if strings.HasPrefix(value, "✗") || strings.Contains(value, "Select at least") || strings.Contains(value, "read-only") {
 		return errorStyle.Render(value)
 	}
+	if strings.HasPrefix(value, "Copied") || strings.HasPrefix(value, "Settings") || strings.Contains(value, "loaded") {
+		return renderSuccess(value)
+	}
 	return accentStyle.Render(value)
 }
 

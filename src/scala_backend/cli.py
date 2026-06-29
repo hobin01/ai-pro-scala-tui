@@ -116,6 +116,9 @@ def _settings_overrides(config: BackendConfig) -> dict[str, object]:
         "source.splunk.indices": ["main"],
         "output.opensearch.url": config.opensearch_url,
         "output.opensearch.index": "scala-normalized",
+        "console.kibana.url": "http://127.0.0.1:5601",
+        "console.splunk.url": "http://127.0.0.1:8000",
+        "console.opensearch.url": "http://127.0.0.1:5602",
     }
 
 

@@ -2,7 +2,7 @@ DOCKER_COMPOSE ?= docker compose -f docker-compose.backend.yml
 COUNT ?= 1000
 OPENAI_SECRET_FILE ?= .scala-data/secrets/openai_api_key
 
-.PHONY: fmt test race vet lint build run qa docker-backend-secret docker-backend-config docker-backend-build docker-backend-up docker-backend-init docker-backend-seed docker-backend-qa docker-backend-down docker-backend-logs
+.PHONY: fmt test race vet lint build run qa docker-backend-secret docker-backend-config docker-backend-build docker-backend-up docker-backend-init docker-backend-seed docker-backend-qa docker-backend-down docker-backend-clean docker-backend-logs
 
 fmt:
 	gofmt -w $$(find . -path './.git' -prune -o -name '*.go' -print)
@@ -45,7 +45,7 @@ docker-backend-build: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) build backend
 
 docker-backend-up: docker-backend-secret
-	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) up -d backend
+	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) up -d backend kibana opensearch-dashboards
 
 docker-backend-init: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) run --rm backend scala-backend migrate
@@ -60,6 +60,9 @@ docker-backend-qa:
 
 docker-backend-down: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) down
+
+docker-backend-clean: docker-backend-secret
+	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) down -v --remove-orphans
 
 docker-backend-logs: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) logs -f backend

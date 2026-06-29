@@ -3,7 +3,7 @@ from decimal import Decimal
 from scala_backend.providers import FakeProvider, calculate_usage
 
 
-def test_usage_cost_calculation_uses_prompt_and_completion_prices() -> None:
+def test_usage_records_tokens_without_local_cost_estimate() -> None:
     usage = calculate_usage(
         prompt_tokens=1000,
         completion_tokens=500,
@@ -11,7 +11,7 @@ def test_usage_cost_calculation_uses_prompt_and_completion_prices() -> None:
     )
 
     assert usage.total_tokens == 1500
-    assert usage.cost_usd == Decimal("0.45")
+    assert usage.cost_usd == Decimal("0")
 
 
 def test_fake_provider_is_deterministic() -> None:

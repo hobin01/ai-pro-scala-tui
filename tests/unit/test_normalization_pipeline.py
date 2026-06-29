@@ -46,7 +46,25 @@ def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
 
     assert normalized["src_endpoint.ip"] == "10.0.0.5"
     assert normalized["dst_endpoint.port"] == 443
-    assert normalized["custom_attr"] == {"_time": "now"}
+    assert normalized["time"] == "now"
+
+
+def test_mapping_expands_json_raw_before_applying_decisions() -> None:
+    fields = [
+        FieldSample(name="_raw", type="string", samples=[]),
+        FieldSample(name="clientip", type="string", samples=[]),
+        FieldSample(name="port", type="string", samples=[]),
+    ]
+    decisions = [recommend_mapping(field) for field in fields]
+
+    normalized = apply_mapping(
+        {"_raw": '{"clientip": "10.0.0.5", "port": "443"}'},
+        decisions,
+    )
+
+    assert normalized["raw_data"] == '{"clientip": "10.0.0.5", "port": "443"}'
+    assert normalized["src_endpoint.ip"] == "10.0.0.5"
+    assert normalized["dst_endpoint.port"] == 443
 
 
 def test_cache_key_uses_source_url_index_field_and_type() -> None:

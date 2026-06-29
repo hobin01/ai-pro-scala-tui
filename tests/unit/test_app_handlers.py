@@ -15,7 +15,6 @@ from scala_backend.config import BackendConfig
 from scala_backend.connectors import default_connectors
 from scala_backend.errors import ConfigurationError, RunInProgressError
 from scala_backend.models import (
-    LLM_AGENTS,
     AgentName,
     JsonObject,
     MonitoringQueryParams,
@@ -56,7 +55,7 @@ class RecordingProvider:
                 prompt_tokens=11,
                 completion_tokens=5,
                 total_tokens=16,
-                cost_usd=Decimal("0.0195"),
+                cost_usd=Decimal("0"),
             ),
         )
 
@@ -207,26 +206,7 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
         "agent.schema_profiler.model": "gpt-profiler",
         "agent.normalization.model": "gpt-normalizer",
         "agent.validator.model": "gpt-validator",
-        "agent.orchestrator.system_prompt": "ORCH SYSTEM",
-        "agent.schema_profiler.system_prompt": "PROFILE SYSTEM",
         "agent.normalization.system_prompt": "NORMALIZE SYSTEM",
-        "agent.validator.system_prompt": "VALIDATE SYSTEM",
-        "model.gpt-orchestrator.price": {
-            "prompt_per_1k": 0.5,
-            "completion_per_1k": 1.0,
-        },
-        "model.gpt-profiler.price": {
-            "prompt_per_1k": 0.25,
-            "completion_per_1k": 0.75,
-        },
-        "model.gpt-normalizer.price": {
-            "prompt_per_1k": 0.3,
-            "completion_per_1k": 0.9,
-        },
-        "model.gpt-validator.price": {
-            "prompt_per_1k": 0.4,
-            "completion_per_1k": 1.1,
-        },
     }.items():
         store.set_setting(key, value)
     provider = RecordingProvider()
@@ -251,22 +231,15 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
         with anyio.fail_after(1):
             await peer.completed.wait()
 
-    assert [call["model"] for call in provider.calls] == [
-        "gpt-orchestrator",
-        "gpt-profiler",
-        "gpt-normalizer",
-        "gpt-validator",
-    ]
-    assert [prompt in str(call["prompt"]) for prompt, call in zip(
-        ["ORCH SYSTEM", "PROFILE SYSTEM", "NORMALIZE SYSTEM", "VALIDATE SYSTEM"],
-        provider.calls,
-        strict=True,
-    )] == [True, True, True, True]
+    assert {call["model"] for call in provider.calls} == {"gpt-normalizer"}
+    assert provider.calls
+    assert all("NORMALIZE SYSTEM" in str(call["prompt"]) for call in provider.calls)
     usage = store.list_usage()
-    assert len(usage) == 7
-    assert [row.agent for row in usage if row.agent in LLM_AGENTS] == list(LLM_AGENTS)
-    assert all(row.prompt_tokens == 11 for row in usage if row.agent in LLM_AGENTS)
-    assert all(row.completion_tokens == 5 for row in usage if row.agent in LLM_AGENTS)
+    normalizer_usage = [row for row in usage if row.agent == AgentName.NORMALIZATION]
+    assert len(normalizer_usage) == len(provider.calls)
+    assert all(row.prompt_tokens == 11 for row in normalizer_usage)
+    assert all(row.completion_tokens == 5 for row in normalizer_usage)
+    assert all(row.cost_usd == 0 for row in normalizer_usage)
 
 
 @pytest.mark.anyio

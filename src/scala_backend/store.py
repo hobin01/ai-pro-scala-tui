@@ -112,10 +112,6 @@ def seed_dev_settings(
             "You are the SCALA Validator Agent. Verify normalized mappings and "
             "request human feedback only when a decision is ambiguous."
         ),
-        "model.gpt-5-mini.price": {
-            "prompt_per_1k": 0.15,
-            "completion_per_1k": 0.60,
-        },
         "source.elasticsearch.url": "memory://elasticsearch",
         "source.elasticsearch.indices": ["logs-2026"],
         "source.splunk.url": "memory://splunk",
@@ -165,15 +161,12 @@ def aggregate_usage(
     ]
     agents = []
     total_tokens = 0
-    total_cost = Decimal("0")
     last_run_id = ""
     for agent in ALL_AGENTS:
         selected = [row for row in rows if row.agent == agent]
         tokens = sum(row.total_tokens for row in selected)
-        cost = sum((row.cost_usd for row in selected), Decimal("0"))
         last = selected[-1] if selected else None
         total_tokens += tokens
-        total_cost += cost
         if last is not None:
             last_run_id = str(last.run_id)
         agents.append(
@@ -182,7 +175,7 @@ def aggregate_usage(
                 "model": last.model if last else None,
                 "last_activity": last.last_activity if last else "",
                 "tokens": tokens,
-                "cost": float(cost),
+                "cost": 0,
             },
         )
     return {
@@ -190,7 +183,8 @@ def aggregate_usage(
         "as_of": now.strftime("%H:%M"),
         "total": {
             "tokens": total_tokens,
-            "cost": float(total_cost),
+            "cost": None,
+            "cost_source": "unavailable",
             "last_run_id": last_run_id,
             "runs": len({row.run_id for row in rows}),
         },

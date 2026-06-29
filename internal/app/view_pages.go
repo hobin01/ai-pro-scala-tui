@@ -55,7 +55,7 @@ func (m *Model) renderSources(b *strings.Builder) {
 		fmt.Fprintf(b, "  %s %s %s\n", cursor(i == m.sourceCursor), box, source.index)
 	}
 	if len(m.selectedSources()) >= 2 {
-		fmt.Fprintf(b, "\n✓ %s sources selected (%s) — press enter.\n", fmtInt(len(m.selectedSources())), selectedKindSummary(m.selectedSources()))
+		fmt.Fprintf(b, "\n%s %s sources selected (%s) — press enter.\n", renderSuccess("✓"), fmtInt(len(m.selectedSources())), selectedKindSummary(m.selectedSources()))
 	}
 }
 
@@ -71,7 +71,7 @@ func (m *Model) renderSamples(b *strings.Builder) {
 		for i, source := range selected {
 			status := "·"
 			if i == 0 {
-				status = "✓"
+				status = renderSuccess("✓")
 			}
 			if i == 1 {
 				status = "{spinner}"
@@ -134,7 +134,7 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 			why = request.Recommendation.Why
 		}
 		fmt.Fprintln(b, "\nReview field recommendation")
-		fmt.Fprintln(b, "⚑ The agent is unsure about this field.")
+		fmt.Fprintln(b, renderWarning("⚑ The agent is unsure about this field."))
 		fmt.Fprintf(b, "  Source field   %-15s (%s)\n", fieldName, fieldType)
 		fmt.Fprintf(b, "  Sample values  %s\n", strings.Join(samples, " · "))
 		fmt.Fprintf(b, "  Recommended    %-15s (OCSF, %s)\n", ocsfField, ocsfType)
@@ -154,10 +154,13 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 				link = m.lastRunStatus.OpenSearchLink
 			}
 		}
-		fmt.Fprintf(b, "\n✓ Normalization complete   %d mapped · %d kept raw (custom_attr)\n", summary.Mapped, summary.KeptRaw)
-		fmt.Fprintf(b, "✓ Loaded %s docs to OpenSearch  (%s)\n", fmtInt(summary.Loaded), m.settings.resultIndex)
-		fmt.Fprintf(b, "✓ Lineage recorded for %s docs  (PostgreSQL)\n", fmtInt(summary.Lineage))
-		fmt.Fprintf(b, "✓ %s mappings cached  (Redis)\n", fmtInt(summary.Cached))
+		fmt.Fprintf(b, "\n%s Normalization complete   %d mapped · %d kept raw (custom_attr)\n", renderSuccess("✓"), summary.Mapped, summary.KeptRaw)
+		fmt.Fprintf(b, "%s Loaded %s docs to OpenSearch  (%s)\n", renderSuccess("✓"), fmtInt(summary.Loaded), m.settings.resultIndex)
+		fmt.Fprintf(b, "%s Lineage recorded for %s docs  (PostgreSQL)\n", renderSuccess("✓"), fmtInt(summary.Lineage))
+		fmt.Fprintf(b, "%s %s mappings cached  (Redis)\n", renderSuccess("✓"), fmtInt(summary.Cached))
+		if m.lastRunStatus != nil && len(m.lastRunStatus.LineageRefs) > 0 {
+			fmt.Fprintf(b, "Sample lineage _id: %s\n", m.lastRunStatus.LineageRefs[0].OpenSearchID)
+		}
 		fmt.Fprintln(b, "View results in OpenSearch:")
 		fmt.Fprintf(b, "  %s\n", link)
 		fmt.Fprintln(b, "Press enter to return to main.")
@@ -180,7 +183,7 @@ func (m *Model) renderLineage(b *strings.Builder) {
 		return
 	}
 	if m.lineageNotFound != "" {
-		fmt.Fprintf(b, "✗ %s\n", m.lineageNotFound)
+		fmt.Fprintf(b, "%s %s\n", errorStyle.Render("✗"), m.lineageNotFound)
 		fmt.Fprintln(b, "- the id may be wrong, or")
 		fmt.Fprintln(b, "- the document was not produced by SCALA.")
 		fmt.Fprintln(b, "Check the _id in the OpenSearch dashboard and try again.")
@@ -211,14 +214,14 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 	} else {
 		fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
 	}
-	fmt.Fprintln(b, "Agent             Model          Last activity         Cost        Tokens")
-	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ────────    ──────")
+	fmt.Fprintln(b, "Agent             Model          Last activity         Tokens")
+	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ──────")
 	for _, row := range snapshot.agentRows {
 		activity := row.activity
 		if activity == "" {
 			activity = agentActivity(row.name)
 		}
-		fmt.Fprintf(b, "%-17s %-14s %-20s %-10s %s\n", row.name, row.model, activity, row.cost, row.tokens)
+		fmt.Fprintf(b, "%-17s %-14s %-20s %s\n", row.name, row.model, activity, row.tokens)
 	}
 }
 
