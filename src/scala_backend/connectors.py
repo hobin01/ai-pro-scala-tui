@@ -20,26 +20,40 @@ ELASTICSEARCH_PAGE_SIZE = 1000
 
 
 class SiemConnector(Protocol):
-    def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]: ...
+    """SiemConnector 객체의 책임을 정의한다."""
 
-    def iter_documents(self, index: str) -> Iterable[RawDocument]: ...
+    def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
+        """fetch schema samples 데이터를 조회한다."""
+        ...
 
-    def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None: ...
+    def iter_documents(self, index: str) -> Iterable[RawDocument]:
+        """iter documents 데이터를 순회한다."""
+        ...
+
+    def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
+        """fetch raw document 데이터를 조회한다."""
+        ...
 
 
 @dataclass(frozen=True)
 class ServiceUrl:
+    """ServiceUrl 객체의 책임을 정의한다."""
+
     scheme: str
     host: str
     port: int
 
 
 def default_connectors() -> dict[str, SiemConnector]:
+    """default connectors 동작을 처리한다."""
     return dict[str, SiemConnector](fixture_default_connectors())
 
 
 class ElasticsearchConnector:
+    """ElasticsearchConnector 객체의 책임을 정의한다."""
+
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
+        """객체 초기 상태를 준비한다."""
         module = importlib.import_module("elasticsearch")
         client_cls = module.Elasticsearch
         self.url = parse_service_url(url, default_port=9200)
@@ -48,6 +62,7 @@ class ElasticsearchConnector:
         self.solution = "elasticsearch"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
+        """fetch schema samples 데이터를 조회한다."""
         response = self._client.search(index=index, size=limit)
         docs = [
             RawDocument(
@@ -63,6 +78,7 @@ class ElasticsearchConnector:
         )
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
+        """iter documents 데이터를 순회한다."""
         helpers = importlib.import_module("elasticsearch.helpers")
         for hit in helpers.scan(
             self._client,
@@ -78,6 +94,7 @@ class ElasticsearchConnector:
             )
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
+        """fetch raw document 데이터를 조회한다."""
         try:
             response = self._client.get(index=index, id=doc_id)
         except (KeyError, ValueError) as exc:
@@ -88,7 +105,10 @@ class ElasticsearchConnector:
 
 
 class SplunkConnector:
+    """SplunkConnector 객체의 책임을 정의한다."""
+
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
+        """객체 초기 상태를 준비한다."""
         splunk_client = importlib.import_module("splunklib.client")
         parsed = parse_service_url(url, default_port=8089)
         self._service = splunk_client.connect(
@@ -103,6 +123,7 @@ class SplunkConnector:
         self.solution = "splunk"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
+        """fetch schema samples 데이터를 조회한다."""
         return FixtureConnector(
             "splunk", list(self.iter_documents(index))
         ).fetch_schema_samples(
@@ -111,6 +132,7 @@ class SplunkConnector:
         )
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
+        """iter documents 데이터를 순회한다."""
         results = importlib.import_module("splunklib.results")
         stream = self._service.jobs.export(
             f"search index={index} | spath",
@@ -126,6 +148,7 @@ class SplunkConnector:
             yield RawDocument("splunk", index, doc_id, body)
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
+        """fetch raw document 데이터를 조회한다."""
         return next(
             (doc for doc in self.iter_documents(index) if doc.source_doc_id == doc_id),
             None,
@@ -136,6 +159,7 @@ def connectors_from_settings(
     settings: dict[str, JsonValue],
     config: BackendConfig,
 ) -> dict[str, SiemConnector]:
+    """connectors from settings 연결 구성을 만든다."""
     elasticsearch_url = _setting_url(
         settings,
         "source.elasticsearch.url",
@@ -159,6 +183,7 @@ def connectors_from_settings(
 
 
 def parse_service_url(url: str, default_port: int = 443) -> ServiceUrl:
+    """parse service url 값을 파싱한다."""
     value = url if "://" in url else f"//{url}"
     parsed = urlparse(value, scheme="https")
     scheme = parsed.scheme if "://" in url else "https"
@@ -172,21 +197,24 @@ def _setting_url(
     key: str,
     fallback: str,
 ) -> str:
+    """setting url 내부 처리를 수행한다."""
     value = settings.get(key)
     return value if isinstance(value, str) else fallback
 
 
 def splunk_source_doc_id(body: JsonObject) -> str:
-    if "source_doc_id" in body:
-        return str(body["source_doc_id"])
+    """splunk source doc id 동작을 처리한다."""
     bucket = str(body.get("_bkt", ""))
     offset = str(body.get("_cd", ""))
     if bucket or offset:
         return f"{bucket}:{offset}"
+    if "source_doc_id" in body:
+        return str(body["source_doc_id"])
     return str(body.get("_serial", body.get("_raw", body.get("_time", ""))))
 
 
 def _coerce_json(value: object) -> JsonValue:
+    """coerce json 내부 처리를 수행한다."""
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, list):

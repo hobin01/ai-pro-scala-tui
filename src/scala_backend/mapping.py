@@ -1,26 +1,34 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from uuid import UUID
 
 from scala_backend.cache import MappingCache, MappingDecision, cache_key
+from scala_backend.config import DEFAULT_OPENAI_MODEL
 from scala_backend.connectors import SiemConnector
-from scala_backend.models import FieldSample, SourceSelection
+from scala_backend.errors import ProviderError
+from scala_backend.models import AgentName, FieldSample, SourceSelection
 from scala_backend.normalization import recommend_mapping
 from scala_backend.ocsf import OcsfField
+from scala_backend.providers import LlmProvider
 from scala_backend.runtime import request
-from scala_backend.store import BackendStore
+from scala_backend.store import BackendStore, make_usage
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 @dataclass(frozen=True)
 class CacheWrite:
+    """CacheWrite 객체의 책임을 정의한다."""
+
     key: str
     decision: MappingDecision
 
 
 @dataclass(frozen=True)
 class MappingResult:
+    """MappingResult 데이터 구조를 표현한다."""
+
     decisions: list[MappingDecision]
     cache_hit_count: int
     cache_miss_count: int
@@ -29,21 +37,27 @@ class MappingResult:
 
     @property
     def cached_count(self) -> int:
+        """cached count 동작을 처리한다."""
         return self.cache_hit_count
 
 
 class MappingDecider:
+    """MappingDecider 객체의 책임을 정의한다."""
+
     def __init__(
         self,
         store: BackendStore,
         connectors: dict[str, SiemConnector],
         cache: MappingCache,
         ocsf_index: ChromaOcsfIndex | None = None,
+        llm_provider: LlmProvider | None = None,
     ) -> None:
+        """객체 초기 상태를 준비한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache
         self._ocsf_index = ocsf_index
+        self._llm_provider = llm_provider
 
     async def decide(
         self,
@@ -51,6 +65,7 @@ class MappingDecider:
         sources: list[SourceSelection],
         peer: object,
     ) -> MappingResult:
+        """decide 동작을 처리한다."""
         decisions: list[MappingDecision] = []
         cache_hit_count = 0
         cache_miss_count = 0
@@ -85,10 +100,13 @@ class MappingDecider:
         field: FieldSample,
         peer: object,
     ) -> tuple[MappingDecision, bool]:
+        """decide uncached 내부 처리를 수행한다."""
         decision = recommend_mapping(field)
+        candidates: list[OcsfField] = []
         if decision.action == "map" and self._ocsf_index is not None:
             candidates = self._ocsf_index.query(_candidate_query(field), top_k=3)
             decision = _candidate_decision(field, candidates, decision)
+        decision = self._agent_decision(run_id, field, candidates, decision)
         if decision.action == "map" and field.name in {"clientip", "src_ip"}:
             feedback = _feedback(run_id, field, decision)
             while True:
@@ -126,8 +144,42 @@ class MappingDecider:
                 )
         return decision, False
 
+    def _agent_decision(
+        self,
+        run_id: UUID,
+        field: FieldSample,
+        candidates: list[OcsfField],
+        fallback: MappingDecision,
+    ) -> MappingDecision:
+        """agent decision 내부 처리를 수행한다."""
+        if self._llm_provider is None:
+            return fallback
+        settings = self._store.get_settings()
+        model = _agent_model(settings, AgentName.NORMALIZATION)
+        prompt = _agent_prompt(
+            settings,
+            AgentName.NORMALIZATION,
+            _mapping_prompt(field, candidates, fallback),
+        )
+        response = self._llm_provider.complete(prompt, model, None)
+        usage = response.usage
+        self._store.add_usage(
+            make_usage(
+                run_id,
+                AgentName.NORMALIZATION,
+                f"mapped field {field.name}",
+                model,
+                usage.total_tokens,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+            ),
+        )
+        return _parse_agent_decision(field, response.text)
+
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
+        """fields from source 내부 처리를 수행한다."""
         return self._connectors[source.solution].fetch_schema_samples(source.index)
+
 
 def _feedback(
     run_id: UUID,
@@ -135,6 +187,7 @@ def _feedback(
     decision: MappingDecision,
     comment: str | None = None,
 ) -> dict[str, object]:
+    """feedback 내부 처리를 수행한다."""
     why = "name and value look like a source IP"
     if comment is not None:
         why = f"{why} (updated); user comment: {comment}"
@@ -160,11 +213,13 @@ def _feedback(
 
 
 def _source_url(settings: dict[str, object], solution: str) -> str:
+    """source url 내부 처리를 수행한다."""
     value = settings.get(f"source.{solution}.url")
     return value if isinstance(value, str) else solution
 
 
 def _candidate_query(field: FieldSample) -> str:
+    """candidate query 내부 처리를 수행한다."""
     samples = " ".join(str(sample) for sample in field.samples[:3])
     return f"{field.name} {field.type} {samples}"
 
@@ -174,10 +229,17 @@ def _candidate_decision(
     candidates: list[OcsfField],
     fallback: MappingDecision,
 ) -> MappingDecision:
+    """candidate decision 내부 처리를 수행한다."""
     if not candidates:
         return fallback
     top = candidates[0]
-    if top.name in {"src_endpoint.ip", "dst_endpoint.port", "activity_name"}:
+    if top.name in {
+        "src_endpoint.ip",
+        "dst_endpoint.port",
+        "activity_name",
+        "raw_data",
+        "time",
+    }:
         return MappingDecision(
             source_field=field.name,
             source_type=field.type,
@@ -186,3 +248,100 @@ def _candidate_decision(
             ocsf_type=top.type_name,
         )
     return fallback
+
+
+def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
+    """agent model 내부 처리를 수행한다."""
+    value = settings.get(f"agent.{agent.value}.model")
+    return value if isinstance(value, str) else DEFAULT_OPENAI_MODEL
+
+
+def _agent_prompt(
+    settings: dict[str, object],
+    agent: AgentName,
+    task_prompt: str,
+) -> str:
+    """agent prompt 내부 처리를 수행한다."""
+    system_prompt = settings.get(f"agent.{agent.value}.system_prompt")
+    if not isinstance(system_prompt, str):
+        system_prompt = f"You are the SCALA {agent.value} agent."
+    return f"{system_prompt}\n\n{task_prompt}"
+
+
+def _mapping_prompt(
+    field: FieldSample,
+    candidates: list[OcsfField],
+    fallback: MappingDecision,
+) -> str:
+    """mapping prompt 내부 처리를 수행한다."""
+    candidate_payload = [
+        {
+            "name": candidate.name,
+            "type": candidate.type_name,
+            "caption": candidate.caption,
+        }
+        for candidate in candidates[:5]
+    ]
+    payload = {
+        "task": "Choose the best OCSF mapping for one source field.",
+        "source_field": {
+            "name": field.name,
+            "type": field.type,
+            "samples": field.samples,
+        },
+        "ocsf_candidates": candidate_payload,
+        "fallback": asdict(fallback),
+        "rules": [
+            "Return JSON only.",
+            "Use action=map only when the OCSF field is semantically correct.",
+            "Use action=keep_raw for vendor-specific or ambiguous fields.",
+            "Never drop data.",
+        ],
+        "response_schema": {
+            "action": "map | keep_raw",
+            "ocsf_field": "string or null",
+            "ocsf_type": "string or null",
+        },
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _parse_agent_decision(
+    field: FieldSample,
+    text: str,
+) -> MappingDecision:
+    """parse agent decision 내부 처리를 수행한다."""
+    try:
+        payload = json.loads(_extract_json(text))
+    except json.JSONDecodeError as exc:
+        raise ProviderError(
+            "Normalization agent returned invalid mapping JSON"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ProviderError("Normalization agent returned invalid mapping JSON")
+    action = payload.get("action")
+    if action == "keep_raw":
+        return MappingDecision(field.name, field.type, "keep_raw", None, None)
+    if action != "map":
+        raise ProviderError("Normalization agent returned invalid mapping action")
+    ocsf_field = payload.get("ocsf_field")
+    ocsf_type = payload.get("ocsf_type")
+    if not isinstance(ocsf_field, str) or not ocsf_field:
+        raise ProviderError("Normalization agent returned invalid OCSF field")
+    if ocsf_type is not None and not isinstance(ocsf_type, str):
+        raise ProviderError("Normalization agent returned invalid OCSF type")
+    return MappingDecision(field.name, field.type, "map", ocsf_field, ocsf_type)
+
+
+def _extract_json(text: str) -> str:
+    """extract json 내부 처리를 수행한다."""
+    value = text.strip()
+    if value.startswith("```"):
+        lines = value.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    start = value.find("{")
+    end = value.rfind("}")
+    if start >= 0 and end >= start:
+        return value[start : end + 1]
+    return value

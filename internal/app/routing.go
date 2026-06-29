@@ -2,6 +2,7 @@ package app
 
 import "strings"
 
+// enter는 관련 동작을 처리한다.
 func (m *Model) enter() {
 	if m.input != "" {
 		m.submitInput()
@@ -27,6 +28,7 @@ func (m *Model) enter() {
 	}
 }
 
+// enterSources는 관련 동작을 처리한다.
 func (m *Model) enterSources() {
 	if len(m.sources) == 0 {
 		m.route = routeSettings
@@ -41,8 +43,10 @@ func (m *Model) enterSources() {
 	m.samplePage = 0
 	m.sampleLoading = true
 	m.notice = ""
+	m.queueSamplesFetch()
 }
 
+// enterSamples는 관련 동작을 처리한다.
 func (m *Model) enterSamples() {
 	if m.sampleLoading {
 		return
@@ -58,6 +62,7 @@ func (m *Model) enterSamples() {
 	m.notice = ""
 }
 
+// enterWorkflow는 관련 동작을 처리한다.
 func (m *Model) enterWorkflow() {
 	if m.workflowGate && m.workflowCursor == 1 {
 		m.route = routeSamples
@@ -70,6 +75,7 @@ func (m *Model) enterWorkflow() {
 	m.route = routeMain
 }
 
+// enterLineage는 관련 동작을 처리한다.
 func (m *Model) enterLineage() {
 	if m.lineageLoading {
 		return
@@ -80,6 +86,7 @@ func (m *Model) enterLineage() {
 	m.route = routeMain
 }
 
+// submitInput는 관련 동작을 처리한다.
 func (m *Model) submitInput() {
 	value := strings.TrimSpace(m.input)
 	if m.route == routeLineage && value != "" && !strings.HasPrefix(value, "/") {
@@ -99,6 +106,7 @@ func (m *Model) submitInput() {
 	m.notice = `✗ Unknown command "` + value + `". Try /help.`
 }
 
+// routeCommand는 관련 동작을 처리한다.
 func (m *Model) routeCommand(command string) bool {
 	switch command {
 	case "/help":
@@ -114,16 +122,19 @@ func (m *Model) routeCommand(command string) bool {
 		}
 		m.route = routeSamples
 		m.sampleLoading = true
+		m.queueSamplesFetch()
 	case "/agent-workflow":
 		m.route = routeWorkflow
 		m.workflowGate = false
 		m.workflowScroll = 0
 	case "/lineage-viewer":
 		m.route = routeLineage
+		m.contentScroll = 0
 		m.clearLineage()
 	case "/agent-monitoring":
 		m.route = routeMonitoring
-		m.monitoring = defaultMonitoring(m.settings)
+		m.contentScroll = 0
+		m.queueMonitoringQuery()
 	case "/settings":
 		m.route = routeSettings
 		m.settingsCursor = 0
@@ -134,6 +145,7 @@ func (m *Model) routeCommand(command string) bool {
 	return true
 }
 
+// move는 관련 동작을 처리한다.
 func (m *Model) move(delta int) {
 	switch m.route {
 	case routeMain:
@@ -150,6 +162,8 @@ func (m *Model) move(delta int) {
 			return
 		}
 		m.workflowScroll = clamp(m.workflowScroll+delta, 0, len(workflowViewLines(m.settings))-1)
+	case routeLineage, routeMonitoring:
+		m.scrollContent(delta)
 	case routeFeedback:
 		if m.feedbackWaiting {
 			m.feedbackCursor = clamp(m.feedbackCursor+delta, 0, 2)
@@ -159,6 +173,7 @@ func (m *Model) move(delta int) {
 	}
 }
 
+// page는 관련 동작을 처리한다.
 func (m *Model) page(delta int) {
 	switch m.route {
 	case routeSamples:
@@ -167,9 +182,11 @@ func (m *Model) page(delta int) {
 		m.sampleErrorCursor = 0
 	case routeMonitoring:
 		m.monitoringScope = clamp(m.monitoringScope+delta, 0, 2)
+		m.contentScroll = 0
 	}
 }
 
+// space는 관련 동작을 처리한다.
 func (m *Model) space() {
 	if m.input != "" {
 		m.input += " "
@@ -186,12 +203,14 @@ func (m *Model) space() {
 	m.notice = ""
 }
 
+// openSources는 관련 동작을 처리한다.
 func (m *Model) openSources() {
 	m.route = routeSources
 	m.sourceCursor = 0
 	m.notice = ""
 }
 
+// selectedSources는 관련 동작을 처리한다.
 func (m *Model) selectedSources() []source {
 	selected := make([]source, 0, len(m.sources))
 	for _, source := range m.sources {
@@ -202,6 +221,7 @@ func (m *Model) selectedSources() []source {
 	return selected
 }
 
+// currentSampleSource는 관련 동작을 처리한다.
 func (m *Model) currentSampleSource() (source, bool) {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -211,11 +231,13 @@ func (m *Model) currentSampleSource() (source, bool) {
 	return selected[page], true
 }
 
+// enterSampleError는 관련 동작을 처리한다.
 func (m *Model) enterSampleError() {
 	switch m.sampleErrorCursor {
 	case 0:
 		m.sampleLoading = true
 		m.notice = ""
+		m.queueSamplesFetch()
 	case 1:
 		m.route = routeSources
 		m.notice = ""

@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// renderMain는 화면 문자열을 렌더링한다.
 func (m *Model) renderMain(b *strings.Builder) {
 	fmt.Fprintln(b, "Welcome. SCALA normalizes heterogeneous SIEM data into OCSF and loads")
 	fmt.Fprintln(b, "it into OpenSearch with full document lineage.")
@@ -31,6 +32,7 @@ func (m *Model) renderMain(b *strings.Builder) {
 	}
 }
 
+// renderSources는 화면 문자열을 렌더링한다.
 func (m *Model) renderSources(b *strings.Builder) {
 	fmt.Fprintln(b, "Source Selection")
 	if len(m.sources) == 0 {
@@ -55,10 +57,11 @@ func (m *Model) renderSources(b *strings.Builder) {
 		fmt.Fprintf(b, "  %s %s %s\n", cursor(i == m.sourceCursor), box, source.index)
 	}
 	if len(m.selectedSources()) >= 2 {
-		fmt.Fprintf(b, "\n✓ %s sources selected (%s) — press enter.\n", fmtInt(len(m.selectedSources())), selectedKindSummary(m.selectedSources()))
+		fmt.Fprintf(b, "\n%s %s sources selected (%s) — press enter.\n", renderSuccess("✓"), fmtInt(len(m.selectedSources())), selectedKindSummary(m.selectedSources()))
 	}
 }
 
+// renderSamples는 화면 문자열을 렌더링한다.
 func (m *Model) renderSamples(b *strings.Builder) {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -71,7 +74,7 @@ func (m *Model) renderSamples(b *strings.Builder) {
 		for i, source := range selected {
 			status := "·"
 			if i == 0 {
-				status = "✓"
+				status = renderSuccess("✓")
 			}
 			if i == 1 {
 				status = "{spinner}"
@@ -97,6 +100,7 @@ func (m *Model) renderSamples(b *strings.Builder) {
 	fmt.Fprintln(b, "\nPress enter to continue to the agent workflow graph.")
 }
 
+// renderSampleFailure는 화면 문자열을 렌더링한다.
 func (m *Model) renderSampleFailure(b *strings.Builder, source source) {
 	fmt.Fprintln(b, "fetch failed")
 	fmt.Fprintln(b, "✗ Could not fetch samples from this source.")
@@ -108,6 +112,7 @@ func (m *Model) renderSampleFailure(b *strings.Builder, source source) {
 	}
 }
 
+// renderFeedback는 화면 문자열을 렌더링한다.
 func (m *Model) renderFeedback(b *strings.Builder) {
 	fmt.Fprintln(b, "Human Feedback")
 	if m.pipelineRunning {
@@ -118,12 +123,27 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 		fmt.Fprintf(b, "- %s\n", line)
 	}
 	if m.feedbackWaiting {
+		request := m.feedbackRequest
+		fieldName := "clientip"
+		fieldType := "string"
+		samples := []string{"\"10.0.0.5\"", "\"192.168.1.20\""}
+		ocsfField := "src_endpoint.ip"
+		ocsfType := "ip"
+		why := "name+value look like a source IP; cast string→ip"
+		if request != nil {
+			fieldName = request.Field.SourceField
+			fieldType = request.Field.Type
+			samples = displayValues(request.Field.Samples)
+			ocsfField = request.Recommendation.OCSFField
+			ocsfType = request.Recommendation.OCSFType
+			why = request.Recommendation.Why
+		}
 		fmt.Fprintln(b, "\nReview field recommendation")
-		fmt.Fprintln(b, "⚑ The agent is unsure about this field.")
-		fmt.Fprintln(b, "  Source field   clientip          (string)")
-		fmt.Fprintln(b, "  Sample values  \"10.0.0.5\" · \"192.168.1.20\"")
-		fmt.Fprintln(b, "  Recommended    src_endpoint.ip   (OCSF, ip)")
-		fmt.Fprintln(b, "  Why            name+value look like a source IP; cast string→ip")
+		fmt.Fprintln(b, renderWarning("⚑ The agent is unsure about this field."))
+		fmt.Fprintf(b, "  Source field   %-15s (%s)\n", fieldName, fieldType)
+		fmt.Fprintf(b, "  Sample values  %s\n", strings.Join(samples, " · "))
+		fmt.Fprintf(b, "  Recommended    %-15s (OCSF, %s)\n", ocsfField, ocsfType)
+		fmt.Fprintf(b, "  Why            %s\n", why)
 		fmt.Fprintln(b, "How should this map?")
 		options := []string{"Approve recommendation", "Keep raw", "Comment & re-review"}
 		for i, option := range options {
@@ -131,16 +151,28 @@ func (m *Model) renderFeedback(b *strings.Builder) {
 		}
 	}
 	if m.pipelineDone {
-		fmt.Fprintln(b, "\n✓ Normalization complete   13 mapped · 2 kept raw (custom_attr)")
-		fmt.Fprintln(b, "✓ Loaded 2,000 docs to OpenSearch  (scala-normalized)")
-		fmt.Fprintln(b, "✓ Lineage recorded for 2,000 docs  (PostgreSQL)")
-		fmt.Fprintln(b, "✓ 5 mappings cached  (Redis)")
+		summary := RunSummary{Mapped: 13, KeptRaw: 2, Loaded: 2000, Lineage: 2000, Cached: 5}
+		link := m.settings.openSearchDash
+		if m.lastRunStatus != nil {
+			summary = m.lastRunStatus.Summary
+			if m.lastRunStatus.OpenSearchLink != "" {
+				link = m.lastRunStatus.OpenSearchLink
+			}
+		}
+		fmt.Fprintf(b, "\n%s Normalization complete   %d mapped · %d kept raw (custom_attr)\n", renderSuccess("✓"), summary.Mapped, summary.KeptRaw)
+		fmt.Fprintf(b, "%s Loaded %s docs to OpenSearch  (%s)\n", renderSuccess("✓"), fmtInt(summary.Loaded), m.settings.resultIndex)
+		fmt.Fprintf(b, "%s Lineage recorded for %s docs  (PostgreSQL)\n", renderSuccess("✓"), fmtInt(summary.Lineage))
+		fmt.Fprintf(b, "%s %s mappings cached  (Redis)\n", renderSuccess("✓"), fmtInt(summary.Cached))
+		if m.lastRunStatus != nil && len(m.lastRunStatus.LineageRefs) > 0 {
+			fmt.Fprintf(b, "Sample lineage _id: %s\n", m.lastRunStatus.LineageRefs[0].OpenSearchID)
+		}
 		fmt.Fprintln(b, "View results in OpenSearch:")
-		fmt.Fprintln(b, "  https://opensearch.local/_dashboards/…  (scala-normalized)")
+		fmt.Fprintf(b, "  %s\n", link)
 		fmt.Fprintln(b, "Press enter to return to main.")
 	}
 }
 
+// renderLineage는 화면 문자열을 렌더링한다.
 func (m *Model) renderLineage(b *strings.Builder) {
 	fmt.Fprintln(b, "Lineage Viewer")
 	if m.lineageLoading {
@@ -157,7 +189,7 @@ func (m *Model) renderLineage(b *strings.Builder) {
 		return
 	}
 	if m.lineageNotFound != "" {
-		fmt.Fprintf(b, "✗ %s\n", m.lineageNotFound)
+		fmt.Fprintf(b, "%s %s\n", errorStyle.Render("✗"), m.lineageNotFound)
 		fmt.Fprintln(b, "- the id may be wrong, or")
 		fmt.Fprintln(b, "- the document was not produced by SCALA.")
 		fmt.Fprintln(b, "Check the _id in the OpenSearch dashboard and try again.")
@@ -172,8 +204,9 @@ func (m *Model) renderLineage(b *strings.Builder) {
 	renderBlock(b, "Normalized document (OCSF)", record.normalDoc)
 }
 
+// renderMonitoring는 화면 문자열을 렌더링한다.
 func (m *Model) renderMonitoring(b *strings.Builder) {
-	snapshots := defaultMonitoring(m.settings)
+	snapshots := m.monitoring
 	scope := clamp(m.monitoringScope, 0, len(snapshots)-1)
 	snapshot := snapshots[scope]
 	fmt.Fprintln(b, "Agent Monitoring")
@@ -183,14 +216,23 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 		fmt.Fprintln(b, "Run a normalization pipeline first (Collect & Normalize).")
 		return
 	}
-	fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
-	fmt.Fprintln(b, "Agent             Model          Last activity         Cost        Tokens")
-	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ────────    ──────")
+	if snapshot.totalTokens > 0 || snapshot.totalDocs == 0 {
+		fmt.Fprintf(b, "Total  %d runs · %s · %d tokens   (last run %s)\n\n", snapshot.totalRuns, snapshot.totalCost, snapshot.totalTokens, snapshot.lastRunID)
+	} else {
+		fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
+	}
+	fmt.Fprintln(b, "Agent             Model          Last activity         Tokens")
+	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ──────")
 	for _, row := range snapshot.agentRows {
-		fmt.Fprintf(b, "%-17s %-14s %-20s %-10s %s\n", row.name, row.model, agentActivity(row.name), row.cost, row.tokens)
+		activity := row.activity
+		if activity == "" {
+			activity = agentActivity(row.name)
+		}
+		fmt.Fprintf(b, "%-17s %-14s %-20s %s\n", row.name, row.model, activity, row.tokens)
 	}
 }
 
+// renderSettings는 화면 문자열을 렌더링한다.
 func (m *Model) renderSettings(b *strings.Builder) {
 	fmt.Fprintln(b, "Settings")
 	for i, row := range settingsRows(m) {

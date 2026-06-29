@@ -8,6 +8,7 @@ import (
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+// newModelAtDataSamples는 관련 동작을 처리한다.
 func newModelAtDataSamples() *Model {
 	model := NewModel()
 	model.UpdateKey("enter")
@@ -20,18 +21,21 @@ func newModelAtDataSamples() *Model {
 	return model
 }
 
+// newModelAtWorkflowGate는 관련 동작을 처리한다.
 func newModelAtWorkflowGate() *Model {
 	model := newModelAtDataSamples()
 	model.UpdateKey("enter")
 	return model
 }
 
+// typeText는 관련 동작을 처리한다.
 func typeText(model *Model, text string) {
 	for _, r := range text {
 		model.UpdateKey(string(r))
 	}
 }
 
+// assertContains는 테스트 조건을 검증한다.
 func assertContains(t *testing.T, got string, want string) {
 	t.Helper()
 	got = stripANSI(got)
@@ -40,6 +44,7 @@ func assertContains(t *testing.T, got string, want string) {
 	}
 }
 
+// assertNotContains는 테스트 조건을 검증한다.
 func assertNotContains(t *testing.T, got string, want string) {
 	t.Helper()
 	got = stripANSI(got)
@@ -48,6 +53,7 @@ func assertNotContains(t *testing.T, got string, want string) {
 	}
 }
 
+// assertContainsRaw는 테스트 조건을 검증한다.
 func assertContainsRaw(t *testing.T, got string, want string) {
 	t.Helper()
 	if !strings.Contains(got, want) {
@@ -55,6 +61,7 @@ func assertContainsRaw(t *testing.T, got string, want string) {
 	}
 }
 
+// stripANSI는 관련 동작을 처리한다.
 func stripANSI(value string) string {
 	return ansiPattern.ReplaceAllString(value, "")
 }

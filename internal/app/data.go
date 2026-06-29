@@ -1,5 +1,6 @@
 package app
 
+// source는 data에서 사용하는 타입을 정의한다.
 type source struct {
 	id         string
 	kind       string
@@ -10,27 +11,32 @@ type source struct {
 	fields     []field
 }
 
+// field는 data에서 사용하는 타입을 정의한다.
 type field struct {
 	name   string
 	kind   string
 	values []string
 }
 
+// settings는 data에서 사용하는 타입을 정의한다.
 type settings struct {
-	elasticsearchURL   string
-	splunkURL          string
-	openSearchURL      string
-	orchestratorModel  string
-	profilerModel      string
-	normalizationModel string
-	validatorModel     string
-	apiKeyMasked       string
-	resultIndex        string
-	kibanaURL          string
-	splunkWebURL       string
-	openSearchDash     string
+	elasticsearchURL     string
+	splunkURL            string
+	elasticsearchIndices []string
+	splunkIndices        []string
+	openSearchURL        string
+	orchestratorModel    string
+	profilerModel        string
+	normalizationModel   string
+	validatorModel       string
+	apiKeyMasked         string
+	resultIndex          string
+	kibanaURL            string
+	splunkWebURL         string
+	openSearchDash       string
 }
 
+// lineageRecord는 data에서 사용하는 타입을 정의한다.
 type lineageRecord struct {
 	id         string
 	source     string
@@ -40,24 +46,29 @@ type lineageRecord struct {
 	normalDoc  []string
 }
 
+// monitoringSnapshot는 data에서 사용하는 타입을 정의한다.
 type monitoringSnapshot struct {
-	scope      string
-	totalRuns  int
-	totalDocs  int
-	totalCost  string
-	asOf       string
-	lastRunID  string
-	agentRows  []monitoringRow
-	emptyState bool
+	scope       string
+	totalRuns   int
+	totalDocs   int
+	totalTokens int
+	totalCost   string
+	asOf        string
+	lastRunID   string
+	agentRows   []monitoringRow
+	emptyState  bool
 }
 
+// monitoringRow는 data에서 사용하는 타입을 정의한다.
 type monitoringRow struct {
-	name   string
-	model  string
-	tokens string
-	cost   string
+	name     string
+	model    string
+	tokens   string
+	cost     string
+	activity string
 }
 
+// defaultSources는 관련 동작을 처리한다.
 func defaultSources() []source {
 	return []source{
 		{
@@ -118,23 +129,27 @@ func defaultSources() []source {
 	}
 }
 
+// defaultSettings는 관련 동작을 처리한다.
 func defaultSettings() settings {
 	return settings{
-		elasticsearchURL:   "https://es.local:9200",
-		splunkURL:          "https://splunk.local:8089",
-		openSearchURL:      "https://opensearch.local:9200",
-		orchestratorModel:  "gpt-5.4",
-		profilerModel:      "gpt-5.4",
-		normalizationModel: "gpt-5.4",
-		validatorModel:     "gpt-5.4",
-		apiKeyMasked:       "sk-****-demo",
-		resultIndex:        "scala-normalized/security-events",
-		kibanaURL:          "https://kibana.local:5601",
-		splunkWebURL:       "https://splunk-soc:8000",
-		openSearchDash:     "https://opensearch.local:5601",
+		elasticsearchURL:     "https://es.local:9200",
+		splunkURL:            "https://splunk.local:8089",
+		elasticsearchIndices: []string{"logs-2024", "firewall-idx"},
+		splunkIndices:        []string{"main", "security"},
+		openSearchURL:        "https://opensearch.local:9200",
+		orchestratorModel:    "gpt-5.4",
+		profilerModel:        "gpt-5.4",
+		normalizationModel:   "gpt-5.4",
+		validatorModel:       "gpt-5.4",
+		apiKeyMasked:         "sk-****-demo",
+		resultIndex:          "scala-normalized/security-events",
+		kibanaURL:            "https://kibana.local:5601",
+		splunkWebURL:         "https://splunk-soc:8000",
+		openSearchDash:       "https://opensearch.local:5601",
 	}
 }
 
+// defaultLineage는 관련 동작을 처리한다.
 func defaultLineage() map[string]lineageRecord {
 	return map[string]lineageRecord{
 		"aZ12bQ8": {
@@ -166,19 +181,20 @@ func defaultLineage() map[string]lineageRecord {
 	}
 }
 
+// defaultMonitoring는 관련 동작을 처리한다.
 func defaultMonitoring(settings settings) []monitoringSnapshot {
 	rows := []monitoringRow{
-		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "4,820 tokens", cost: "$0.0284"},
-		{name: "Schema Profiler", model: settings.profilerModel, tokens: "3,420 tokens", cost: "$0.0198"},
-		{name: "Normalization", model: settings.normalizationModel, tokens: "6,120 tokens", cost: "$0.0419"},
-		{name: "Validator", model: settings.validatorModel, tokens: "2,460 tokens", cost: "$0.0142"},
-		{name: "Load", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
-		{name: "Caching", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
-		{name: "Lineage", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
+		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "0 tokens", cost: "--"},
+		{name: "Schema Profiler", model: settings.profilerModel, tokens: "0 tokens", cost: "--"},
+		{name: "Normalization", model: settings.normalizationModel, tokens: "6,120 tokens", cost: "--"},
+		{name: "Validator", model: settings.validatorModel, tokens: "0 tokens", cost: "--"},
+		{name: "Load", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
+		{name: "Caching", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
+		{name: "Lineage", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
 	}
 	return []monitoringSnapshot{
-		{scope: "Session", totalRuns: 1, totalDocs: 2000, totalCost: "$0.0703", asOf: "2026-06-27 16:04 KST", lastRunID: "run-demo-001", agentRows: rows},
-		{scope: "Today", totalRuns: 3, totalDocs: 6000, totalCost: "$0.2109", asOf: "2026-06-27 16:04 KST", lastRunID: "run-demo-003", agentRows: rows},
-		{scope: "All-time", totalRuns: 0, totalDocs: 0, totalCost: "$0.0000", asOf: "2026-06-27 16:04 KST", lastRunID: "-", emptyState: true},
+		{scope: "Session", totalRuns: 1, totalDocs: 2000, totalCost: "cost unavailable", asOf: "2026-06-27 16:04 KST", lastRunID: "run-demo-001", agentRows: rows},
+		{scope: "Today", totalRuns: 3, totalDocs: 6000, totalCost: "cost unavailable", asOf: "2026-06-27 16:04 KST", lastRunID: "run-demo-003", agentRows: rows},
+		{scope: "All-time", totalRuns: 0, totalDocs: 0, totalCost: "cost unavailable", asOf: "2026-06-27 16:04 KST", lastRunID: "-", emptyState: true},
 	}
 }

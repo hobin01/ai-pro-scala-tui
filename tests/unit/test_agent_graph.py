@@ -6,6 +6,7 @@ from scala_backend.agent_graph import (
 
 
 def test_langgraph_runtime_edges_follow_prd_mermaid_topology() -> None:
+    """langgraph runtime edges follow prd mermaid topology 동작을 검증한다."""
     graph = build_agent_graph().get_graph()
     edges = {(edge.source, edge.target) for edge in graph.edges}
 
@@ -50,6 +51,7 @@ def test_langgraph_runtime_edges_follow_prd_mermaid_topology() -> None:
 
 
 def test_agent_graph_runs_default_prd_path() -> None:
+    """agent graph runs default prd path 동작을 검증한다."""
     state = run_agent_graph("run-1")
 
     assert state["run_id"] == "run-1"
@@ -65,6 +67,7 @@ def test_agent_graph_runs_default_prd_path() -> None:
 
 
 def test_agent_graph_cache_hit_skips_rag_validator_and_feedback() -> None:
+    """agent graph cache hit skips rag validator and feedback 동작을 검증한다."""
     state = run_agent_graph("run-1", cache_hit=True, cache_miss=False)
 
     assert "chromadb_ocsf" not in state["nodes"]
@@ -74,6 +77,7 @@ def test_agent_graph_cache_hit_skips_rag_validator_and_feedback() -> None:
 
 
 def test_agent_graph_feedback_routes_through_orchestrator() -> None:
+    """agent graph feedback routes through orchestrator 동작을 검증한다."""
     state = run_agent_graph("run-1", needs_feedback=True)
 
     assert "orchestrator_feedback_request" in state["nodes"]
@@ -84,6 +88,7 @@ def test_agent_graph_feedback_routes_through_orchestrator() -> None:
 
 
 def test_agent_graph_mixed_cache_hit_and_miss_keeps_feedback_path() -> None:
+    """agent graph mixed cache hit and miss keeps feedback path 동작을 검증한다."""
     state = run_agent_graph(
         "run-1",
         cache_hit=True,

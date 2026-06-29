@@ -4,6 +4,7 @@ import (
 	"strings"
 )
 
+// View는 화면 문자열을 렌더링한다.
 func (m *Model) View() string {
 	var content strings.Builder
 	switch m.route {
@@ -34,6 +35,7 @@ func (m *Model) View() string {
 	return m.renderFrame(content.String(), notice, m.inputLine(), m.footerLine())
 }
 
+// inputLine는 관련 동작을 처리한다.
 func (m *Model) inputLine() string {
 	switch {
 	case m.pipelineRunning:
@@ -61,6 +63,7 @@ func (m *Model) inputLine() string {
 	}
 }
 
+// settingsRows는 관련 동작을 처리한다.
 func settingsRows(m *Model) []string {
 	rows := []string{
 		"Elasticsearch URL        " + m.settings.elasticsearchURL,
@@ -70,8 +73,8 @@ func settingsRows(m *Model) []string {
 		"Normalization model      " + m.settings.normalizationModel,
 		"Validator model          " + m.settings.validatorModel,
 		"OpenAI API key           " + m.settings.apiKeyMasked + " (read-only · .env)",
-		"Elasticsearch indices    logs-2024, firewall-idx",
-		"Splunk indices           main, security",
+		"Elasticsearch indices    " + strings.Join(m.settings.elasticsearchIndices, ", "),
+		"Splunk indices           " + strings.Join(m.settings.splunkIndices, ", "),
 		"OpenSearch URL           " + m.settings.openSearchURL,
 		"Result index             " + m.settings.resultIndex,
 		"Kibana                   " + m.settings.kibanaURL,
@@ -81,6 +84,7 @@ func settingsRows(m *Model) []string {
 	return append(rows, "Back to main")
 }
 
+// backSettingsRow는 관련 동작을 처리한다.
 func (m *Model) backSettingsRow() int {
 	return len(settingsRows(m)) - 1
 }

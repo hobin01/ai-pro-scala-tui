@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -13,9 +14,8 @@ from scala_backend.app_factory import create_app
 from scala_backend.cache import InMemoryMappingCache
 from scala_backend.config import BackendConfig
 from scala_backend.connectors import default_connectors
-from scala_backend.errors import ConfigurationError, RunInProgressError
+from scala_backend.errors import ConfigurationError, ProviderError, RunInProgressError
 from scala_backend.models import (
-    LLM_AGENTS,
     AgentName,
     JsonObject,
     MonitoringQueryParams,
@@ -28,20 +28,33 @@ from scala_backend.store import InMemoryStore, make_usage
 
 
 class RecordingPeer:
+    """RecordingPeer 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.messages: list[tuple[str, JsonObject]] = []
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         self.messages.append((method, params))
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         self.messages.append((method, params))
         return {"decision": "approve"}
 
 
 class RecordingProvider:
+    """RecordingProvider 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.calls: list[dict[str, object]] = []
+        self.validate_calls: list[str] = []
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        self.validate_calls.append(model)
 
     def complete(
         self,
@@ -49,20 +62,55 @@ class RecordingProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         self.calls.append({"prompt": prompt, "model": model, "price": price})
+        payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
+        if not isinstance(payload, dict):
+            raise AssertionError("mapping prompt must contain JSON")
+        fallback = payload.get("fallback")
+        if not isinstance(fallback, dict):
+            raise AssertionError("mapping prompt must contain fallback")
         return LlmResponse(
-            text="ok",
+            text=json.dumps(fallback),
             usage=ProviderUsage(
                 prompt_tokens=11,
                 completion_tokens=5,
                 total_tokens=16,
-                cost_usd=Decimal("0.0195"),
+                cost_usd=Decimal("0"),
             ),
         )
 
 
+class FailingProvider(RecordingProvider):
+    """FailingProvider 테스트 대상을 표현한다."""
+
+    def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
+        super().__init__()
+        self.complete_called = False
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        super().validate(model)
+        raise ProviderError("OpenAI API key is invalid")
+
+    def complete(
+        self,
+        prompt: str,
+        model: str,
+        price: dict[str, float] | None,
+    ) -> LlmResponse:
+        """complete 동작을 처리한다."""
+        del prompt, model, price
+        self.complete_called = True
+        raise AssertionError("pipeline should not request mappings with invalid key")
+
+
 class BlockingFeedbackPeer:
+    """BlockingFeedbackPeer 테스트 대상을 표현한다."""
+
     def __init__(self, task_group: TaskGroup) -> None:
+        """객체 초기 상태를 준비한다."""
         self.task_group = task_group
         self.messages: list[tuple[str, JsonObject]] = []
         self.feedback_requested = anyio.Event()
@@ -70,11 +118,13 @@ class BlockingFeedbackPeer:
         self.completed = anyio.Event()
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         self.messages.append((method, params))
         if method == "run.status" and params.get("status") in {"completed", "failed"}:
             self.completed.set()
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         self.messages.append((method, params))
         if method == "feedback.request":
             self.feedback_requested.set()
@@ -86,10 +136,12 @@ class BlockingFeedbackPeer:
         func: Callable[..., Coroutine[Any, Any, None]],
         *args: object,
     ) -> None:
+        """start soon 동작을 처리한다."""
         self.task_group.start_soon(func, *args)
 
 
 def test_settings_handlers_are_hot_reload() -> None:
+    """settings handlers are hot reload 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     result = app.settings_set(
@@ -98,10 +150,11 @@ def test_settings_handlers_are_hot_reload() -> None:
 
     assert result["applied"] == "hot-reload"
     assert app.settings_get()["sources"]["splunk"]["indices"] == ["security"]
-    assert app.settings_get()["openai_api_key_masked"] == "set...5678"
+    assert app.settings_get()["openai_api_key_masked"] == "set"
 
 
 def test_settings_get_redacts_source_url_credentials() -> None:
+    """settings get redacts source url credentials 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     app.settings_set(
@@ -118,19 +171,20 @@ def test_settings_get_redacts_source_url_credentials() -> None:
 
 
 def test_monitoring_session_starts_at_backend_process_start() -> None:
+    """monitoring session starts at backend process start 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
     old_usage = make_usage(
         uuid4(),
         AgentName.ORCHESTRATOR,
         "old run",
-        "gpt-5-mini",
+        "gpt-5.4-mini",
         100,
     ).model_copy(update={"created_at": app.started_at - timedelta(seconds=1)})
     new_usage = make_usage(
         uuid4(),
         AgentName.ORCHESTRATOR,
         "new run",
-        "gpt-5-mini",
+        "gpt-5.4-mini",
         7,
     ).model_copy(update={"created_at": datetime.now(UTC)})
     app.store.add_usage(old_usage)
@@ -143,6 +197,7 @@ def test_monitoring_session_starts_at_backend_process_start() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_missing_required_settings() -> None:
+    """pipeline run rejects missing required settings 동작을 검증한다."""
     app = BackendApp(BackendConfig(), store=InMemoryStore())
 
     with pytest.raises(ConfigurationError, match="OpenSearch URL"):
@@ -159,6 +214,7 @@ async def test_pipeline_run_rejects_missing_required_settings() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_two_or_more_sources() -> None:
+    """pipeline run requires two or more sources 동작을 검증한다."""
     app = create_app(BackendConfig())
 
     with pytest.raises(ConfigurationError, match="at least two sources"):
@@ -172,6 +228,7 @@ async def test_pipeline_run_requires_two_or_more_sources() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_agent_models() -> None:
+    """pipeline run requires agent models 동작을 검증한다."""
     store = InMemoryStore()
     store.set_setting("source.elasticsearch.url", "memory://elasticsearch")
     store.set_setting("source.elasticsearch.indices", ["logs-2026"])
@@ -194,41 +251,53 @@ async def test_pipeline_run_requires_agent_models() -> None:
 
 
 @pytest.mark.anyio
+async def test_pipeline_run_requires_openai_provider() -> None:
+    """pipeline run requires openai provider 동작을 검증한다."""
+    app = create_app(BackendConfig())
+
+    with pytest.raises(ProviderError, match="OpenAI API key is not configured"):
+        await app.pipeline_run(
+            PipelineRunParams(
+                sources=[
+                    SourceSelection(solution="elasticsearch", index="logs-2026"),
+                    SourceSelection(solution="splunk", index="main"),
+                ],
+            ),
+            RecordingPeer(),
+        )
+
+
+@pytest.mark.anyio
+async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
+    """pipeline run rejects invalid openai key before mapping 동작을 검증한다."""
+    provider = FailingProvider()
+    app = BackendApp(
+        BackendConfig(),
+        store=_configured_store(),
+        connectors=default_connectors(),
+        cache=InMemoryMappingCache(),
+        llm_provider=provider,
+    )
+
+    with pytest.raises(ProviderError, match="OpenAI API key is invalid"):
+        await app.pipeline_run(
+            PipelineRunParams(
+                sources=[
+                    SourceSelection(solution="elasticsearch", index="logs-2026"),
+                    SourceSelection(solution="splunk", index="main"),
+                ],
+            ),
+            RecordingPeer(),
+        )
+
+    assert provider.validate_calls == ["gpt-normalizer"]
+    assert provider.complete_called is False
+
+
+@pytest.mark.anyio
 async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
-    store = InMemoryStore()
-    for key, value in {
-        "source.elasticsearch.url": "memory://elasticsearch",
-        "source.elasticsearch.indices": ["logs-2026"],
-        "source.splunk.url": "memory://splunk",
-        "source.splunk.indices": ["main"],
-        "output.opensearch.url": "memory://opensearch",
-        "output.opensearch.index": "scala-normalized",
-        "agent.orchestrator.model": "gpt-orchestrator",
-        "agent.schema_profiler.model": "gpt-profiler",
-        "agent.normalization.model": "gpt-normalizer",
-        "agent.validator.model": "gpt-validator",
-        "agent.orchestrator.system_prompt": "ORCH SYSTEM",
-        "agent.schema_profiler.system_prompt": "PROFILE SYSTEM",
-        "agent.normalization.system_prompt": "NORMALIZE SYSTEM",
-        "agent.validator.system_prompt": "VALIDATE SYSTEM",
-        "model.gpt-orchestrator.price": {
-            "prompt_per_1k": 0.5,
-            "completion_per_1k": 1.0,
-        },
-        "model.gpt-profiler.price": {
-            "prompt_per_1k": 0.25,
-            "completion_per_1k": 0.75,
-        },
-        "model.gpt-normalizer.price": {
-            "prompt_per_1k": 0.3,
-            "completion_per_1k": 0.9,
-        },
-        "model.gpt-validator.price": {
-            "prompt_per_1k": 0.4,
-            "completion_per_1k": 1.1,
-        },
-    }.items():
-        store.set_setting(key, value)
+    """pipeline records agent usage with settings prompts 동작을 검증한다."""
+    store = _configured_store()
     provider = RecordingProvider()
     app = BackendApp(
         BackendConfig(),
@@ -251,32 +320,48 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
         with anyio.fail_after(1):
             await peer.completed.wait()
 
-    assert [call["model"] for call in provider.calls] == [
-        "gpt-orchestrator",
-        "gpt-profiler",
-        "gpt-normalizer",
-        "gpt-validator",
-    ]
-    assert [prompt in str(call["prompt"]) for prompt, call in zip(
-        ["ORCH SYSTEM", "PROFILE SYSTEM", "NORMALIZE SYSTEM", "VALIDATE SYSTEM"],
-        provider.calls,
-        strict=True,
-    )] == [True, True, True, True]
+    assert {call["model"] for call in provider.calls} == {"gpt-normalizer"}
+    assert provider.calls
+    assert all("NORMALIZE SYSTEM" in str(call["prompt"]) for call in provider.calls)
     usage = store.list_usage()
-    assert len(usage) == 7
-    assert [row.agent for row in usage if row.agent in LLM_AGENTS] == list(LLM_AGENTS)
-    assert all(row.prompt_tokens == 11 for row in usage if row.agent in LLM_AGENTS)
-    assert all(row.completion_tokens == 5 for row in usage if row.agent in LLM_AGENTS)
+    normalizer_usage = [row for row in usage if row.agent == AgentName.NORMALIZATION]
+    assert len(normalizer_usage) == len(provider.calls)
+    assert all(row.prompt_tokens == 11 for row in normalizer_usage)
+    assert all(row.completion_tokens == 5 for row in normalizer_usage)
+    assert all(row.cost_usd == 0 for row in normalizer_usage)
+
+
+def _configured_store() -> InMemoryStore:
+    """configured store 내부 처리를 수행한다."""
+    store = InMemoryStore()
+    for key, value in {
+        "source.elasticsearch.url": "memory://elasticsearch",
+        "source.elasticsearch.indices": ["logs-2026"],
+        "source.splunk.url": "memory://splunk",
+        "source.splunk.indices": ["main"],
+        "output.opensearch.url": "memory://opensearch",
+        "output.opensearch.index": "scala-normalized",
+        "agent.orchestrator.model": "gpt-orchestrator",
+        "agent.schema_profiler.model": "gpt-profiler",
+        "agent.normalization.model": "gpt-normalizer",
+        "agent.validator.model": "gpt-validator",
+        "agent.normalization.system_prompt": "NORMALIZE SYSTEM",
+    }.items():
+        store.set_setting(key, value)
+    return store
 
 
 @pytest.mark.anyio
 async def test_opensearch_loader_is_refreshed_from_current_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """opensearch loader is refreshed from current settings 동작을 검증한다."""
     app = create_app(BackendConfig())
     constructed_urls: list[str | None] = []
 
     class CapturingOpenSearchLoader:
+        """CapturingOpenSearchLoader 테스트 대상을 표현한다."""
+
         def __init__(
             self,
             url: str | None = None,
@@ -284,6 +369,7 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
             username: str | None = None,
             password: str | None = None,
         ) -> None:
+            """객체 초기 상태를 준비한다."""
             del username, password
             constructed_urls.append(url)
 
@@ -293,10 +379,12 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
             doc_id: str,
             document: JsonObject,
         ) -> str:
+            """index normalized 동작을 처리한다."""
             del index, document
             return doc_id
 
         def fetch_by_id(self, index: str, doc_id: str) -> JsonObject | None:
+            """fetch by id 데이터를 조회한다."""
             del index, doc_id
             return None
 
@@ -316,7 +404,14 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_overlap_while_waiting_for_feedback() -> None:
-    app = create_app(BackendConfig())
+    """pipeline run rejects overlap while waiting for feedback 동작을 검증한다."""
+    app = BackendApp(
+        BackendConfig(),
+        store=_configured_store(),
+        connectors=default_connectors(),
+        cache=InMemoryMappingCache(),
+        llm_provider=RecordingProvider(),
+    )
     params = PipelineRunParams(
         sources=[
             SourceSelection(solution="elasticsearch", index="logs-2026"),

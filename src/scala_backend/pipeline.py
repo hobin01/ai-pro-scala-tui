@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -27,6 +28,8 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 class PipelineRunner:
+    """PipelineRunner 객체의 책임을 정의한다."""
+
     def __init__(
         self,
         store: BackendStore,
@@ -36,6 +39,7 @@ class PipelineRunner:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
+        """객체 초기 상태를 준비한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache
@@ -47,6 +51,7 @@ class PipelineRunner:
             connectors,
             cache,
             ocsf_index,
+            llm_provider,
         )
         self._lock = anyio.Lock()
         self._active_run: UUID | None = None
@@ -58,6 +63,7 @@ class PipelineRunner:
         connectors: dict[str, SiemConnector] | None = None,
         opensearch: OpenSearchLoader | None = None,
     ) -> str:
+        """start 동작을 처리한다."""
         async with self._lock:
             if self._active_run is not None:
                 raise RunInProgressError(str(self._active_run))
@@ -82,6 +88,7 @@ class PipelineRunner:
         sources: list[SourceSelection],
         peer: object,
     ) -> None:
+        """execute 동작을 처리한다."""
         loaded = 0
         lineage_refs: list[dict[str, str]] = []
         try:
@@ -115,7 +122,7 @@ class PipelineRunner:
             opensearch_index = _opensearch_index(settings)
             for doc in docs:
                 normalized = apply_mapping(doc.body, decisions)
-                opensearch_id = f"scala-{run_id.hex[:8]}-{loaded + 1}"
+                opensearch_id = stable_opensearch_id(doc)
                 if self._opensearch is not None:
                     opensearch_id = self._opensearch.index_normalized(
                         opensearch_index,
@@ -147,7 +154,7 @@ class PipelineRunner:
             cached = self._write_cache(mapping_result.cache_writes)
             mapped = sum(1 for decision in decisions if decision.action == "map")
             kept_raw = sum(1 for decision in decisions if decision.action == "keep_raw")
-            self._record_usage(run_id, loaded, cached, mapping_result, settings)
+            self._record_usage(run_id, loaded, cached, mapping_result)
             self._store.update_run(run_id, "completed", loaded)
             await notify(
                 peer,
@@ -174,6 +181,7 @@ class PipelineRunner:
         connectors: dict[str, SiemConnector],
         opensearch: OpenSearchLoader | None,
     ) -> None:
+        """replace runtime 내부 처리를 수행한다."""
         self._connectors = connectors
         self._opensearch = opensearch
         self._decider = MappingDecider(
@@ -181,9 +189,11 @@ class PipelineRunner:
             connectors,
             self._cache,
             self._ocsf_index,
+            self._llm_provider,
         )
 
     def _collect_documents(self, sources: list[SourceSelection]) -> list[RawDocument]:
+        """collect documents 내부 처리를 수행한다."""
         docs: list[RawDocument] = []
         for source in sources:
             docs.extend(
@@ -192,6 +202,7 @@ class PipelineRunner:
         return docs
 
     def _write_cache(self, writes: list[CacheWrite]) -> int:
+        """write cache 내부 처리를 수행한다."""
         for write in writes:
             self._cache.set(write.key, write.decision)
         return len(writes)
@@ -202,51 +213,30 @@ class PipelineRunner:
         loaded: int,
         cached: int,
         mapping_result: MappingResult,
-        settings: dict[str, object],
     ) -> None:
-        self._record_llm_usage(
-            run_id,
-            AgentName.ORCHESTRATOR,
-            "showed final result",
-            (
-                f"Summarize SCALA run {run_id}. Loaded {loaded} docs, "
-                f"cached {cached} mappings."
-            ),
-            settings,
+        """record usage 내부 처리를 수행한다."""
+        self._store.add_usage(
+            make_usage(run_id, AgentName.ORCHESTRATOR, "showed final result"),
         )
-        self._record_llm_usage(
-            run_id,
-            AgentName.SCHEMA_PROFILER,
-            (
-                f"profiled {len(mapping_result.decisions)} fields "
-                f"({mapping_result.cache_hit_count} cache hits)"
+        self._store.add_usage(
+            make_usage(
+                run_id,
+                AgentName.SCHEMA_PROFILER,
+                (
+                    f"profiled {len(mapping_result.decisions)} fields "
+                    f"({mapping_result.cache_hit_count} cache hits)"
+                ),
             ),
-            (
-                f"Profiled {len(mapping_result.decisions)} fields. "
-                f"Cache hits: {mapping_result.cache_hit_count}. "
-                f"Cache misses: {mapping_result.cache_miss_count}."
-            ),
-            settings,
         )
-        self._record_llm_usage(
-            run_id,
-            AgentName.NORMALIZATION,
-            "generated mappings",
-            (
-                "Generate normalization rules for "
-                f"{len(mapping_result.decisions)} decisions."
-            ),
-            settings,
-        )
-        self._record_llm_usage(
-            run_id,
-            AgentName.VALIDATOR,
-            "validated mappings",
-            (
-                "Validate the final mapping decisions before Load, Caching, "
-                "and Lineage finalize."
-            ),
-            settings,
+        if not any(
+            row.run_id == run_id and row.agent == AgentName.NORMALIZATION
+            for row in self._store.list_usage()
+        ):
+            self._store.add_usage(
+                make_usage(run_id, AgentName.NORMALIZATION, "generated mappings"),
+            )
+        self._store.add_usage(
+            make_usage(run_id, AgentName.VALIDATOR, "validated mappings"),
         )
         for agent, activity in (
             (AgentName.LOAD, f"loaded {loaded} docs"),
@@ -254,35 +244,6 @@ class PipelineRunner:
             (AgentName.LINEAGE, f"recorded {loaded} lineage rows"),
         ):
             self._store.add_usage(make_usage(run_id, agent, activity))
-
-    def _record_llm_usage(
-        self,
-        run_id: UUID,
-        agent: AgentName,
-        activity: str,
-        task_prompt: str,
-        settings: dict[str, object],
-    ) -> None:
-        model = _agent_model(settings, agent)
-        prompt = _agent_prompt(settings, agent, task_prompt)
-        price = _model_price(settings, model)
-        if self._llm_provider is None:
-            self._store.add_usage(make_usage(run_id, agent, activity, model))
-            return
-        response = self._llm_provider.complete(prompt, model, price)
-        usage = response.usage
-        self._store.add_usage(
-            make_usage(
-                run_id,
-                agent,
-                activity,
-                model,
-                usage.total_tokens,
-                usage.cost_usd,
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-            ),
-        )
 
     async def _send_completed(
         self,
@@ -294,6 +255,7 @@ class PipelineRunner:
         lineage_refs: list[dict[str, str]],
         peer: object,
     ) -> None:
+        """send completed 내부 처리를 수행한다."""
         await notify(
             peer,
             "run.status",
@@ -314,38 +276,23 @@ class PipelineRunner:
 
 
 def _opensearch_index(settings: dict[str, object]) -> str:
+    """opensearch index 내부 처리를 수행한다."""
     value = settings.get("output.opensearch.index")
     return value if isinstance(value, str) else "scala-normalized"
 
 
 def _opensearch_link(settings: dict[str, object]) -> str:
-    url = settings.get("output.opensearch.url")
-    base = url if isinstance(url, str) else "memory://opensearch"
-    return f"{base.rstrip('/')}/{_opensearch_index(settings)}"
+    """opensearch link 내부 처리를 수행한다."""
+    url = settings.get("console.opensearch.url")
+    base = url if isinstance(url, str) else "http://localhost:5602"
+    index = _opensearch_index(settings)
+    return f"{base.rstrip('/')}/app/discover#/?_a=(index:'{index}')"
 
 
-def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
-    value = settings.get(f"agent.{agent.value}.model")
-    return value if isinstance(value, str) else "gpt-5-mini"
-
-
-def _agent_prompt(
-    settings: dict[str, object],
-    agent: AgentName,
-    task_prompt: str,
-) -> str:
-    system_prompt = settings.get(f"agent.{agent.value}.system_prompt")
-    if not isinstance(system_prompt, str):
-        system_prompt = f"You are the SCALA {agent.value} agent."
-    return f"{system_prompt}\n\n{task_prompt}"
-
-
-def _model_price(settings: dict[str, object], model: str) -> dict[str, float] | None:
-    value = settings.get(f"model.{model}.price")
-    if not isinstance(value, dict):
-        return None
-    prompt = value.get("prompt_per_1k")
-    completion = value.get("completion_per_1k")
-    if not isinstance(prompt, int | float) or not isinstance(completion, int | float):
-        return None
-    return {"prompt_per_1k": float(prompt), "completion_per_1k": float(completion)}
+def stable_opensearch_id(doc: RawDocument) -> str:
+    """stable opensearch id 동작을 처리한다."""
+    source_key = "\x00".join(
+        [doc.source_solution, doc.source_index, doc.source_doc_id],
+    )
+    digest = hashlib.sha256(source_key.encode("utf-8")).hexdigest()[:24]
+    return f"scala-{digest}"

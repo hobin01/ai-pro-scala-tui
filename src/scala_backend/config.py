@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Final
 
 from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field
 
+DEFAULT_OPENAI_MODEL: Final = "gpt-5.4-mini"
+
 
 class BackendConfig(BaseModel):
+    """BackendConfig 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     backend_host: str = "127.0.0.1"
@@ -21,7 +26,10 @@ class BackendConfig(BaseModel):
     ocsf_version: str = "1.8.0"
     ocsf_collection: str = "ocsf-schema"
     openai_api_key: str | None = None
-    openai_model: str = "gpt-5-mini"
+    openai_admin_api_key: str | None = None
+    openai_cost_api_key_id: str | None = None
+    openai_cost_project_id: str | None = None
+    openai_model: str = DEFAULT_OPENAI_MODEL
     openai_embedding_model: str = "text-embedding-3-small"
     opensearch_url: str = "memory://opensearch"
     opensearch_username: str | None = None
@@ -49,6 +57,10 @@ ENV_KEY_MAP = {
     "SCALA_OCSF_COLLECTION": "ocsf_collection",
     "SCALA_OPENAI_API_KEY": "openai_api_key",
     "OPENAI_API_KEY": "openai_api_key",
+    "SCALA_OPENAI_ADMIN_API_KEY": "openai_admin_api_key",
+    "OPENAI_ADMIN_API_KEY": "openai_admin_api_key",
+    "SCALA_OPENAI_COST_API_KEY_ID": "openai_cost_api_key_id",
+    "SCALA_OPENAI_COST_PROJECT_ID": "openai_cost_project_id",
     "SCALA_OPENAI_MODEL": "openai_model",
     "SCALA_OPENAI_EMBEDDING_MODEL": "openai_embedding_model",
     "SCALA_OPENSEARCH_URL": "opensearch_url",
@@ -62,8 +74,11 @@ ENV_KEY_MAP = {
     "SCALA_SPLUNK_PASSWORD": "splunk_password",
 }
 
+SECRET_FILE_ENV_KEYS = ("SCALA_OPENAI_API_KEY_FILE", "OPENAI_API_KEY_FILE")
+
 
 def load_config(env_file: Path | None = None) -> BackendConfig:
+    """load config 데이터를 로드한다."""
     values: dict[str, str] = {}
     dotenv_path = env_file if env_file is not None else Path(".env")
     if dotenv_path.exists():
@@ -80,12 +95,38 @@ def load_config(env_file: Path | None = None) -> BackendConfig:
         for env_key, field_name in ENV_KEY_MAP.items()
         if env_key in values
     }
+    file_secret = _read_first_secret_file(values)
+    if file_secret and not _has_secret(settings.get("openai_api_key")):
+        settings["openai_api_key"] = file_secret
     return BackendConfig.model_validate(settings)
 
 
 def mask_secret(secret: str | None) -> str:
+    """mask secret 동작을 처리한다."""
     if not secret or secret in {"YOUR_OPENAI_API_KEY", "changeme"}:
         return "(not set)"
-    if len(secret) <= 8:
-        return "set"
-    return f"set...{secret[-4:]}"
+    return "set"
+
+
+def _read_first_secret_file(values: dict[str, str]) -> str | None:
+    """read first secret file 내부 처리를 수행한다."""
+    for key in SECRET_FILE_ENV_KEYS:
+        path = values.get(key)
+        if not path:
+            continue
+        secret_path = Path(path)
+        if not secret_path.exists():
+            continue
+        secret = secret_path.read_text(encoding="utf-8").strip()
+        if _has_secret(secret):
+            return secret
+    return None
+
+
+def _has_secret(value: object) -> bool:
+    """has secret 내부 처리를 수행한다."""
+    return isinstance(value, str) and value not in {
+        "",
+        "YOUR_OPENAI_API_KEY",
+        "changeme",
+    }

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -9,16 +9,23 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 class FakeEmbeddingProvider:
+    """FakeEmbeddingProvider 테스트 대상을 표현한다."""
+
     def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
         return [[float(len(text)), float(len(model))] for text in texts]
 
 
 class FakeCollection:
+    """FakeCollection 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.records: dict[str, dict[str, str]] = {}
         self.query_embeddings: list[list[float]] = []
 
     def count(self) -> int:
+        """count 동작을 처리한다."""
         return len(self.records)
 
     def upsert(
@@ -29,6 +36,7 @@ class FakeCollection:
         metadatas: list[dict[str, str]],
         embeddings: list[list[float]],
     ) -> None:
+        """upsert 동작을 처리한다."""
         for index, field_id in enumerate(ids):
             self.records[field_id] = metadatas[index]
 
@@ -39,19 +47,25 @@ class FakeCollection:
         n_results: int,
         include: list[str],
     ) -> dict[str, list[list[dict[str, str]]]]:
+        """query 동작을 처리한다."""
         self.query_embeddings = query_embeddings
         return {"metadatas": [[self.records["src_endpoint.ip"]]][:n_results]}
 
 
 class FakeChromaClient:
+    """FakeChromaClient 호출 계약을 정의한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.collection = FakeCollection()
 
     def get_or_create_collection(self, name: str) -> FakeCollection:
+        """get or create collection 값을 조회한다."""
         return self.collection
 
 
 def test_chroma_ocsf_index_upserts_and_queries_fields() -> None:
+    """chroma ocsf index upserts and queries fields 동작을 검증한다."""
     client = FakeChromaClient()
     index = ChromaOcsfIndex(
         client=client,
@@ -78,12 +92,14 @@ def test_chroma_ocsf_index_upserts_and_queries_fields() -> None:
 def test_app_factory_bootstraps_empty_ocsf_collection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """app factory bootstraps empty ocsf collection 동작을 검증한다."""
     fields = [
         OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP address")
     ]
     fake_index = FakeBootstrapIndex(count_value=0)
 
     def fields_for_version(version: str) -> list[OcsfField]:
+        """fields for version 동작을 처리한다."""
         return fields if version == "1.8.0" else []
 
     monkeypatch.setattr("scala_backend.app_factory.ChromaOcsfIndex", fake_index.factory)
@@ -98,20 +114,20 @@ def test_app_factory_bootstraps_empty_ocsf_collection(
         FakeEmbeddingProvider(),
     )
 
-    assert index is fake_index
+    assert cast(object, index) is fake_index
     assert fake_index.upserted == fields
 
 
 def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """app factory skips ocsf bootstrap when collection has data 동작을 검증한다."""
     fake_index = FakeBootstrapIndex(count_value=3)
 
     def fields_for_version(version: str) -> list[OcsfField]:
+        """fields for version 동작을 처리한다."""
         del version
-        return [
-            OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP")
-        ]
+        return [OcsfField("src_endpoint.ip", "ip", "Source IP", "Source endpoint IP")]
 
     monkeypatch.setattr("scala_backend.app_factory.ChromaOcsfIndex", fake_index.factory)
     monkeypatch.setattr(
@@ -125,22 +141,28 @@ def test_app_factory_skips_ocsf_bootstrap_when_collection_has_data(
         FakeEmbeddingProvider(),
     )
 
-    assert index is fake_index
+    assert cast(object, index) is fake_index
     assert fake_index.upserted == []
 
 
 class FakeBootstrapIndex:
+    """FakeBootstrapIndex 테스트 대상을 표현한다."""
+
     def __init__(self, count_value: int) -> None:
+        """객체 초기 상태를 준비한다."""
         self.count_value = count_value
         self.upserted: list[OcsfField] = []
 
     def factory(self, **kwargs: Any) -> "FakeBootstrapIndex":
+        """factory 동작을 처리한다."""
         del kwargs
         return self
 
     def count(self) -> int:
+        """count 동작을 처리한다."""
         return self.count_value
 
     def upsert(self, fields: list[OcsfField]) -> int:
+        """upsert 동작을 처리한다."""
         self.upserted = fields
         return len(fields)

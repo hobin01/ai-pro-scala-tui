@@ -10,12 +10,16 @@ from scala_backend.store import InMemoryStore
 
 
 class RecordingPeer:
+    """RecordingPeer 테스트 대상을 표현한다."""
+
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         del method, params
 
 
 @pytest.mark.anyio
 async def test_lineage_lookup_returns_not_found_for_missing_opensearch_id() -> None:
+    """lineage lookup returns not found for missing opensearch id 동작을 검증한다."""
     app = BackendApp(BackendConfig(), store=InMemoryStore())
 
     result = await app.lineage_lookup(
@@ -30,6 +34,7 @@ async def test_lineage_lookup_returns_not_found_for_missing_opensearch_id() -> N
 async def test_lineage_lookup_prefers_fetched_raw_and_normalized_documents(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """lineage lookup prefers fetched raw and normalized documents 동작을 검증한다."""
     store = InMemoryStore()
     store.set_setting("source.elasticsearch.url", "memory://elasticsearch")
     store.set_setting("source.splunk.url", "memory://splunk")
@@ -50,6 +55,8 @@ async def test_lineage_lookup_prefers_fetched_raw_and_normalized_documents(
     )
 
     class CapturingOpenSearchLoader:
+        """CapturingOpenSearchLoader 테스트 대상을 표현한다."""
+
         def __init__(
             self,
             url: str | None = None,
@@ -57,9 +64,11 @@ async def test_lineage_lookup_prefers_fetched_raw_and_normalized_documents(
             username: str | None = None,
             password: str | None = None,
         ) -> None:
+            """객체 초기 상태를 준비한다."""
             del url, username, password
 
         def fetch_by_id(self, index: str, doc_id: str) -> JsonObject | None:
+            """fetch by id 데이터를 조회한다."""
             assert index == "scala-normalized"
             assert doc_id == "os-1"
             return {"activity_name": "Allowed", "class_name": "Network Activity"}

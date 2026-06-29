@@ -26,12 +26,17 @@ RpcHandler = Callable[[str, JsonObject, "JsonRpcPeer"], Awaitable[JsonObject]]
 
 @dataclass
 class _PendingResponse:
+    """_PendingResponse 데이터 구조를 표현한다."""
+
     event: anyio.Event
     payload: JsonObject | None = None
 
 
 class JsonRpcPeer:
+    """JsonRpcPeer 객체의 책임을 정의한다."""
+
     def __init__(self, stream: SocketStream, task_group: TaskGroup) -> None:
+        """객체 초기 상태를 준비한다."""
         self._stream = stream
         self._task_group = task_group
         self._send_lock = anyio.Lock()
@@ -39,9 +44,11 @@ class JsonRpcPeer:
         self._pending: dict[JsonId, _PendingResponse] = {}
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         await self.send({"jsonrpc": "2.0", "method": method, "params": params})
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         request_id = f"srv-{next(self._next_id)}"
         pending = _PendingResponse(event=anyio.Event())
         self._pending[request_id] = pending
@@ -67,14 +74,17 @@ class JsonRpcPeer:
         func: Callable[..., Coroutine[Any, Any, None]],
         *args: object,
     ) -> None:
+        """start soon 동작을 처리한다."""
         self._task_group.start_soon(func, *args)
 
     async def send(self, message: JsonObject) -> None:
+        """send 동작을 처리한다."""
         payload = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
         async with self._send_lock:
             await self._stream.send((payload + "\n").encode("utf-8"))
 
     def accept_response(self, message: JsonObject) -> bool:
+        """accept response 동작을 처리한다."""
         request_id = _json_id(message.get("id"))
         pending = self._pending.pop(request_id, None)
         if pending is None:
@@ -85,10 +95,14 @@ class JsonRpcPeer:
 
 
 class JsonRpcConnection:
+    """JsonRpcConnection 객체의 책임을 정의한다."""
+
     def __init__(self, handler: RpcHandler) -> None:
+        """객체 초기 상태를 준비한다."""
         self._handler = handler
 
     async def run(self, stream: SocketStream) -> None:
+        """run 진입 동작을 실행한다."""
         async with anyio.create_task_group() as task_group:
             peer = JsonRpcPeer(stream, task_group)
             buffered = BufferedByteReceiveStream(stream)
@@ -100,6 +114,7 @@ class JsonRpcConnection:
                 await self._handle_line(peer, line)
 
     async def _handle_line(self, peer: JsonRpcPeer, line: bytes) -> None:
+        """handle line 내부 처리를 수행한다."""
         message, error = decode_message_line(line)
         if error is not None:
             await peer.send(error)
@@ -130,6 +145,7 @@ class JsonRpcConnection:
             await peer.send({"jsonrpc": "2.0", "id": request_id, "result": result})
 
     async def _dispatch(self, peer: JsonRpcPeer, message: JsonObject) -> JsonObject:
+        """dispatch 내부 처리를 수행한다."""
         if message.get("jsonrpc") != "2.0":
             raise InvalidParamsError("jsonrpc must be 2.0")
         method = message.get("method")
@@ -147,6 +163,7 @@ def _error(
     message: str,
     data: dict[str, str] | None = None,
 ) -> JsonObject:
+    """error 내부 처리를 수행한다."""
     payload: dict[str, JsonValue] = {"code": code, "message": message}
     if data is not None:
         payload["data"] = data
@@ -154,6 +171,7 @@ def _error(
 
 
 def decode_message_line(line: bytes) -> tuple[JsonObject | None, JsonObject | None]:
+    """decode message line 메시지를 디코딩한다."""
     try:
         raw = json.loads(line.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -164,4 +182,5 @@ def decode_message_line(line: bytes) -> tuple[JsonObject | None, JsonObject | No
 
 
 def _json_id(value: JsonValue) -> JsonId:
+    """json id 내부 처리를 수행한다."""
     return value if isinstance(value, str | int) or value is None else None

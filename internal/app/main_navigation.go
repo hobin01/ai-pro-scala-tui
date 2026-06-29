@@ -1,5 +1,6 @@
 package app
 
+// enterMain는 관련 동작을 처리한다.
 func (m *Model) enterMain() {
 	switch m.menuCursor {
 	case 0:
@@ -17,10 +18,12 @@ func (m *Model) enterMain() {
 	}
 }
 
+// openResultView는 관련 동작을 처리한다.
 func (m *Model) openResultView() {
 	switch m.viewResultsCursor {
 	case 0:
 		m.route = routeLineage
+		m.contentScroll = 0
 		m.clearLineage()
 	case 1:
 		m.route = routeWorkflow
@@ -29,9 +32,12 @@ func (m *Model) openResultView() {
 	case 2:
 		m.route = routeMonitoring
 		m.monitoringScope = clamp(m.monitoringScope, 0, 2)
+		m.contentScroll = 0
+		m.queueMonitoringQuery()
 	}
 }
 
+// moveMain는 관련 동작을 처리한다.
 func (m *Model) moveMain(delta int) {
 	if m.viewResultsOpen && m.menuCursor == 1 {
 		nextCursor := m.viewResultsCursor + delta
@@ -43,12 +49,19 @@ func (m *Model) moveMain(delta int) {
 	m.menuCursor = clamp(m.menuCursor+delta, 0, 2)
 }
 
+// updateMonitoringKey는 관련 동작을 처리한다.
 func (m *Model) updateMonitoringKey(key string) {
 	switch key {
 	case "left":
 		m.page(-1)
+		m.queueMonitoringQuery()
 	case "right":
 		m.page(1)
+		m.queueMonitoringQuery()
+	case "up":
+		m.scrollContent(-1)
+	case "down":
+		m.scrollContent(1)
 	case "enter":
 		m.route = routeMain
 	}

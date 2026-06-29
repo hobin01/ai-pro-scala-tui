@@ -1,25 +1,35 @@
+import json
 from collections.abc import Callable, Coroutine
+from decimal import Decimal
 from typing import Any
 
 import anyio
 import pytest
 from anyio.abc import TaskGroup
 
+from scala_backend.app import BackendApp
 from scala_backend.app_factory import create_app
 from scala_backend.cache import cache_key
 from scala_backend.config import BackendConfig
+from scala_backend.connector_fixtures import default_connectors
 from scala_backend.models import JsonObject
 from scala_backend.normalization import recommend_mapping
+from scala_backend.pipeline import stable_opensearch_id
+from scala_backend.providers import LlmResponse, ProviderUsage
 
 
 class InlinePeer:
+    """InlinePeer 테스트 대상을 표현한다."""
+
     def __init__(self, task_group: TaskGroup) -> None:
+        """객체 초기 상태를 준비한다."""
         self.task_group = task_group
         self.messages: list[tuple[str, JsonObject]] = []
         self.running = anyio.Event()
         self.completed = anyio.Event()
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         self.messages.append((method, params))
         if method == "run.status" and params.get("status") == "running":
             self.running.set()
@@ -27,6 +37,7 @@ class InlinePeer:
             self.completed.set()
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         self.messages.append((method, params))
         return {"decision": "approve"}
 
@@ -35,12 +46,49 @@ class InlinePeer:
         func: Callable[..., Coroutine[Any, Any, None]],
         *args: object,
     ) -> None:
+        """start soon 동작을 처리한다."""
         self.task_group.start_soon(func, *args)
+
+
+class AgentJsonProvider:
+    """AgentJsonProvider 테스트 대상을 표현한다."""
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        del model
+
+    def complete(
+        self,
+        prompt: str,
+        model: str,
+        price: dict[str, float] | None,
+    ) -> LlmResponse:
+        """complete 동작을 처리한다."""
+        del model, price
+        payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
+        if not isinstance(payload, dict):
+            raise AssertionError("mapping prompt must contain JSON")
+        fallback = payload.get("fallback")
+        if not isinstance(fallback, dict):
+            raise AssertionError("mapping prompt must contain fallback")
+        return LlmResponse(
+            text=json.dumps(fallback),
+            usage=ProviderUsage(1, 1, 2, Decimal("0")),
+        )
+
+
+def app_with_agent_provider() -> BackendApp:
+    """app with agent provider 동작을 처리한다."""
+    app = create_app(BackendConfig())
+    app.llm_provider = AgentJsonProvider()
+    app.set_pipeline()
+    return app
 
 
 @pytest.mark.anyio
 async def test_pipeline_surface_returns_run_id() -> None:
-    app = create_app(BackendConfig())
+    """pipeline surface returns run id 동작을 검증한다."""
+    app = app_with_agent_provider()
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
         result = await app.handle(
@@ -67,7 +115,8 @@ async def test_pipeline_surface_returns_run_id() -> None:
 async def test_pipeline_surface_reports_prd_agent_count_and_completes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    """pipeline surface reports prd agent count and completes 동작을 검증한다."""
+    app = app_with_agent_provider()
     graph_calls: list[tuple[bool, bool, bool]] = []
 
     def capture_graph(
@@ -77,6 +126,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
+        """capture graph 동작을 처리한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 
@@ -111,24 +161,29 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
         )
         assert completed["run_id"] == result["run_id"]
         assert completed["summary"] == {
-            "mapped": 6,
-            "kept_raw": 3,
+            "mapped": 7,
+            "kept_raw": 2,
             "loaded": 2,
             "lineage": 2,
             "cached": 9,
         }
+        fixture_connectors = default_connectors()
+        es_doc = next(
+            iter(fixture_connectors["elasticsearch"].iter_documents("logs-2026"))
+        )
+        splunk_doc = next(iter(fixture_connectors["splunk"].iter_documents("main")))
         assert completed["lineage_refs"] == [
             {
                 "source_solution": "elasticsearch",
                 "source_index": "logs-2026",
                 "source_doc_id": "es-1",
-                "opensearch_id": f"scala-{result['run_id'][:8]}-1",
+                "opensearch_id": stable_opensearch_id(es_doc),
             },
             {
                 "source_solution": "splunk",
                 "source_index": "main",
                 "source_doc_id": "_bkt-1:_cd-42",
-                "opensearch_id": f"scala-{result['run_id'][:8]}-2",
+                "opensearch_id": stable_opensearch_id(splunk_doc),
             },
         ]
         task_group.cancel_scope.cancel()
@@ -138,7 +193,8 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
 async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    """pipeline surface routes cache hit into agent graph 동작을 검증한다."""
+    app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)
@@ -162,6 +218,7 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
+        """capture graph 동작을 처리한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 
@@ -190,7 +247,8 @@ async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
 async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    app = create_app(BackendConfig())
+    """캐시와 feedback이 agent graph로 전달되는지 검증한다."""
+    app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)
@@ -212,6 +270,7 @@ async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph
         cache_miss: bool = True,
         needs_feedback: bool = False,
     ) -> JsonObject:
+        """capture graph 동작을 처리한다."""
         graph_calls.append((cache_hit, cache_miss, needs_feedback))
         return {"run_id": run_id, "stages": [], "nodes": []}
 

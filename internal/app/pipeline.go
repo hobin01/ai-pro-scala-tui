@@ -2,13 +2,18 @@ package app
 
 import "strings"
 
+// pipelineEvent는 pipeline에서 사용하는 타입을 정의한다.
 type pipelineEvent struct {
 	text     string
 	feedback bool
 }
 
+// AdvancePipeline는 관련 동작을 처리한다.
 func (m *Model) AdvancePipeline() {
 	m.AdvanceLoading()
+	if m.backendRuntime {
+		return
+	}
 	if !m.pipelineRunning || m.pipelineDone {
 		return
 	}
@@ -39,10 +44,12 @@ func (m *Model) AdvancePipeline() {
 	}
 }
 
+// IsPipelineRunning는 관련 동작을 처리한다.
 func (m *Model) IsPipelineRunning() bool {
 	return m.pipelineRunning
 }
 
+// startPipeline는 관련 동작을 처리한다.
 func (m *Model) startPipeline() {
 	m.route = routeFeedback
 	m.pipelineRunning = true
@@ -50,10 +57,18 @@ func (m *Model) startPipeline() {
 	m.feedbackWaiting = false
 	m.feedbackCursor = 0
 	m.pipelineIndex = 0
+	m.lastRunStatus = nil
+	m.feedbackRequestID = ""
+	m.feedbackRequest = nil
 	m.stream = []string{"Pipeline started with dummy runner"}
 	m.notice = ""
+	if m.backendRuntime {
+		m.stream = []string{"Pipeline requested from backend"}
+	}
+	m.queuePipelineRun()
 }
 
+// enterFeedback는 관련 동작을 처리한다.
 func (m *Model) enterFeedback() {
 	if m.pipelineDone {
 		m.route = routeMain
@@ -65,9 +80,11 @@ func (m *Model) enterFeedback() {
 	switch m.feedbackCursor {
 	case 0:
 		m.stream = append(m.stream, "Approved recommendation")
+		m.queueFeedbackResponse("approve", "")
 		m.resumePipeline()
 	case 1:
 		m.stream = append(m.stream, "Kept raw field as custom_attr")
+		m.queueFeedbackResponse("keep_raw", "")
 		m.resumePipeline()
 	case 2:
 		m.feedbackComment = true
@@ -76,11 +93,13 @@ func (m *Model) enterFeedback() {
 	}
 }
 
+// resumePipeline는 관련 동작을 처리한다.
 func (m *Model) resumePipeline() {
 	m.feedbackWaiting = false
 	m.pipelineRunning = true
 }
 
+// finishPipeline는 관련 동작을 처리한다.
 func (m *Model) finishPipeline() {
 	m.pipelineRunning = false
 	m.feedbackWaiting = false
@@ -88,6 +107,7 @@ func (m *Model) finishPipeline() {
 	m.stream = append(m.stream, "Pipeline complete", "Loaded 2,000 docs", "Lineage recorded", "opensearch://"+m.settings.resultIndex)
 }
 
+// updateFeedbackComment는 관련 동작을 처리한다.
 func (m *Model) updateFeedbackComment(key string) {
 	switch key {
 	case "enter":
@@ -96,8 +116,14 @@ func (m *Model) updateFeedbackComment(key string) {
 			comment = "no comment"
 		}
 		m.stream = append(m.stream, "Reviewer comment: "+comment, "Re-review complete: clientip remains best source field")
+		m.queueFeedbackResponse("comment", comment)
 		m.input = ""
 		m.feedbackComment = false
+		if m.backendRuntime {
+			m.feedbackWaiting = false
+			m.pipelineRunning = true
+			return
+		}
 		m.feedbackWaiting = true
 		m.feedbackCursor = 0
 	case "backspace":

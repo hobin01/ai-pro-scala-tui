@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import importlib
+import json
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import Protocol
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from scala_backend.errors import ProviderError
 
 
 @dataclass(frozen=True)
 class ProviderUsage:
+    """ProviderUsage 데이터 구조를 표현한다."""
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
@@ -18,47 +25,93 @@ class ProviderUsage:
 
 @dataclass(frozen=True)
 class LlmResponse:
+    """LlmResponse 데이터 구조를 표현한다."""
+
     text: str
     usage: ProviderUsage
 
 
 class LlmProvider(Protocol):
-    def complete(
-        self, prompt: str, model: str, price: dict[str, float] | None
-    ) -> LlmResponse: ...
+    """LlmProvider 객체의 책임을 정의한다."""
 
-
-class EmbeddingProvider(Protocol):
-    def embed(self, texts: list[str], model: str) -> list[list[float]]: ...
-
-
-class FakeProvider:
-    def __init__(self) -> None:
-        self.complete_calls = 0
-        self.embed_calls = 0
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        ...
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
+        ...
+
+
+class EmbeddingProvider(Protocol):
+    """EmbeddingProvider 객체의 책임을 정의한다."""
+
+    def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
+        ...
+
+
+class FakeProvider:
+    """FakeProvider 객체의 책임을 정의한다."""
+
+    def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
+        self.complete_calls = 0
+        self.embed_calls = 0
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        del model
+
+    def complete(
+        self, prompt: str, model: str, price: dict[str, float] | None
+    ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         self.complete_calls += 1
         tokens = max(1, len(prompt.split()))
         usage = calculate_usage(tokens, 3, price)
         return LlmResponse(text=f"{model}: approved", usage=usage)
 
     def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
         self.embed_calls += 1
         return [[float(len(text) % 7), float(len(model) % 5), 1.0] for text in texts]
 
 
 class OpenAiProvider:
-    def __init__(self, api_key: str) -> None:
+    """OpenAiProvider 객체의 책임을 정의한다."""
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        admin_api_key: str | None = None,
+        cost_api_key_id: str | None = None,
+        cost_project_id: str | None = None,
+    ) -> None:
+        """객체 초기 상태를 준비한다."""
         module = importlib.import_module("openai")
         client_cls = module.OpenAI
         self._client = client_cls(api_key=api_key)
+        self._cost_api_key = admin_api_key or api_key
+        self._cost_api_key_id = cost_api_key_id
+        self._cost_project_id = cost_project_id
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        try:
+            self._client.models.retrieve(model)
+        except Exception as exc:
+            raise ProviderError(
+                "OpenAI API key is invalid or the configured model is unavailable"
+            ) from exc
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         try:
             response = self._client.responses.create(model=model, input=prompt)
         except Exception as exc:
@@ -72,11 +125,44 @@ class OpenAiProvider:
         )
 
     def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
         try:
             response = self._client.embeddings.create(model=model, input=texts)
         except Exception as exc:
             raise ProviderError(exc.__class__.__name__) from exc
         return [list(item.embedding) for item in response.data]
+
+    def organization_cost_usd(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Decimal:
+        """organization cost usd 동작을 처리한다."""
+        params: dict[str, object] = {
+            "start_time": int(start_time.timestamp()),
+            "end_time": int(end_time.timestamp()),
+            "bucket_width": "1d",
+            "limit": 180,
+        }
+        if self._cost_api_key_id:
+            params["api_key_ids[]"] = self._cost_api_key_id
+        if self._cost_project_id:
+            params["project_ids[]"] = self._cost_project_id
+        url = "https://api.openai.com/v1/organization/costs?" + urlencode(
+            params,
+            doseq=True,
+        )
+        request = Request(
+            url,
+            headers={"Authorization": f"Bearer {self._cost_api_key}"},
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise ProviderError(exc.__class__.__name__) from exc
+        return _sum_cost_payload(payload)
 
 
 def calculate_usage(
@@ -84,10 +170,35 @@ def calculate_usage(
     completion_tokens: int,
     price: dict[str, float] | None,
 ) -> ProviderUsage:
+    """calculate usage 동작을 처리한다."""
     total = prompt_tokens + completion_tokens
-    prompt_price = Decimal(str((price or {}).get("prompt_per_1k", 0)))
-    completion_price = Decimal(str((price or {}).get("completion_per_1k", 0)))
-    cost = Decimal(prompt_tokens) * prompt_price / Decimal(1000) + Decimal(
-        completion_tokens
-    ) * completion_price / Decimal(1000)
-    return ProviderUsage(prompt_tokens, completion_tokens, total, cost)
+    del price
+    return ProviderUsage(prompt_tokens, completion_tokens, total, Decimal("0"))
+
+
+def _sum_cost_payload(payload: object) -> Decimal:
+    """sum cost payload 내부 처리를 수행한다."""
+    total = Decimal("0")
+    if not isinstance(payload, dict):
+        return total
+    buckets = payload.get("data")
+    if not isinstance(buckets, list):
+        return total
+    for bucket in buckets:
+        if not isinstance(bucket, dict):
+            continue
+        results = bucket.get("results")
+        if not isinstance(results, list):
+            continue
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            amount = result.get("amount")
+            if not isinstance(amount, dict):
+                continue
+            if amount.get("currency") not in {None, "usd"}:
+                continue
+            value = amount.get("value")
+            if isinstance(value, int | float | str):
+                total += Decimal(str(value))
+    return total

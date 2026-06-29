@@ -9,6 +9,7 @@ import (
 	"github.com/hobin01/ai-pro-scala-tui/internal/app"
 )
 
+// TestBubbleTeaViewOutputsInitialView는 관련 동작을 검증한다.
 func TestBubbleTeaViewOutputsInitialView(t *testing.T) {
 	model := tuiModel{
 		core:    app.NewModel(),
@@ -22,6 +23,7 @@ func TestBubbleTeaViewOutputsInitialView(t *testing.T) {
 	}
 }
 
+// TestBubbleTeaViewUsesAltScreen는 관련 동작을 검증한다.
 func TestBubbleTeaViewUsesAltScreen(t *testing.T) {
 	model := tuiModel{
 		core:    app.NewModel(),
@@ -35,6 +37,7 @@ func TestBubbleTeaViewUsesAltScreen(t *testing.T) {
 	}
 }
 
+// TestWindowSizeMessageUpdatesCoreDimensions는 관련 동작을 검증한다.
 func TestWindowSizeMessageUpdatesCoreDimensions(t *testing.T) {
 	model := tuiModel{
 		core:    app.NewModel(),

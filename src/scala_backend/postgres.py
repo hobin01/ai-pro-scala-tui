@@ -12,6 +12,7 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def migrate_postgres(database_url: str) -> None:
+    """migrate postgres 동작을 처리한다."""
     ddl = "\n".join(path.read_text() for path in sorted(MIGRATIONS_DIR.glob("*.sql")))
     with psycopg.connect(database_url) as connection:
         with connection.cursor() as cursor:
@@ -23,6 +24,7 @@ def seed_postgres(
     database_url: str,
     overrides: dict[str, object] | None = None,
 ) -> None:
+    """seed postgres 데이터를 시드한다."""
     store = InMemoryStore()
     seed_dev_settings(store, overrides)
     with psycopg.connect(database_url) as connection:
