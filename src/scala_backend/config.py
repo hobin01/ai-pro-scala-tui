@@ -11,7 +11,7 @@ DEFAULT_OPENAI_MODEL: Final = "gpt-5.4-mini"
 
 
 class BackendConfig(BaseModel):
-    """환경변수 설정에서 함께 이동해야 하는 상태를 묶는다."""
+    """SCALA backend가 환경변수와 .env에서 읽는 실행 설정이다."""
 
     model_config = ConfigDict(frozen=True)
 

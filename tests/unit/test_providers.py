@@ -11,7 +11,7 @@ class RejectingModels:
     """OpenAI models.retrieve 실패를 재현하는 models client다."""
 
     def retrieve(self, model: str) -> None:
-        """테스트 목적: OpenAI provider 검증과 usage 집계."""
+        """model 조회 실패를 발생시켜 validate 오류 경로를 재현한다."""
         raise RuntimeError(model)
 
 
@@ -19,7 +19,7 @@ class RejectingOpenAI:
     """OpenAiProvider 생성자가 받는 fake OpenAI client다."""
 
     def __init__(self, api_key: str) -> None:
-        """테스트 목적: OpenAI provider 검증과 usage 집계."""
+        """OpenAI client 대역에 실패하는 models API를 붙인다."""
         del api_key
         self.models = RejectingModels()
 
@@ -31,7 +31,7 @@ class RejectingOpenAiModule(ModuleType):
 
 
 def test_usage_records_tokens_without_local_cost_estimate() -> None:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """UsageRecord가 token 수를 기록하되 local 비용 추정은 0으로 두는지 확인한다."""
     usage = calculate_usage(
         prompt_tokens=1000,
         completion_tokens=500,
@@ -43,7 +43,7 @@ def test_usage_records_tokens_without_local_cost_estimate() -> None:
 
 
 def test_fake_provider_is_deterministic() -> None:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """Fake provider가 같은 입력에 재현 가능한 응답을 반환하는지 확인한다."""
     provider = FakeProvider()
 
     response = provider.complete("map clientip", "gpt-5.4-mini", None)
@@ -57,10 +57,10 @@ def test_fake_provider_is_deterministic() -> None:
 def test_openai_provider_validate_converts_sdk_error_to_provider_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: OpenAI provider 검증과 usage 집계."""
+    """OpenAI validate 실패가 ProviderError로 감싸지는지 확인한다."""
 
     def fake_import_module(name: str) -> ModuleType:
-        """테스트 목적: OpenAI provider 검증과 usage 집계."""
+        """openai module import를 실패 client module로 대체한다."""
         assert name == "openai"
         return RejectingOpenAiModule("openai")
 

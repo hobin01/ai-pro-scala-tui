@@ -7,7 +7,7 @@ from scala_backend.ocsf import LocalOcsfIndex, parse_ocsf_zip
 
 
 def test_ocsf_zip_parser_extracts_attributes() -> None:
-    """테스트 목적: OCSF schema token 검색."""
+    """OCSF zip parser가 attribute metadata를 추출하는지 확인한다."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zip_file:
         zip_file.writestr(
@@ -34,7 +34,7 @@ def test_ocsf_zip_parser_extracts_attributes() -> None:
 
 
 def test_local_ocsf_index_returns_matching_candidates(tmp_path: Path) -> None:
-    """테스트 목적: OCSF schema token 검색."""
+    """LocalOcsfIndex token 검색이 관련 field 후보를 반환하는지 확인한다."""
     index = LocalOcsfIndex(tmp_path / "ocsf.json")
     fields = parse_ocsf_zip(_fixture_zip())
 
@@ -45,7 +45,7 @@ def test_local_ocsf_index_returns_matching_candidates(tmp_path: Path) -> None:
 
 
 def _fixture_zip() -> zipfile.ZipFile:
-    """테스트 목적: OCSF schema token 검색."""
+    """테스트용 OCSF schema zip을 임시 경로에 생성한다."""
     buffer = io.BytesIO()
     zip_file = zipfile.ZipFile(buffer, "w")
     zip_file.writestr(

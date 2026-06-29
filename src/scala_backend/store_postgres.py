@@ -15,7 +15,7 @@ from scala_backend.models import (
 
 
 class PostgresStore:
-    """PostgreSQL 저장소 어댑터에서 함께 이동해야 하는 상태를 묶는다."""
+    """PostgreSQL pool 기반으로 BackendStore 계약을 구현한다."""
 
     def __init__(self, database_url: str) -> None:
         """PostgreSQL store adapter가 사용할 database URL을 보관한다."""

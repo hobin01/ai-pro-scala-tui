@@ -31,15 +31,15 @@ class RecordingPeer:
     """BackendApp handler 테스트에서 RPC 메시지를 기록하는 peer다."""
 
     def __init__(self) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """handler 테스트가 수집할 notification과 request 목록을 초기화한다."""
         self.messages: list[tuple[str, JsonObject]] = []
 
     async def notify(self, method: str, params: JsonObject) -> None:
-        """notification을 저장하고 필요한 anyio 이벤트를 표시한다."""
+        """handler notification payload를 테스트 목록에 저장한다."""
         self.messages.append((method, params))
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """request를 저장하고 테스트용 응답 payload를 반환한다."""
+        """feedback request payload를 저장하고 approve 응답을 반환한다."""
         self.messages.append((method, params))
         return {"decision": "approve"}
 
@@ -48,12 +48,12 @@ class RecordingProvider:
     """mapping prompt와 validate 호출을 기록하는 LLM provider 대역이다."""
 
     def __init__(self) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """prompt, validate 호출 기록과 응답 text를 초기화한다."""
         self.calls: list[dict[str, object]] = []
         self.validate_calls: list[str] = []
 
     def validate(self, model: str) -> None:
-        """테스트 provider의 model preflight 결과를 만든다."""
+        """recording provider의 model preflight 성공을 반환한다."""
         self.validate_calls.append(model)
 
     def complete(
@@ -62,7 +62,7 @@ class RecordingProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
-        """prompt를 기록하고 테스트용 LLM 응답을 반환한다."""
+        """prompt를 기록하고 준비된 LLM 응답을 반환한다."""
         self.calls.append({"prompt": prompt, "model": model, "price": price})
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
@@ -85,12 +85,12 @@ class FailingProvider(RecordingProvider):
     """provider preflight 실패가 mapping 호출을 막는지 확인하는 대역이다."""
 
     def __init__(self) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """실패 provider가 발생시킬 exception과 호출 기록을 초기화한다."""
         super().__init__()
         self.complete_called = False
 
     def validate(self, model: str) -> None:
-        """테스트 provider의 model preflight 결과를 만든다."""
+        """설정된 exception으로 model preflight 실패를 발생시킨다."""
         super().validate(model)
         raise ProviderError("OpenAI API key is invalid")
 
@@ -100,7 +100,7 @@ class FailingProvider(RecordingProvider):
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
-        """prompt를 기록하고 테스트용 LLM 응답을 반환한다."""
+        """pipeline이 preflight에서 멈췄는지 확인하기 위해 호출 시 실패시킨다."""
         del prompt, model, price
         self.complete_called = True
         raise AssertionError("pipeline should not request mappings with invalid key")
@@ -110,7 +110,7 @@ class BlockingFeedbackPeer:
     """feedback 요청 지점에서 pipeline을 멈춰 race를 관찰하는 peer다."""
 
     def __init__(self, task_group: TaskGroup) -> None:
-        """테스트가 관찰할 내부 상태를 초기화한다."""
+        """feedback 요청을 블로킹하고 overlap 검증용 이벤트를 초기화한다."""
         self.task_group = task_group
         self.messages: list[tuple[str, JsonObject]] = []
         self.feedback_requested = anyio.Event()
@@ -118,13 +118,13 @@ class BlockingFeedbackPeer:
         self.completed = anyio.Event()
 
     async def notify(self, method: str, params: JsonObject) -> None:
-        """notification을 저장하고 필요한 anyio 이벤트를 표시한다."""
+        """pipeline notification payload를 저장하고 완료 이벤트를 표시한다."""
         self.messages.append((method, params))
         if method == "run.status" and params.get("status") in {"completed", "failed"}:
             self.completed.set()
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """request를 저장하고 테스트용 응답 payload를 반환한다."""
+        """feedback request를 받은 뒤 테스트가 해제할 때까지 대기한다."""
         self.messages.append((method, params))
         if method == "feedback.request":
             self.feedback_requested.set()
@@ -141,7 +141,7 @@ class BlockingFeedbackPeer:
 
 
 def test_settings_handlers_are_hot_reload() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """settings.set 결과가 backend handler의 다음 호출에 즉시 반영되는지 확인한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     result = app.settings_set(
@@ -154,7 +154,7 @@ def test_settings_handlers_are_hot_reload() -> None:
 
 
 def test_settings_get_redacts_source_url_credentials() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """settings.get이 source URL password를 마스킹하는지 확인한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     app.settings_set(
@@ -171,7 +171,7 @@ def test_settings_get_redacts_source_url_credentials() -> None:
 
 
 def test_monitoring_session_starts_at_backend_process_start() -> None:
-    """테스트 목적: agent monitoring scope와 usage 표시."""
+    """monitoring 조회 시작 시간이 backend process 시작 시각인지 확인한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
     old_usage = make_usage(
         uuid4(),
@@ -197,7 +197,7 @@ def test_monitoring_session_starts_at_backend_process_start() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_missing_required_settings() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """OpenSearch 설정이 없으면 pipeline.run이 시작되지 않는지 확인한다."""
     app = BackendApp(BackendConfig(), store=InMemoryStore())
 
     with pytest.raises(ConfigurationError, match="OpenSearch URL"):
@@ -214,7 +214,7 @@ async def test_pipeline_run_rejects_missing_required_settings() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_two_or_more_sources() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """선택 source가 하나면 pipeline.run이 거부되는지 확인한다."""
     app = create_app(BackendConfig())
 
     with pytest.raises(ConfigurationError, match="at least two sources"):
@@ -228,7 +228,7 @@ async def test_pipeline_run_requires_two_or_more_sources() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_agent_models() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """normalization model 설정이 없으면 pipeline.run이 거부되는지 확인한다."""
     store = InMemoryStore()
     store.set_setting("source.elasticsearch.url", "memory://elasticsearch")
     store.set_setting("source.elasticsearch.indices", ["logs-2026"])
@@ -252,7 +252,7 @@ async def test_pipeline_run_requires_agent_models() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_openai_provider() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """OpenAI provider가 없으면 agent pipeline을 시작하지 않는지 확인한다."""
     app = create_app(BackendConfig())
 
     with pytest.raises(ProviderError, match="OpenAI API key is not configured"):
@@ -269,7 +269,7 @@ async def test_pipeline_run_requires_openai_provider() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """OpenAI key 검증 실패 시 mapping 호출 전 pipeline이 중단되는지 확인한다."""
     provider = FailingProvider()
     app = BackendApp(
         BackendConfig(),
@@ -296,7 +296,7 @@ async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """설정된 system prompt로 LLM을 호출하고 usage를 저장하는지 확인한다."""
     store = _configured_store()
     provider = RecordingProvider()
     app = BackendApp(
@@ -332,7 +332,7 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
 
 
 def _configured_store() -> InMemoryStore:
-    """테스트 목적: .env와 secret file 설정 로딩."""
+    """pipeline handler 테스트에 필요한 최소 settings store를 만든다."""
     store = InMemoryStore()
     for key, value in {
         "source.elasticsearch.url": "memory://elasticsearch",
@@ -355,7 +355,7 @@ def _configured_store() -> InMemoryStore:
 async def test_opensearch_loader_is_refreshed_from_current_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """현재 settings의 OpenSearch index가 loader 재생성에 반영되는지 확인한다."""
     app = create_app(BackendConfig())
     constructed_urls: list[str | None] = []
 
@@ -369,7 +369,7 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
             username: str | None = None,
             password: str | None = None,
         ) -> None:
-            """테스트가 관찰할 내부 상태를 초기화한다."""
+            """pipeline refresh 테스트가 관찰할 loader source 목록을 초기화한다."""
             del username, password
             constructed_urls.append(url)
 
@@ -404,7 +404,7 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_overlap_while_waiting_for_feedback() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """feedback 대기 중인 run이 있으면 새 pipeline.run을 거부하는지 확인한다."""
     app = BackendApp(
         BackendConfig(),
         store=_configured_store(),

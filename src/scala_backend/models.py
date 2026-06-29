@@ -15,7 +15,7 @@ type JsonId = str | int | None
 
 
 class AgentName(StrEnum):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """pipeline stage와 monitoring usage에서 쓰는 agent key를 제한한다."""
 
     ORCHESTRATOR = "orchestrator"
     SCHEMA_PROFILER = "schema_profiler"
@@ -45,7 +45,7 @@ ALL_AGENTS = (
 
 
 class SourceSelection(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """pipeline.run과 samples.fetch가 받을 source solution/index 쌍이다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -54,7 +54,7 @@ class SourceSelection(BaseModel):
 
 
 class FieldSample(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """schema profiling에서 수집한 field 이름, 타입, 예시 값이다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -64,7 +64,7 @@ class FieldSample(BaseModel):
 
 
 class IndexSamples(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """한 source index에서 수집한 field sample 목록이다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -74,7 +74,7 @@ class IndexSamples(BaseModel):
 
 
 class SettingsSetParams(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """settings.set이 수정할 설정 key와 JSON 값을 검증한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -83,7 +83,7 @@ class SettingsSetParams(BaseModel):
 
 
 class SamplesFetchParams(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """samples.fetch가 조회할 여러 source를 담는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -91,7 +91,7 @@ class SamplesFetchParams(BaseModel):
 
 
 class PipelineRunParams(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """pipeline.run이 정규화할 source 목록을 담는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -99,7 +99,7 @@ class PipelineRunParams(BaseModel):
 
 
 class LineageLookupParams(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """lineage.lookup의 OpenSearch document id를 검증한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -107,7 +107,7 @@ class LineageLookupParams(BaseModel):
 
 
 class MonitoringQueryParams(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """monitoring.query가 조회할 시간 scope를 제한한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -115,7 +115,7 @@ class MonitoringQueryParams(BaseModel):
 
 
 class UsageRecord(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """agent 호출별 token usage와 model 정보를 저장한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -131,7 +131,7 @@ class UsageRecord(BaseModel):
 
 
 class RunRecord(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """pipeline run의 상태, 선택 source, 처리 건수를 저장한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -144,7 +144,7 @@ class RunRecord(BaseModel):
 
 
 class LineageRecord(BaseModel):
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """원본 문서와 OpenSearch 정규화 문서를 연결해 저장한다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -161,7 +161,7 @@ class LineageRecord(BaseModel):
 
 @dataclass(frozen=True)
 class RawDocument:
-    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
+    """connector가 읽어 온 원본 문서 body와 source 식별자다."""
 
     source_solution: str
     source_index: str

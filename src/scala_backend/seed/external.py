@@ -18,7 +18,7 @@ class ElasticsearchSeedClient(Protocol):
 
 
 class SplunkIndex(Protocol):
-    """외부 SIEM seed에서 함께 이동해야 하는 상태를 묶는다."""
+    """Splunk seed가 생성할 index 이름과 sourcetype을 묶는다."""
 
     def submit(self, event: str) -> None:
         """외부 SIEM seed의 submit 변경을 저장 계층에 반영한다."""
@@ -26,7 +26,7 @@ class SplunkIndex(Protocol):
 
 
 class SplunkSeedService(Protocol):
-    """외부 SIEM seed에서 함께 이동해야 하는 상태를 묶는다."""
+    """Splunk HEC와 management API를 이용해 seed index와 event를 준비한다."""
 
     @property
     def indexes(self) -> Mapping[str, SplunkIndex]:

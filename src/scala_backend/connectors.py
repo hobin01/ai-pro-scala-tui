@@ -27,7 +27,7 @@ class SiemConnector(Protocol):
         ...
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
-        """iter documents 데이터를 순회한다."""
+        """지정 index의 원본 SIEM 문서 stream을 제공한다."""
         ...
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
@@ -37,7 +37,7 @@ class SiemConnector(Protocol):
 
 @dataclass(frozen=True)
 class ServiceUrl:
-    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
+    """SIEM 접속 URL을 SDK가 쓰기 쉬운 scheme, host, port로 보관한다."""
 
     scheme: str
     host: str
@@ -50,7 +50,7 @@ def default_connectors() -> dict[str, SiemConnector]:
 
 
 class ElasticsearchConnector:
-    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
+    """Elasticsearch SDK로 schema sample, raw hit, lineage 원본을 읽는다."""
 
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
         """외부 SDK client와 접속 URL 정보를 초기화한다."""
@@ -62,7 +62,7 @@ class ElasticsearchConnector:
         self.solution = "elasticsearch"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """원본 index에서 field 타입과 sample 값을 수집한다."""
+        """Elasticsearch search sample hit에서 field 타입과 예시 값을 추출한다."""
         response = self._client.search(index=index, size=limit)
         docs = [
             RawDocument(
@@ -78,7 +78,7 @@ class ElasticsearchConnector:
         )
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
-        """iter documents 데이터를 순회한다."""
+        """Elasticsearch scan API로 요청 index의 모든 hit를 RawDocument로 변환한다."""
         helpers = importlib.import_module("elasticsearch.helpers")
         for hit in helpers.scan(
             self._client,
@@ -94,7 +94,7 @@ class ElasticsearchConnector:
             )
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
+        """Elasticsearch get API로 lineage 원본 문서를 조회한다."""
         try:
             response = self._client.get(index=index, id=doc_id)
         except (KeyError, ValueError) as exc:
@@ -105,7 +105,7 @@ class ElasticsearchConnector:
 
 
 class SplunkConnector:
-    """SIEM index에서 schema sample, raw document, lineage 원본을 읽는 계약이다."""
+    """Splunk SDK export/search로 schema sample, event, lineage 원본을 읽는다."""
 
     def __init__(self, url: str, username: str | None, password: str | None) -> None:
         """외부 SDK client와 접속 URL 정보를 초기화한다."""
@@ -123,7 +123,7 @@ class SplunkConnector:
         self.solution = "splunk"
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
-        """원본 index에서 field 타입과 sample 값을 수집한다."""
+        """Splunk export 결과에서 field 타입과 예시 값을 추출한다."""
         return FixtureConnector(
             "splunk", list(self.iter_documents(index))
         ).fetch_schema_samples(
@@ -132,7 +132,7 @@ class SplunkConnector:
         )
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
-        """iter documents 데이터를 순회한다."""
+        """Splunk export search 결과를 RawDocument stream으로 변환한다."""
         results = importlib.import_module("splunklib.results")
         stream = self._service.jobs.export(
             f"search index={index} | spath",
@@ -148,7 +148,7 @@ class SplunkConnector:
             yield RawDocument("splunk", index, doc_id, body)
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
-        """lineage 조회에 필요한 원본 문서를 doc_id로 읽는다."""
+        """Splunk export stream에서 lineage doc_id와 일치하는 event를 찾는다."""
         return next(
             (doc for doc in self.iter_documents(index) if doc.source_doc_id == doc_id),
             None,

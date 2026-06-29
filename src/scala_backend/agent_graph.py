@@ -12,7 +12,7 @@ def _merge_sequence(left: list[str], right: list[str]) -> list[str]:
 
 
 class AgentGraphState(TypedDict):
-    """PRD agent 흐름 trace에서 함께 이동해야 하는 상태를 묶는다."""
+    """PRD mermaid graph 실행 중 node trace와 분기 플래그를 보관한다."""
 
     run_id: str
     stages: Annotated[list[str], _merge_sequence]

@@ -28,7 +28,7 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 class PipelineRunner:
-    """정규화 파이프라인에서 함께 이동해야 하는 상태를 묶는다."""
+    """선택 source의 원본 문서를 정규화해 OpenSearch와 lineage store에 적재한다."""
 
     def __init__(
         self,
@@ -39,7 +39,7 @@ class PipelineRunner:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
-        """정규화 pipeline 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """정규화 실행에 필요한 connector, mapping, loader, store를 연결한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache

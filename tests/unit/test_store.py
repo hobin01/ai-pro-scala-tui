@@ -12,7 +12,7 @@ from scala_backend.store import (
 
 
 def test_seed_dev_settings_is_explicit() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """개발 기본 settings seed 값이 명시적으로 저장되는지 확인한다."""
     store = InMemoryStore()
 
     assert store.get_settings() == {}
@@ -25,7 +25,7 @@ def test_seed_dev_settings_is_explicit() -> None:
 
 
 def test_agent_model_settings_applies_one_model_to_all_llm_agents() -> None:
-    """테스트 목적: Settings 저장과 hot-reload 반영."""
+    """agent model helper가 하나의 model을 모든 LLM agent에 적용하는지 확인한다."""
     settings = agent_model_settings("gpt-custom-mini")
 
     assert settings == {
@@ -37,7 +37,7 @@ def test_agent_model_settings_applies_one_model_to_all_llm_agents() -> None:
 
 
 def test_monitoring_aggregate_contains_all_agents() -> None:
-    """테스트 목적: agent monitoring scope와 usage 표시."""
+    """monitoring 집계가 모든 Scala-agent별 usage bucket을 포함하는지 확인한다."""
     run_id = uuid4()
     usage = [make_usage(run_id, AgentName.LOAD, "loaded 1 docs")]
 

@@ -17,7 +17,7 @@ class ApprovingPeer:
     """human feedback 요청마다 approve 응답을 돌려주는 peer다."""
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """테스트 목적: pipeline.run 검증과 완료 notification."""
+        """feedback.request를 승인 응답으로 처리한다."""
         del method, params
         return {"decision": "approve"}
 
@@ -26,11 +26,11 @@ class CommentThenApprovePeer:
     """첫 feedback에는 comment, 다음 feedback에는 approve를 돌려주는 peer다."""
 
     def __init__(self) -> None:
-        """테스트 목적: pipeline.run 검증과 완료 notification."""
+        """feedback 요청 기록을 저장할 list를 준비한다."""
         self.requests: list[JsonObject] = []
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """테스트 목적: pipeline.run 검증과 완료 notification."""
+        """첫 요청은 comment, 두 번째 요청은 approve로 응답한다."""
         assert method == "feedback.request"
         self.requests.append(params)
         if len(self.requests) == 1:
@@ -45,7 +45,7 @@ class InvalidJsonProvider:
     """잘못된 LLM JSON 응답을 만들어 fallback 경로를 고정한다."""
 
     def validate(self, model: str) -> None:
-        """테스트 목적: pipeline.run 검증과 완료 notification."""
+        """invalid JSON provider에서는 모든 model 검증을 통과시킨다."""
         del model
 
     def complete(
@@ -54,7 +54,7 @@ class InvalidJsonProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
-        """테스트 목적: pipeline.run 검증과 완료 notification."""
+        """mapping JSON 파싱 실패를 유도하는 응답을 반환한다."""
         del prompt, model, price
         return LlmResponse(
             text="not-json",
@@ -63,7 +63,7 @@ class InvalidJsonProvider:
 
 
 def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """문자열 port를 int로 변환하고 raw field를 보존하는지 확인한다."""
     fields = [
         FieldSample(name="clientip", type="string", samples=["10.0.0.5"]),
         FieldSample(name="port", type="string", samples=["443"]),
@@ -82,7 +82,7 @@ def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
 
 
 def test_mapping_expands_json_raw_before_applying_decisions() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """JSON _raw 내부 field를 펼친 뒤 OCSF mapping을 적용하는지 확인한다."""
     fields = [
         FieldSample(name="_raw", type="string", samples=[]),
         FieldSample(name="clientip", type="string", samples=[]),
@@ -101,7 +101,7 @@ def test_mapping_expands_json_raw_before_applying_decisions() -> None:
 
 
 def test_cache_key_uses_source_url_index_field_and_type() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """cache key가 source URL 차이를 구분하는지 확인한다."""
     cache = InMemoryMappingCache()
     decision = recommend_mapping(
         FieldSample(name="clientip", type="string", samples=[])
@@ -119,7 +119,7 @@ def test_cache_key_uses_source_url_index_field_and_type() -> None:
 
 @pytest.mark.anyio
 async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """MappingDecider가 cache 저장을 Caching agent 단계로 넘기는지 확인한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     cache = InMemoryMappingCache()
@@ -143,7 +143,7 @@ async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
 
 @pytest.mark.anyio
 async def test_mapping_decider_rejects_invalid_agent_json_without_fallback() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """fallback 없는 invalid LLM JSON을 ProviderError로 거부하는지 확인한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     decider = MappingDecider(
@@ -163,7 +163,7 @@ async def test_mapping_decider_rejects_invalid_agent_json_without_fallback() -> 
 
 @pytest.mark.anyio
 async def test_mapping_decider_rerequests_feedback_after_comment() -> None:
-    """테스트 목적: pipeline.run 검증과 완료 notification."""
+    """사용자 comment 후 recommendation을 보정해 feedback을 재요청하는지 확인한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     cache = InMemoryMappingCache()

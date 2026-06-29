@@ -9,7 +9,7 @@ from scala_backend.providers import EmbeddingProvider
 
 
 class ChromaCollection(Protocol):
-    """ChromaDB OCSF 검색에서 함께 이동해야 하는 상태를 묶는다."""
+    """Chroma collection adapter가 제공해야 하는 add/query/count 계약이다."""
 
     def count(self) -> int:
         """ChromaDB OCSF 검색에서 필요한 count 결과를 읽어 온다."""
@@ -46,7 +46,7 @@ class ChromaClient(Protocol):
 
 
 class ChromaOcsfIndex:
-    """ChromaDB OCSF 검색에서 함께 이동해야 하는 상태를 묶는다."""
+    """OCSF field metadata를 ChromaDB collection에 적재하고 유사 후보를 검색한다."""
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class ChromaOcsfIndex:
         host: str | None = None,
         port: int = 8000,
     ) -> None:
-        """Chroma OCSF index 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
+        """Chroma collection과 OCSF schema source를 vector index에 연결한다."""
         self._provider = embedding_provider
         self._model = model
         self._collection = (

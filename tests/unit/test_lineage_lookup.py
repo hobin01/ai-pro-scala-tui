@@ -13,13 +13,13 @@ class RecordingPeer:
     """lineage lookup 테스트에서 불필요한 peer 호출을 잡는 대역이다."""
 
     async def notify(self, method: str, params: JsonObject) -> None:
-        """테스트 목적: lineage 조회 결과와 원본 문서 표시."""
+        """lineage lookup 중 예상하지 않은 notification이 오면 테스트를 실패시킨다."""
         del method, params
 
 
 @pytest.mark.anyio
 async def test_lineage_lookup_returns_not_found_for_missing_opensearch_id() -> None:
-    """테스트 목적: lineage 조회 결과와 원본 문서 표시."""
+    """없는 OpenSearch id 조회가 not_found 상태를 반환하는지 확인한다."""
     app = BackendApp(BackendConfig(), store=InMemoryStore())
 
     result = await app.lineage_lookup(
@@ -34,7 +34,7 @@ async def test_lineage_lookup_returns_not_found_for_missing_opensearch_id() -> N
 async def test_lineage_lookup_prefers_fetched_raw_and_normalized_documents(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """테스트 목적: lineage 조회 결과와 원본 문서 표시."""
+    """lineage 조회가 저장된 원본과 정규화 문서를 함께 반환하는지 확인한다."""
     store = InMemoryStore()
     store.set_setting("source.elasticsearch.url", "memory://elasticsearch")
     store.set_setting("source.splunk.url", "memory://splunk")
@@ -64,7 +64,7 @@ async def test_lineage_lookup_prefers_fetched_raw_and_normalized_documents(
             username: str | None = None,
             password: str | None = None,
         ) -> None:
-            """테스트 목적: lineage 조회 결과와 원본 문서 표시."""
+            """lineage 조회에 사용할 normalized fixture와 호출 기록을 초기화한다."""
             del url, username, password
 
         def fetch_by_id(self, index: str, doc_id: str) -> JsonObject | None:
