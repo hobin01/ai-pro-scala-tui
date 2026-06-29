@@ -11,6 +11,8 @@ DEFAULT_OPENAI_MODEL: Final = "gpt-5.4-mini"
 
 
 class BackendConfig(BaseModel):
+    """BackendConfig 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     backend_host: str = "127.0.0.1"
@@ -76,6 +78,7 @@ SECRET_FILE_ENV_KEYS = ("SCALA_OPENAI_API_KEY_FILE", "OPENAI_API_KEY_FILE")
 
 
 def load_config(env_file: Path | None = None) -> BackendConfig:
+    """load config 데이터를 로드한다."""
     values: dict[str, str] = {}
     dotenv_path = env_file if env_file is not None else Path(".env")
     if dotenv_path.exists():
@@ -99,12 +102,14 @@ def load_config(env_file: Path | None = None) -> BackendConfig:
 
 
 def mask_secret(secret: str | None) -> str:
+    """mask secret 동작을 처리한다."""
     if not secret or secret in {"YOUR_OPENAI_API_KEY", "changeme"}:
         return "(not set)"
     return "set"
 
 
 def _read_first_secret_file(values: dict[str, str]) -> str | None:
+    """read first secret file 내부 처리를 수행한다."""
     for key in SECRET_FILE_ENV_KEYS:
         path = values.get(key)
         if not path:
@@ -119,6 +124,7 @@ def _read_first_secret_file(values: dict[str, str]) -> str | None:
 
 
 def _has_secret(value: object) -> bool:
+    """has secret 내부 처리를 수행한다."""
     return isinstance(value, str) and value not in {
         "",
         "YOUR_OPENAI_API_KEY",

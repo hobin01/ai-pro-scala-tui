@@ -7,6 +7,7 @@ from scala_backend.models import FieldSample, JsonObject, JsonValue
 
 
 def recommend_mapping(field: FieldSample) -> MappingDecision:
+    """recommend mapping 동작을 처리한다."""
     lowered = field.name.lower()
     if lowered == "_raw":
         return MappingDecision(field.name, field.type, "map", "raw_data", "string")
@@ -24,6 +25,7 @@ def recommend_mapping(field: FieldSample) -> MappingDecision:
 
 
 def apply_mapping(document: JsonObject, decisions: list[MappingDecision]) -> JsonObject:
+    """apply mapping 결과를 모델에 반영한다."""
     normalized: JsonObject = {}
     custom_attr: dict[str, JsonValue] = {}
     decision_by_field = {decision.source_field: decision for decision in decisions}
@@ -43,6 +45,7 @@ def apply_mapping(document: JsonObject, decisions: list[MappingDecision]) -> Jso
 
 
 def expand_raw_json(document: JsonObject) -> JsonObject:
+    """expand raw json 동작을 처리한다."""
     expanded = dict(document)
     raw = document.get("_raw")
     if not isinstance(raw, str):
@@ -60,6 +63,7 @@ def expand_raw_json(document: JsonObject) -> JsonObject:
 
 
 def _cast_value(value: JsonValue, ocsf_type: str | None) -> JsonValue:
+    """cast value 내부 처리를 수행한다."""
     if ocsf_type == "integer" and isinstance(value, str) and value.isdigit():
         return int(value)
     return value

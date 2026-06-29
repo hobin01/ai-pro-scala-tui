@@ -1,5 +1,6 @@
 package app
 
+// source는 data에서 사용하는 타입을 정의한다.
 type source struct {
 	id         string
 	kind       string
@@ -10,12 +11,14 @@ type source struct {
 	fields     []field
 }
 
+// field는 data에서 사용하는 타입을 정의한다.
 type field struct {
 	name   string
 	kind   string
 	values []string
 }
 
+// settings는 data에서 사용하는 타입을 정의한다.
 type settings struct {
 	elasticsearchURL     string
 	splunkURL            string
@@ -33,6 +36,7 @@ type settings struct {
 	openSearchDash       string
 }
 
+// lineageRecord는 data에서 사용하는 타입을 정의한다.
 type lineageRecord struct {
 	id         string
 	source     string
@@ -42,6 +46,7 @@ type lineageRecord struct {
 	normalDoc  []string
 }
 
+// monitoringSnapshot는 data에서 사용하는 타입을 정의한다.
 type monitoringSnapshot struct {
 	scope       string
 	totalRuns   int
@@ -54,6 +59,7 @@ type monitoringSnapshot struct {
 	emptyState  bool
 }
 
+// monitoringRow는 data에서 사용하는 타입을 정의한다.
 type monitoringRow struct {
 	name     string
 	model    string
@@ -62,6 +68,7 @@ type monitoringRow struct {
 	activity string
 }
 
+// defaultSources는 관련 동작을 처리한다.
 func defaultSources() []source {
 	return []source{
 		{
@@ -122,6 +129,7 @@ func defaultSources() []source {
 	}
 }
 
+// defaultSettings는 관련 동작을 처리한다.
 func defaultSettings() settings {
 	return settings{
 		elasticsearchURL:     "https://es.local:9200",
@@ -141,6 +149,7 @@ func defaultSettings() settings {
 	}
 }
 
+// defaultLineage는 관련 동작을 처리한다.
 func defaultLineage() map[string]lineageRecord {
 	return map[string]lineageRecord{
 		"aZ12bQ8": {
@@ -172,6 +181,7 @@ func defaultLineage() map[string]lineageRecord {
 	}
 }
 
+// defaultMonitoring는 관련 동작을 처리한다.
 func defaultMonitoring(settings settings) []monitoringSnapshot {
 	rows := []monitoringRow{
 		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "0 tokens", cost: "--"},

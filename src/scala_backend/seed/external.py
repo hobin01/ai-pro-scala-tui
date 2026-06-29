@@ -10,16 +10,28 @@ from scala_backend.models import JsonObject
 
 
 class ElasticsearchSeedClient(Protocol):
-    def index(self, *, index: str, id: str, document: JsonObject) -> JsonObject: ...
+    """ElasticsearchSeedClient 호출 계약을 정의한다."""
+
+    def index(self, *, index: str, id: str, document: JsonObject) -> JsonObject:
+        """index 동작을 처리한다."""
+        ...
 
 
 class SplunkIndex(Protocol):
-    def submit(self, event: str) -> None: ...
+    """SplunkIndex 객체의 책임을 정의한다."""
+
+    def submit(self, event: str) -> None:
+        """submit 동작을 처리한다."""
+        ...
 
 
 class SplunkSeedService(Protocol):
+    """SplunkSeedService 객체의 책임을 정의한다."""
+
     @property
-    def indexes(self) -> Mapping[str, SplunkIndex]: ...
+    def indexes(self) -> Mapping[str, SplunkIndex]:
+        """indexes 동작을 처리한다."""
+        ...
 
 
 def seed_elasticsearch_documents(
@@ -27,6 +39,7 @@ def seed_elasticsearch_documents(
     index: str,
     documents: list[JsonObject],
 ) -> list[str]:
+    """seed elasticsearch documents 데이터를 시드한다."""
     ids: list[str] = []
     for offset, document in enumerate(documents, start=1):
         doc_id = str(document.get("source_doc_id", f"es-seed-{offset}"))
@@ -40,6 +53,7 @@ def seed_splunk_events(
     index: str,
     events: list[JsonObject],
 ) -> list[str]:
+    """seed splunk events 데이터를 시드한다."""
     ids = [
         str(event.get("source_doc_id", f"splunk-seed-{offset}"))
         for offset, event in enumerate(events, start=1)
@@ -57,6 +71,7 @@ def _seeded_splunk_ids(
     index: str,
     expected_ids: list[str],
 ) -> int:
+    """seeded splunk ids 내부 처리를 수행한다."""
     jobs = getattr(service, "jobs", None)
     export = getattr(jobs, "export", None)
     if export is None:

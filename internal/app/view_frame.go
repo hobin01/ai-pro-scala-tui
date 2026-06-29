@@ -9,6 +9,7 @@ import (
 const minFrameWidth = 60
 const minFrameHeight = 12
 
+// renderFrame는 화면 문자열을 렌더링한다.
 func (m *Model) renderFrame(content string, notice string, input string, footer string) string {
 	width := m.width
 	if width < minFrameWidth {
@@ -62,6 +63,7 @@ func (m *Model) renderFrame(content string, notice string, input string, footer 
 	return strings.Join(lines, "\n")
 }
 
+// footerLine는 관련 동작을 처리한다.
 func (m *Model) footerLine() string {
 	switch m.route {
 	case routeSources:
@@ -86,10 +88,12 @@ func (m *Model) footerLine() string {
 	}
 }
 
+// frameTop는 관련 동작을 처리한다.
 func (m *Model) frameTop(width int) string {
 	return frameHeaderLine(m.headerContext(), m.headerStatus(), width)
 }
 
+// headerContext는 관련 동작을 처리한다.
 func (m *Model) headerContext() string {
 	switch m.route {
 	case routeMain:
@@ -122,6 +126,7 @@ func (m *Model) headerContext() string {
 	}
 }
 
+// headerStatus는 관련 동작을 처리한다.
 func (m *Model) headerStatus() string {
 	switch {
 	case m.pipelineRunning:
@@ -153,10 +158,12 @@ func (m *Model) headerStatus() string {
 	}
 }
 
+// frameBottom는 관련 동작을 처리한다.
 func frameBottom(footer string, width int) string {
 	return frameTitleLine("└", "┘", footer, width)
 }
 
+// frameTitleLine는 관련 동작을 처리한다.
 func frameTitleLine(left string, right string, text string, width int) string {
 	bodyWidth := width - 2
 	label := "─ " + text + " "
@@ -169,6 +176,7 @@ func frameTitleLine(left string, right string, text string, width int) string {
 		borderStyle.Render(strings.Repeat("─", padding)+right)
 }
 
+// frameHeaderLine는 관련 동작을 처리한다.
 func frameHeaderLine(context string, status string, width int) string {
 	bodyWidth := width - 2
 	prefix := "─ SCALA · " + context + " "
@@ -187,18 +195,22 @@ func frameHeaderLine(context string, status string, width int) string {
 		borderStyle.Render("┐")
 }
 
+// frameSeparator는 관련 동작을 처리한다.
 func frameSeparator(width int) string {
 	return borderStyle.Render("├" + strings.Repeat("─", width-2) + "┤")
 }
 
+// frameRow는 관련 동작을 처리한다.
 func frameRow(value string, width int) string {
 	return borderStyle.Render("│") + " " + fitLine(value, width) + " " + borderStyle.Render("│")
 }
 
+// frameInputRow는 관련 동작을 처리한다.
 func frameInputRow(value string, width int) string {
 	return borderStyle.Render("│") + " " + renderInput(fitLine(value, width)) + " " + borderStyle.Render("│")
 }
 
+// fitLine는 관련 동작을 처리한다.
 func fitLine(value string, width int) string {
 	if width <= 0 {
 		return ""
@@ -214,6 +226,7 @@ func fitLine(value string, width int) string {
 	return value + strings.Repeat(" ", width-lipgloss.Width(value))
 }
 
+// wrapRows는 관련 동작을 처리한다.
 func wrapRows(rows []string, width int) []string {
 	if width <= 0 {
 		return []string{""}

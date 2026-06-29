@@ -28,6 +28,7 @@ def serve(
     port: Annotated[int | None, typer.Option(help="TCP listen port.")] = None,
     env_file: Annotated[Path | None, typer.Option(help="Optional env file.")] = None,
 ) -> None:
+    """serve 동작을 처리한다."""
     config = load_config(env_file)
     if host is not None:
         config = config.model_copy(update={"backend_host": host})
@@ -42,6 +43,7 @@ def serve(
 
 @app.command()
 def migrate(env_file: Annotated[Path | None, typer.Option()] = None) -> None:
+    """migrate 동작을 처리한다."""
     config = load_config(env_file)
     if config.database_url == "memory://":
         typer.echo("memory store selected; SQL migration skipped")
@@ -52,6 +54,7 @@ def migrate(env_file: Annotated[Path | None, typer.Option()] = None) -> None:
 
 @app.command("seed-dev-settings")
 def seed_settings(env_file: Annotated[Path | None, typer.Option()] = None) -> None:
+    """seed settings 데이터를 시드한다."""
     config = load_config(env_file)
     if config.database_url == "memory://":
         backend = create_app(config)
@@ -65,6 +68,7 @@ def seed_settings(env_file: Annotated[Path | None, typer.Option()] = None) -> No
 def ingest_ocsf(
     env_file: Annotated[Path | None, typer.Option()] = None,
 ) -> None:
+    """ingest ocsf 동작을 처리한다."""
     config = load_config(env_file)
     target = config.chroma_path / f"{config.ocsf_collection}-{config.ocsf_version}.json"
     count = ingest_official_ocsf(config.ocsf_version, target)
@@ -86,6 +90,7 @@ def seed_data(
     env_file: Annotated[Path | None, typer.Option()] = None,
     count: Annotated[int, typer.Option(min=1, max=5000)] = 20,
 ) -> None:
+    """seed data 데이터를 시드한다."""
     config = load_config(env_file)
     elasticsearch = importlib.import_module("elasticsearch")
     splunk_client = importlib.import_module("splunklib.client")
@@ -105,10 +110,12 @@ def seed_data(
 
 
 async def _serve_async(config: BackendConfig, backend: BackendApp) -> None:
+    """serve async 내부 처리를 수행한다."""
     await serve_backend(config, backend)
 
 
 def _settings_overrides(config: BackendConfig) -> dict[str, object]:
+    """settings overrides 내부 처리를 수행한다."""
     return {
         **agent_model_settings(config.openai_model),
         "source.elasticsearch.url": config.elasticsearch_url,
@@ -124,6 +131,7 @@ def _settings_overrides(config: BackendConfig) -> dict[str, object]:
 
 
 def _es_docs(count: int) -> list[dict[str, object]]:
+    """es docs 내부 처리를 수행한다."""
     return [
         {
             "source_doc_id": f"es-seed-{index}",
@@ -139,6 +147,7 @@ def _es_docs(count: int) -> list[dict[str, object]]:
 
 
 def _splunk_docs(count: int) -> list[dict[str, object]]:
+    """splunk docs 내부 처리를 수행한다."""
     return [
         {
             "source_doc_id": f"splunk-seed-{index}",
@@ -154,6 +163,7 @@ def _splunk_docs(count: int) -> list[dict[str, object]]:
 
 
 def main() -> None:
+    """main 진입 동작을 실행한다."""
     app()
 
 

@@ -2,6 +2,7 @@ package app
 
 import "testing"
 
+// TestBackendActionContract는 관련 동작을 검증한다.
 func TestBackendActionContract(t *testing.T) {
 	model := NewModel()
 
@@ -139,10 +140,12 @@ func TestBackendActionContract(t *testing.T) {
 	assertContains(t, model.View(), "$0.1200")
 }
 
+// floatPtr는 관련 동작을 처리한다.
 func floatPtr(value float64) *float64 {
 	return &value
 }
 
+// mustConsumeAction는 테스트 조건을 검증한다.
 func mustConsumeAction(t *testing.T, model *Model, method string) BackendAction {
 	t.Helper()
 	action, ok := model.ConsumeBackendAction()

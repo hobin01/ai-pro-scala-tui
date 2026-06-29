@@ -14,16 +14,23 @@ from scala_backend.store import InMemoryStore, seed_dev_settings
 
 
 class ApprovingPeer:
+    """ApprovingPeer 테스트 대상을 표현한다."""
+
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         del method, params
         return {"decision": "approve"}
 
 
 class CommentThenApprovePeer:
+    """CommentThenApprovePeer 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.requests: list[JsonObject] = []
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         assert method == "feedback.request"
         self.requests.append(params)
         if len(self.requests) == 1:
@@ -35,7 +42,10 @@ class CommentThenApprovePeer:
 
 
 class InvalidJsonProvider:
+    """InvalidJsonProvider 테스트 대상을 표현한다."""
+
     def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
         del model
 
     def complete(
@@ -44,6 +54,7 @@ class InvalidJsonProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         del prompt, model, price
         return LlmResponse(
             text="not-json",
@@ -52,6 +63,7 @@ class InvalidJsonProvider:
 
 
 def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
+    """mapping casts string port and preserves custom fields 동작을 검증한다."""
     fields = [
         FieldSample(name="clientip", type="string", samples=["10.0.0.5"]),
         FieldSample(name="port", type="string", samples=["443"]),
@@ -70,6 +82,7 @@ def test_mapping_casts_string_port_and_preserves_custom_fields() -> None:
 
 
 def test_mapping_expands_json_raw_before_applying_decisions() -> None:
+    """mapping expands json raw before applying decisions 동작을 검증한다."""
     fields = [
         FieldSample(name="_raw", type="string", samples=[]),
         FieldSample(name="clientip", type="string", samples=[]),
@@ -88,6 +101,7 @@ def test_mapping_expands_json_raw_before_applying_decisions() -> None:
 
 
 def test_cache_key_uses_source_url_index_field_and_type() -> None:
+    """cache key uses source url index field and type 동작을 검증한다."""
     cache = InMemoryMappingCache()
     decision = recommend_mapping(
         FieldSample(name="clientip", type="string", samples=[])
@@ -105,6 +119,7 @@ def test_cache_key_uses_source_url_index_field_and_type() -> None:
 
 @pytest.mark.anyio
 async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
+    """mapping decider defers cache writes to caching agent 동작을 검증한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     cache = InMemoryMappingCache()
@@ -128,6 +143,7 @@ async def test_mapping_decider_defers_cache_writes_to_caching_agent() -> None:
 
 @pytest.mark.anyio
 async def test_mapping_decider_rejects_invalid_agent_json_without_fallback() -> None:
+    """mapping decider rejects invalid agent json without fallback 동작을 검증한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     decider = MappingDecider(
@@ -147,6 +163,7 @@ async def test_mapping_decider_rejects_invalid_agent_json_without_fallback() -> 
 
 @pytest.mark.anyio
 async def test_mapping_decider_rerequests_feedback_after_comment() -> None:
+    """mapping decider rerequests feedback after comment 동작을 검증한다."""
     store = InMemoryStore()
     seed_dev_settings(store)
     cache = InMemoryMappingCache()

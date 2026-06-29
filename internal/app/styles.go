@@ -27,6 +27,7 @@ var (
 	warningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightYellow))
 )
 
+// renderStatus는 화면 문자열을 렌더링한다.
 func renderStatus(value string) string {
 	label := strings.TrimSpace(value)
 	style := statusStyle.Foreground(lipgloss.Color(ansiBrightCyan))
@@ -41,18 +42,22 @@ func renderStatus(value string) string {
 	return style.Render(value)
 }
 
+// renderInput는 화면 문자열을 렌더링한다.
 func renderInput(value string) string {
 	return inputStyle.Render(value)
 }
 
+// renderCursor는 화면 문자열을 렌더링한다.
 func renderCursor(value string) string {
 	return accentStyle.Bold(true).Render(value)
 }
 
+// renderSuccess는 화면 문자열을 렌더링한다.
 func renderSuccess(value string) string {
 	return successStyle.Render(value)
 }
 
+// renderWarning는 화면 문자열을 렌더링한다.
 func renderWarning(value string) string {
 	return warningStyle.Render(value)
 }

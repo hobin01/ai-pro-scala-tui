@@ -15,6 +15,8 @@ type JsonId = str | int | None
 
 
 class AgentName(StrEnum):
+    """AgentName 객체의 책임을 정의한다."""
+
     ORCHESTRATOR = "orchestrator"
     SCHEMA_PROFILER = "schema_profiler"
     NORMALIZATION = "normalization"
@@ -43,6 +45,8 @@ ALL_AGENTS = (
 
 
 class SourceSelection(BaseModel):
+    """SourceSelection 객체의 책임을 정의한다."""
+
     model_config = ConfigDict(frozen=True)
 
     solution: Literal["elasticsearch", "splunk"]
@@ -50,6 +54,8 @@ class SourceSelection(BaseModel):
 
 
 class FieldSample(BaseModel):
+    """FieldSample 객체의 책임을 정의한다."""
+
     model_config = ConfigDict(frozen=True)
 
     name: str
@@ -58,6 +64,8 @@ class FieldSample(BaseModel):
 
 
 class IndexSamples(BaseModel):
+    """IndexSamples 객체의 책임을 정의한다."""
+
     model_config = ConfigDict(frozen=True)
 
     solution: str
@@ -66,6 +74,8 @@ class IndexSamples(BaseModel):
 
 
 class SettingsSetParams(BaseModel):
+    """SettingsSetParams 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     key: str = Field(pattern=r"^(agent|model|source|output|console)\.")
@@ -73,30 +83,40 @@ class SettingsSetParams(BaseModel):
 
 
 class SamplesFetchParams(BaseModel):
+    """SamplesFetchParams 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     sources: list[SourceSelection]
 
 
 class PipelineRunParams(BaseModel):
+    """PipelineRunParams 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     sources: list[SourceSelection]
 
 
 class LineageLookupParams(BaseModel):
+    """LineageLookupParams 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     opensearch_id: str = Field(min_length=1)
 
 
 class MonitoringQueryParams(BaseModel):
+    """MonitoringQueryParams 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     scope: Literal["session", "today", "all_time"]
 
 
 class UsageRecord(BaseModel):
+    """UsageRecord 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     run_id: UUID
@@ -111,6 +131,8 @@ class UsageRecord(BaseModel):
 
 
 class RunRecord(BaseModel):
+    """RunRecord 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     run_id: UUID
@@ -122,6 +144,8 @@ class RunRecord(BaseModel):
 
 
 class LineageRecord(BaseModel):
+    """LineageRecord 데이터 구조를 표현한다."""
+
     model_config = ConfigDict(frozen=True)
 
     run_id: UUID
@@ -137,6 +161,8 @@ class LineageRecord(BaseModel):
 
 @dataclass(frozen=True)
 class RawDocument:
+    """RawDocument 객체의 책임을 정의한다."""
+
     source_solution: str
     source_index: str
     source_doc_id: str

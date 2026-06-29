@@ -20,42 +20,66 @@ from scala_backend.store_postgres import PostgresStore as PostgresStore
 
 
 class BackendStore(Protocol):
-    def get_settings(self) -> dict[str, JsonValue]: ...
+    """BackendStore 객체의 책임을 정의한다."""
 
-    def set_setting(self, key: str, value: JsonValue) -> None: ...
+    def get_settings(self) -> dict[str, JsonValue]:
+        """get settings 값을 조회한다."""
+        ...
 
-    def create_run(self, run: RunRecord) -> None: ...
+    def set_setting(self, key: str, value: JsonValue) -> None:
+        """set setting 값을 저장한다."""
+        ...
+
+    def create_run(self, run: RunRecord) -> None:
+        """create run 동작을 처리한다."""
+        ...
 
     def update_run(
         self,
         run_id: UUID,
         status: str,
         doc_count: int | None = None,
-    ) -> None: ...
+    ) -> None:
+        """update run 상태를 갱신한다."""
+        ...
 
-    def add_usage(self, record: UsageRecord) -> None: ...
+    def add_usage(self, record: UsageRecord) -> None:
+        """add usage 동작을 처리한다."""
+        ...
 
-    def list_usage(self) -> list[UsageRecord]: ...
+    def list_usage(self) -> list[UsageRecord]:
+        """list usage 동작을 처리한다."""
+        ...
 
-    def add_lineage(self, record: LineageRecord) -> None: ...
+    def add_lineage(self, record: LineageRecord) -> None:
+        """add lineage 동작을 처리한다."""
+        ...
 
-    def get_lineage(self, opensearch_id: str) -> LineageRecord | None: ...
+    def get_lineage(self, opensearch_id: str) -> LineageRecord | None:
+        """get lineage 값을 조회한다."""
+        ...
 
 
 class InMemoryStore:
+    """InMemoryStore 객체의 책임을 정의한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self._settings: dict[str, JsonValue] = {}
         self._runs: dict[UUID, RunRecord] = {}
         self._usage: list[UsageRecord] = []
         self._lineage: dict[str, LineageRecord] = {}
 
     def get_settings(self) -> dict[str, JsonValue]:
+        """get settings 값을 조회한다."""
         return dict(self._settings)
 
     def set_setting(self, key: str, value: JsonValue) -> None:
+        """set setting 값을 저장한다."""
         self._settings[key] = value
 
     def create_run(self, run: RunRecord) -> None:
+        """create run 동작을 처리한다."""
         self._runs[run.run_id] = run
 
     def update_run(
@@ -64,6 +88,7 @@ class InMemoryStore:
         status: str,
         doc_count: int | None = None,
     ) -> None:
+        """update run 상태를 갱신한다."""
         run = self._runs[run_id]
         now = datetime.now(UTC)
         self._runs[run_id] = run.model_copy(
@@ -75,15 +100,19 @@ class InMemoryStore:
         )
 
     def add_usage(self, record: UsageRecord) -> None:
+        """add usage 동작을 처리한다."""
         self._usage.append(record)
 
     def list_usage(self) -> list[UsageRecord]:
+        """list usage 동작을 처리한다."""
         return list(self._usage)
 
     def add_lineage(self, record: LineageRecord) -> None:
+        """add lineage 동작을 처리한다."""
         self._lineage[record.opensearch_id] = record
 
     def get_lineage(self, opensearch_id: str) -> LineageRecord | None:
+        """get lineage 값을 조회한다."""
         return self._lineage.get(opensearch_id)
 
 
@@ -91,6 +120,7 @@ def seed_dev_settings(
     store: BackendStore,
     overrides: dict[str, JsonValue] | None = None,
 ) -> None:
+    """seed dev settings 데이터를 시드한다."""
     entries: dict[str, JsonValue] = {
         **agent_model_settings(DEFAULT_OPENAI_MODEL),
         "agent.orchestrator.system_prompt": (
@@ -127,6 +157,7 @@ def seed_dev_settings(
 
 
 def agent_model_settings(model: str) -> dict[str, JsonValue]:
+    """agent model settings 동작을 처리한다."""
     return {
         "agent.orchestrator.model": model,
         "agent.schema_profiler.model": model,
@@ -139,6 +170,7 @@ def settings_to_display(
     settings: dict[str, JsonValue],
     openai_key_masked: str,
 ) -> dict[str, JsonValue]:
+    """settings to display 동작을 처리한다."""
     agents: dict[str, JsonValue] = {}
     for agent in ("orchestrator", "schema_profiler", "normalization", "validator"):
         model = settings.get(f"agent.{agent}.model")
@@ -162,6 +194,7 @@ def aggregate_usage(
     usage: Iterable[UsageRecord],
     scope: str,
 ) -> dict[str, JsonValue]:
+    """aggregate usage 동작을 처리한다."""
     now = datetime.now(UTC)
     rows = [
         row for row in usage if scope != "today" or row.created_at.date() == now.date()
@@ -210,6 +243,7 @@ def make_usage(
     prompt_tokens: int | None = None,
     completion_tokens: int = 0,
 ) -> UsageRecord:
+    """make usage 값을 만든다."""
     prompt = tokens if prompt_tokens is None else prompt_tokens
     total = tokens if prompt_tokens is None else prompt + completion_tokens
     return UsageRecord(
@@ -226,6 +260,7 @@ def make_usage(
 
 
 def _group_sources(settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """group sources 내부 처리를 수행한다."""
     return {
         name: {
             "url": _redact_url(settings.get(f"source.{name}.url")),
@@ -236,6 +271,7 @@ def _group_sources(settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
 
 
 def _group_consoles(settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """group consoles 내부 처리를 수행한다."""
     return {
         name: {"url": settings.get(f"console.{name}.url")}
         for name in ("kibana", "splunk", "opensearch")
@@ -243,6 +279,7 @@ def _group_consoles(settings: dict[str, JsonValue]) -> dict[str, JsonValue]:
 
 
 def _redact_url(value: JsonValue) -> JsonValue:
+    """redact url 내부 처리를 수행한다."""
     if not isinstance(value, str) or "@" not in value:
         return value
     parsed = urlsplit(value)

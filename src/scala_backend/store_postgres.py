@@ -15,10 +15,14 @@ from scala_backend.models import (
 
 
 class PostgresStore:
+    """PostgresStore 객체의 책임을 정의한다."""
+
     def __init__(self, database_url: str) -> None:
+        """객체 초기 상태를 준비한다."""
         self._database_url = database_url
 
     def get_settings(self) -> dict[str, JsonValue]:
+        """get settings 값을 조회한다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,
@@ -30,6 +34,7 @@ class PostgresStore:
             return dict(cursor.fetchall())
 
     def set_setting(self, key: str, value: JsonValue) -> None:
+        """set setting 값을 저장한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -43,6 +48,7 @@ class PostgresStore:
             connection.commit()
 
     def create_run(self, run: RunRecord) -> None:
+        """create run 동작을 처리한다."""
         selected_sources = [
             source.model_dump(mode="json") for source in run.selected_sources
         ]
@@ -69,6 +75,7 @@ class PostgresStore:
         status: str,
         doc_count: int | None = None,
     ) -> None:
+        """update run 상태를 갱신한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -80,6 +87,7 @@ class PostgresStore:
             connection.commit()
 
     def add_usage(self, record: UsageRecord) -> None:
+        """add usage 동작을 처리한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -102,6 +110,7 @@ class PostgresStore:
             connection.commit()
 
     def list_usage(self) -> list[UsageRecord]:
+        """list usage 동작을 처리한다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,
@@ -137,6 +146,7 @@ class PostgresStore:
             ]
 
     def add_lineage(self, record: LineageRecord) -> None:
+        """add lineage 동작을 처리한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -157,6 +167,7 @@ class PostgresStore:
             connection.commit()
 
     def get_lineage(self, opensearch_id: str) -> LineageRecord | None:
+        """get lineage 값을 조회한다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,

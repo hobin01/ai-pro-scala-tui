@@ -2,6 +2,7 @@ package app
 
 import "strings"
 
+// enter는 관련 동작을 처리한다.
 func (m *Model) enter() {
 	if m.input != "" {
 		m.submitInput()
@@ -27,6 +28,7 @@ func (m *Model) enter() {
 	}
 }
 
+// enterSources는 관련 동작을 처리한다.
 func (m *Model) enterSources() {
 	if len(m.sources) == 0 {
 		m.route = routeSettings
@@ -44,6 +46,7 @@ func (m *Model) enterSources() {
 	m.queueSamplesFetch()
 }
 
+// enterSamples는 관련 동작을 처리한다.
 func (m *Model) enterSamples() {
 	if m.sampleLoading {
 		return
@@ -59,6 +62,7 @@ func (m *Model) enterSamples() {
 	m.notice = ""
 }
 
+// enterWorkflow는 관련 동작을 처리한다.
 func (m *Model) enterWorkflow() {
 	if m.workflowGate && m.workflowCursor == 1 {
 		m.route = routeSamples
@@ -71,6 +75,7 @@ func (m *Model) enterWorkflow() {
 	m.route = routeMain
 }
 
+// enterLineage는 관련 동작을 처리한다.
 func (m *Model) enterLineage() {
 	if m.lineageLoading {
 		return
@@ -81,6 +86,7 @@ func (m *Model) enterLineage() {
 	m.route = routeMain
 }
 
+// submitInput는 관련 동작을 처리한다.
 func (m *Model) submitInput() {
 	value := strings.TrimSpace(m.input)
 	if m.route == routeLineage && value != "" && !strings.HasPrefix(value, "/") {
@@ -100,6 +106,7 @@ func (m *Model) submitInput() {
 	m.notice = `✗ Unknown command "` + value + `". Try /help.`
 }
 
+// routeCommand는 관련 동작을 처리한다.
 func (m *Model) routeCommand(command string) bool {
 	switch command {
 	case "/help":
@@ -138,6 +145,7 @@ func (m *Model) routeCommand(command string) bool {
 	return true
 }
 
+// move는 관련 동작을 처리한다.
 func (m *Model) move(delta int) {
 	switch m.route {
 	case routeMain:
@@ -165,6 +173,7 @@ func (m *Model) move(delta int) {
 	}
 }
 
+// page는 관련 동작을 처리한다.
 func (m *Model) page(delta int) {
 	switch m.route {
 	case routeSamples:
@@ -177,6 +186,7 @@ func (m *Model) page(delta int) {
 	}
 }
 
+// space는 관련 동작을 처리한다.
 func (m *Model) space() {
 	if m.input != "" {
 		m.input += " "
@@ -193,12 +203,14 @@ func (m *Model) space() {
 	m.notice = ""
 }
 
+// openSources는 관련 동작을 처리한다.
 func (m *Model) openSources() {
 	m.route = routeSources
 	m.sourceCursor = 0
 	m.notice = ""
 }
 
+// selectedSources는 관련 동작을 처리한다.
 func (m *Model) selectedSources() []source {
 	selected := make([]source, 0, len(m.sources))
 	for _, source := range m.sources {
@@ -209,6 +221,7 @@ func (m *Model) selectedSources() []source {
 	return selected
 }
 
+// currentSampleSource는 관련 동작을 처리한다.
 func (m *Model) currentSampleSource() (source, bool) {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -218,6 +231,7 @@ func (m *Model) currentSampleSource() (source, bool) {
 	return selected[page], true
 }
 
+// enterSampleError는 관련 동작을 처리한다.
 func (m *Model) enterSampleError() {
 	switch m.sampleErrorCursor {
 	case 0:

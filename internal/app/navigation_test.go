@@ -2,6 +2,7 @@ package app
 
 import "testing"
 
+// TestLineageViewerFoundAndNotFound는 관련 동작을 검증한다.
 func TestLineageViewerFoundAndNotFound(t *testing.T) {
 	model := NewModel()
 
@@ -25,6 +26,7 @@ func TestLineageViewerFoundAndNotFound(t *testing.T) {
 	assertContains(t, model.View(), `No lineage found for _id "zzz9"`)
 }
 
+// TestAgentMonitoringScopesAndNoLLMRows는 관련 동작을 검증한다.
 func TestAgentMonitoringScopesAndNoLLMRows(t *testing.T) {
 	model := NewModel()
 
@@ -42,6 +44,7 @@ func TestAgentMonitoringScopesAndNoLLMRows(t *testing.T) {
 	assertContains(t, view, "cost unavailable")
 }
 
+// TestAgentMonitoringRejectsHiddenTextInput는 관련 동작을 검증한다.
 func TestAgentMonitoringRejectsHiddenTextInput(t *testing.T) {
 	model := NewModel()
 
@@ -56,6 +59,7 @@ func TestAgentMonitoringRejectsHiddenTextInput(t *testing.T) {
 	assertNotContains(t, view, "Type /help")
 }
 
+// TestDocumentedMainAndBoundaryStates는 관련 동작을 검증한다.
 func TestDocumentedMainAndBoundaryStates(t *testing.T) {
 	model := NewModel()
 	view := model.View()
@@ -98,6 +102,7 @@ func TestDocumentedMainAndBoundaryStates(t *testing.T) {
 	assertContains(t, model.View(), "No data sources are configured")
 }
 
+// TestDataSamplesFailureActions는 관련 동작을 검증한다.
 func TestDataSamplesFailureActions(t *testing.T) {
 	model := NewModel()
 	model.UpdateKey("enter")

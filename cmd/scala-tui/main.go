@@ -17,26 +17,52 @@ import (
 	"github.com/hobin01/ai-pro-scala-tui/internal/backendrpc"
 )
 
+// tickMsg는 TUI 메시지 데이터를 표현한다.
 type tickMsg time.Time
+
+// backendReadyMsg는 TUI 메시지 데이터를 표현한다.
 type backendReadyMsg struct{}
+
+// backendErrMsg는 TUI 메시지 데이터를 표현한다.
 type backendErrMsg struct {
 	method string
 	err    error
 }
+
+// backendSettingsMsg는 TUI 메시지 데이터를 표현한다.
 type backendSettingsMsg app.BackendSettings
+
+// backendSamplesMsg는 TUI 메시지 데이터를 표현한다.
 type backendSamplesMsg app.SamplesFetchResult
+
+// backendProgressMsg는 TUI 메시지 데이터를 표현한다.
 type backendProgressMsg app.BackendProgress
+
+// backendSampleProgressMsg는 TUI 메시지 데이터를 표현한다.
 type backendSampleProgressMsg app.SampleFetchProgress
+
+// backendRunStartedMsg는 TUI 메시지 데이터를 표현한다.
 type backendRunStartedMsg string
+
+// backendRunStatusMsg는 TUI 메시지 데이터를 표현한다.
 type backendRunStatusMsg app.RunStatus
+
+// backendOutputChunkMsg는 TUI 메시지 데이터를 표현한다.
 type backendOutputChunkMsg string
+
+// backendFeedbackMsg는 TUI 메시지 데이터를 표현한다.
 type backendFeedbackMsg struct {
 	id      backendrpc.RequestID
 	request app.FeedbackRequest
 }
+
+// backendLineageMsg는 TUI 메시지 데이터를 표현한다.
 type backendLineageMsg app.LineageLookupResult
+
+// backendMonitoringMsg는 TUI 메시지 데이터를 표현한다.
 type backendMonitoringMsg app.MonitoringResult
 
+// tuiModel는 main에서 사용하는 타입을 정의한다.
 type tuiModel struct {
 	core     *app.Model
 	spinner  spinner.Model
@@ -44,6 +70,7 @@ type tuiModel struct {
 	mockMode bool
 }
 
+// main은 TUI 실행 흐름을 시작한다.
 func main() {
 	var backendAddr string
 	var mockMode bool
@@ -80,6 +107,7 @@ func main() {
 	}
 }
 
+// Init는 관련 동작을 처리한다.
 func (m tuiModel) Init() tea.Cmd {
 	if !m.mockMode {
 		return tea.Batch(tick(), m.nextBackendAction(), m.waitBackend())
@@ -87,6 +115,7 @@ func (m tuiModel) Init() tea.Cmd {
 	return tick()
 }
 
+// Update는 모델 상태를 갱신한다.
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
@@ -159,6 +188,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View는 화면 문자열을 렌더링한다.
 func (m tuiModel) View() tea.View {
 	content := m.core.View()
 	content = strings.Replace(content, "{spinner}", m.spinner.View(), 1)
@@ -167,12 +197,14 @@ func (m tuiModel) View() tea.View {
 	return view
 }
 
+// tick는 관련 동작을 처리한다.
 func tick() tea.Cmd {
 	return tea.Tick(350*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
 
+// afterStateChange는 관련 동작을 처리한다.
 func (m tuiModel) afterStateChange(extra tea.Cmd) tea.Cmd {
 	commands := []tea.Cmd{}
 	if extra != nil {
@@ -187,6 +219,7 @@ func (m tuiModel) afterStateChange(extra tea.Cmd) tea.Cmd {
 	return tea.Batch(commands...)
 }
 
+// nextBackendAction는 관련 동작을 처리한다.
 func (m tuiModel) nextBackendAction() tea.Cmd {
 	if m.backend == nil {
 		return nil
@@ -251,6 +284,7 @@ func (m tuiModel) nextBackendAction() tea.Cmd {
 	}
 }
 
+// waitBackend는 관련 동작을 처리한다.
 func (m tuiModel) waitBackend() tea.Cmd {
 	if m.backend == nil {
 		return nil
@@ -264,6 +298,7 @@ func (m tuiModel) waitBackend() tea.Cmd {
 	}
 }
 
+// decodeInbound는 관련 동작을 처리한다.
 func decodeInbound(inbound backendrpc.Inbound) tea.Msg {
 	switch inbound.Method {
 	case "progress":
@@ -301,6 +336,7 @@ func decodeInbound(inbound backendrpc.Inbound) tea.Msg {
 	}
 }
 
+// envDefault는 관련 동작을 처리한다.
 func envDefault(key string, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

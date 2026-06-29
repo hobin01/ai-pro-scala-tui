@@ -15,6 +15,8 @@ from scala_backend.errors import ProviderError
 
 @dataclass(frozen=True)
 class ProviderUsage:
+    """ProviderUsage 데이터 구조를 표현한다."""
+
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
@@ -23,44 +25,64 @@ class ProviderUsage:
 
 @dataclass(frozen=True)
 class LlmResponse:
+    """LlmResponse 데이터 구조를 표현한다."""
+
     text: str
     usage: ProviderUsage
 
 
 class LlmProvider(Protocol):
-    def validate(self, model: str) -> None: ...
+    """LlmProvider 객체의 책임을 정의한다."""
+
+    def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
+        ...
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
-    ) -> LlmResponse: ...
+    ) -> LlmResponse:
+        """complete 동작을 처리한다."""
+        ...
 
 
 class EmbeddingProvider(Protocol):
-    def embed(self, texts: list[str], model: str) -> list[list[float]]: ...
+    """EmbeddingProvider 객체의 책임을 정의한다."""
+
+    def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
+        ...
 
 
 class FakeProvider:
+    """FakeProvider 객체의 책임을 정의한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.complete_calls = 0
         self.embed_calls = 0
 
     def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
         del model
 
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         self.complete_calls += 1
         tokens = max(1, len(prompt.split()))
         usage = calculate_usage(tokens, 3, price)
         return LlmResponse(text=f"{model}: approved", usage=usage)
 
     def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
         self.embed_calls += 1
         return [[float(len(text) % 7), float(len(model) % 5), 1.0] for text in texts]
 
 
 class OpenAiProvider:
+    """OpenAiProvider 객체의 책임을 정의한다."""
+
     def __init__(
         self,
         api_key: str,
@@ -69,6 +91,7 @@ class OpenAiProvider:
         cost_api_key_id: str | None = None,
         cost_project_id: str | None = None,
     ) -> None:
+        """객체 초기 상태를 준비한다."""
         module = importlib.import_module("openai")
         client_cls = module.OpenAI
         self._client = client_cls(api_key=api_key)
@@ -77,6 +100,7 @@ class OpenAiProvider:
         self._cost_project_id = cost_project_id
 
     def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
         try:
             self._client.models.retrieve(model)
         except Exception as exc:
@@ -87,6 +111,7 @@ class OpenAiProvider:
     def complete(
         self, prompt: str, model: str, price: dict[str, float] | None
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         try:
             response = self._client.responses.create(model=model, input=prompt)
         except Exception as exc:
@@ -100,6 +125,7 @@ class OpenAiProvider:
         )
 
     def embed(self, texts: list[str], model: str) -> list[list[float]]:
+        """embed 동작을 처리한다."""
         try:
             response = self._client.embeddings.create(model=model, input=texts)
         except Exception as exc:
@@ -111,6 +137,7 @@ class OpenAiProvider:
         start_time: datetime,
         end_time: datetime,
     ) -> Decimal:
+        """organization cost usd 동작을 처리한다."""
         params: dict[str, object] = {
             "start_time": int(start_time.timestamp()),
             "end_time": int(end_time.timestamp()),
@@ -143,12 +170,14 @@ def calculate_usage(
     completion_tokens: int,
     price: dict[str, float] | None,
 ) -> ProviderUsage:
+    """calculate usage 동작을 처리한다."""
     total = prompt_tokens + completion_tokens
     del price
     return ProviderUsage(prompt_tokens, completion_tokens, total, Decimal("0"))
 
 
 def _sum_cost_payload(payload: object) -> Decimal:
+    """sum cost payload 내부 처리를 수행한다."""
     total = Decimal("0")
     if not isinstance(payload, dict):
         return total

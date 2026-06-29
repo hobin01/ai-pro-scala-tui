@@ -19,12 +19,16 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 @dataclass(frozen=True)
 class CacheWrite:
+    """CacheWrite 객체의 책임을 정의한다."""
+
     key: str
     decision: MappingDecision
 
 
 @dataclass(frozen=True)
 class MappingResult:
+    """MappingResult 데이터 구조를 표현한다."""
+
     decisions: list[MappingDecision]
     cache_hit_count: int
     cache_miss_count: int
@@ -33,10 +37,13 @@ class MappingResult:
 
     @property
     def cached_count(self) -> int:
+        """cached count 동작을 처리한다."""
         return self.cache_hit_count
 
 
 class MappingDecider:
+    """MappingDecider 객체의 책임을 정의한다."""
+
     def __init__(
         self,
         store: BackendStore,
@@ -45,6 +52,7 @@ class MappingDecider:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
+        """객체 초기 상태를 준비한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache
@@ -57,6 +65,7 @@ class MappingDecider:
         sources: list[SourceSelection],
         peer: object,
     ) -> MappingResult:
+        """decide 동작을 처리한다."""
         decisions: list[MappingDecision] = []
         cache_hit_count = 0
         cache_miss_count = 0
@@ -91,6 +100,7 @@ class MappingDecider:
         field: FieldSample,
         peer: object,
     ) -> tuple[MappingDecision, bool]:
+        """decide uncached 내부 처리를 수행한다."""
         decision = recommend_mapping(field)
         candidates: list[OcsfField] = []
         if decision.action == "map" and self._ocsf_index is not None:
@@ -141,6 +151,7 @@ class MappingDecider:
         candidates: list[OcsfField],
         fallback: MappingDecision,
     ) -> MappingDecision:
+        """agent decision 내부 처리를 수행한다."""
         if self._llm_provider is None:
             return fallback
         settings = self._store.get_settings()
@@ -166,6 +177,7 @@ class MappingDecider:
         return _parse_agent_decision(field, response.text)
 
     def _fields_from_source(self, source: SourceSelection) -> list[FieldSample]:
+        """fields from source 내부 처리를 수행한다."""
         return self._connectors[source.solution].fetch_schema_samples(source.index)
 
 
@@ -175,6 +187,7 @@ def _feedback(
     decision: MappingDecision,
     comment: str | None = None,
 ) -> dict[str, object]:
+    """feedback 내부 처리를 수행한다."""
     why = "name and value look like a source IP"
     if comment is not None:
         why = f"{why} (updated); user comment: {comment}"
@@ -200,11 +213,13 @@ def _feedback(
 
 
 def _source_url(settings: dict[str, object], solution: str) -> str:
+    """source url 내부 처리를 수행한다."""
     value = settings.get(f"source.{solution}.url")
     return value if isinstance(value, str) else solution
 
 
 def _candidate_query(field: FieldSample) -> str:
+    """candidate query 내부 처리를 수행한다."""
     samples = " ".join(str(sample) for sample in field.samples[:3])
     return f"{field.name} {field.type} {samples}"
 
@@ -214,6 +229,7 @@ def _candidate_decision(
     candidates: list[OcsfField],
     fallback: MappingDecision,
 ) -> MappingDecision:
+    """candidate decision 내부 처리를 수행한다."""
     if not candidates:
         return fallback
     top = candidates[0]
@@ -235,6 +251,7 @@ def _candidate_decision(
 
 
 def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
+    """agent model 내부 처리를 수행한다."""
     value = settings.get(f"agent.{agent.value}.model")
     return value if isinstance(value, str) else DEFAULT_OPENAI_MODEL
 
@@ -244,6 +261,7 @@ def _agent_prompt(
     agent: AgentName,
     task_prompt: str,
 ) -> str:
+    """agent prompt 내부 처리를 수행한다."""
     system_prompt = settings.get(f"agent.{agent.value}.system_prompt")
     if not isinstance(system_prompt, str):
         system_prompt = f"You are the SCALA {agent.value} agent."
@@ -255,6 +273,7 @@ def _mapping_prompt(
     candidates: list[OcsfField],
     fallback: MappingDecision,
 ) -> str:
+    """mapping prompt 내부 처리를 수행한다."""
     candidate_payload = [
         {
             "name": candidate.name,
@@ -291,6 +310,7 @@ def _parse_agent_decision(
     field: FieldSample,
     text: str,
 ) -> MappingDecision:
+    """parse agent decision 내부 처리를 수행한다."""
     try:
         payload = json.loads(_extract_json(text))
     except json.JSONDecodeError as exc:
@@ -314,6 +334,7 @@ def _parse_agent_decision(
 
 
 def _extract_json(text: str) -> str:
+    """extract json 내부 처리를 수행한다."""
     value = text.strip()
     if value.startswith("```"):
         lines = value.splitlines()

@@ -28,23 +28,32 @@ from scala_backend.store import InMemoryStore, make_usage
 
 
 class RecordingPeer:
+    """RecordingPeer 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.messages: list[tuple[str, JsonObject]] = []
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         self.messages.append((method, params))
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         self.messages.append((method, params))
         return {"decision": "approve"}
 
 
 class RecordingProvider:
+    """RecordingProvider 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         self.calls: list[dict[str, object]] = []
         self.validate_calls: list[str] = []
 
     def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
         self.validate_calls.append(model)
 
     def complete(
@@ -53,6 +62,7 @@ class RecordingProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         self.calls.append({"prompt": prompt, "model": model, "price": price})
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
@@ -72,11 +82,15 @@ class RecordingProvider:
 
 
 class FailingProvider(RecordingProvider):
+    """FailingProvider 테스트 대상을 표현한다."""
+
     def __init__(self) -> None:
+        """객체 초기 상태를 준비한다."""
         super().__init__()
         self.complete_called = False
 
     def validate(self, model: str) -> None:
+        """validate 동작을 처리한다."""
         super().validate(model)
         raise ProviderError("OpenAI API key is invalid")
 
@@ -86,13 +100,17 @@ class FailingProvider(RecordingProvider):
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
+        """complete 동작을 처리한다."""
         del prompt, model, price
         self.complete_called = True
         raise AssertionError("pipeline should not request mappings with invalid key")
 
 
 class BlockingFeedbackPeer:
+    """BlockingFeedbackPeer 테스트 대상을 표현한다."""
+
     def __init__(self, task_group: TaskGroup) -> None:
+        """객체 초기 상태를 준비한다."""
         self.task_group = task_group
         self.messages: list[tuple[str, JsonObject]] = []
         self.feedback_requested = anyio.Event()
@@ -100,11 +118,13 @@ class BlockingFeedbackPeer:
         self.completed = anyio.Event()
 
     async def notify(self, method: str, params: JsonObject) -> None:
+        """notify 동작을 처리한다."""
         self.messages.append((method, params))
         if method == "run.status" and params.get("status") in {"completed", "failed"}:
             self.completed.set()
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
+        """request 동작을 처리한다."""
         self.messages.append((method, params))
         if method == "feedback.request":
             self.feedback_requested.set()
@@ -116,10 +136,12 @@ class BlockingFeedbackPeer:
         func: Callable[..., Coroutine[Any, Any, None]],
         *args: object,
     ) -> None:
+        """start soon 동작을 처리한다."""
         self.task_group.start_soon(func, *args)
 
 
 def test_settings_handlers_are_hot_reload() -> None:
+    """settings handlers are hot reload 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     result = app.settings_set(
@@ -132,6 +154,7 @@ def test_settings_handlers_are_hot_reload() -> None:
 
 
 def test_settings_get_redacts_source_url_credentials() -> None:
+    """settings get redacts source url credentials 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
 
     app.settings_set(
@@ -148,6 +171,7 @@ def test_settings_get_redacts_source_url_credentials() -> None:
 
 
 def test_monitoring_session_starts_at_backend_process_start() -> None:
+    """monitoring session starts at backend process start 동작을 검증한다."""
     app = create_app(BackendConfig(openai_api_key="sk-test-12345678"))
     old_usage = make_usage(
         uuid4(),
@@ -173,6 +197,7 @@ def test_monitoring_session_starts_at_backend_process_start() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_missing_required_settings() -> None:
+    """pipeline run rejects missing required settings 동작을 검증한다."""
     app = BackendApp(BackendConfig(), store=InMemoryStore())
 
     with pytest.raises(ConfigurationError, match="OpenSearch URL"):
@@ -189,6 +214,7 @@ async def test_pipeline_run_rejects_missing_required_settings() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_two_or_more_sources() -> None:
+    """pipeline run requires two or more sources 동작을 검증한다."""
     app = create_app(BackendConfig())
 
     with pytest.raises(ConfigurationError, match="at least two sources"):
@@ -202,6 +228,7 @@ async def test_pipeline_run_requires_two_or_more_sources() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_agent_models() -> None:
+    """pipeline run requires agent models 동작을 검증한다."""
     store = InMemoryStore()
     store.set_setting("source.elasticsearch.url", "memory://elasticsearch")
     store.set_setting("source.elasticsearch.indices", ["logs-2026"])
@@ -225,6 +252,7 @@ async def test_pipeline_run_requires_agent_models() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_requires_openai_provider() -> None:
+    """pipeline run requires openai provider 동작을 검증한다."""
     app = create_app(BackendConfig())
 
     with pytest.raises(ProviderError, match="OpenAI API key is not configured"):
@@ -241,6 +269,7 @@ async def test_pipeline_run_requires_openai_provider() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
+    """pipeline run rejects invalid openai key before mapping 동작을 검증한다."""
     provider = FailingProvider()
     app = BackendApp(
         BackendConfig(),
@@ -267,6 +296,7 @@ async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
 
 @pytest.mark.anyio
 async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
+    """pipeline records agent usage with settings prompts 동작을 검증한다."""
     store = _configured_store()
     provider = RecordingProvider()
     app = BackendApp(
@@ -302,6 +332,7 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
 
 
 def _configured_store() -> InMemoryStore:
+    """configured store 내부 처리를 수행한다."""
     store = InMemoryStore()
     for key, value in {
         "source.elasticsearch.url": "memory://elasticsearch",
@@ -324,10 +355,13 @@ def _configured_store() -> InMemoryStore:
 async def test_opensearch_loader_is_refreshed_from_current_settings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """opensearch loader is refreshed from current settings 동작을 검증한다."""
     app = create_app(BackendConfig())
     constructed_urls: list[str | None] = []
 
     class CapturingOpenSearchLoader:
+        """CapturingOpenSearchLoader 테스트 대상을 표현한다."""
+
         def __init__(
             self,
             url: str | None = None,
@@ -335,6 +369,7 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
             username: str | None = None,
             password: str | None = None,
         ) -> None:
+            """객체 초기 상태를 준비한다."""
             del username, password
             constructed_urls.append(url)
 
@@ -344,10 +379,12 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
             doc_id: str,
             document: JsonObject,
         ) -> str:
+            """index normalized 동작을 처리한다."""
             del index, document
             return doc_id
 
         def fetch_by_id(self, index: str, doc_id: str) -> JsonObject | None:
+            """fetch by id 데이터를 조회한다."""
             del index, doc_id
             return None
 
@@ -367,6 +404,7 @@ async def test_opensearch_loader_is_refreshed_from_current_settings(
 
 @pytest.mark.anyio
 async def test_pipeline_run_rejects_overlap_while_waiting_for_feedback() -> None:
+    """pipeline run rejects overlap while waiting for feedback 동작을 검증한다."""
     app = BackendApp(
         BackendConfig(),
         store=_configured_store(),

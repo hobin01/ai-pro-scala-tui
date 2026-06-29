@@ -1,5 +1,6 @@
 package app
 
+// route는 model에서 사용하는 타입을 정의한다.
 type route string
 
 const (
@@ -13,6 +14,7 @@ const (
 	routeSettings   route = "settings"
 )
 
+// Model는 model에서 사용하는 타입을 정의한다.
 type Model struct {
 	width             int
 	height            int
@@ -59,6 +61,7 @@ type Model struct {
 	backendActions    []BackendAction
 }
 
+// NewModel는 관련 동작을 처리한다.
 func NewModel() *Model {
 	s := defaultSettings()
 	return &Model{
@@ -73,6 +76,7 @@ func NewModel() *Model {
 	}
 }
 
+// SetSize는 관련 동작을 처리한다.
 func (m *Model) SetSize(width int, height int) {
 	if width > 0 {
 		m.width = width
@@ -82,10 +86,12 @@ func (m *Model) SetSize(width int, height int) {
 	}
 }
 
+// Size는 관련 동작을 처리한다.
 func (m *Model) Size() (int, int) {
 	return m.width, m.height
 }
 
+// UpdateKey는 모델 상태를 갱신한다.
 func (m *Model) UpdateKey(key string) bool {
 	key = normalizeKey(key)
 	m.showHelp = false
@@ -130,6 +136,7 @@ func (m *Model) UpdateKey(key string) bool {
 	return false
 }
 
+// Paste는 관련 동작을 처리한다.
 func (m *Model) Paste(text string) {
 	if text == "" || m.pipelineRunning {
 		return
@@ -144,6 +151,7 @@ func (m *Model) Paste(text string) {
 	}
 }
 
+// CopyKey는 관련 동작을 처리한다.
 func (m *Model) CopyKey(key string) (string, bool) {
 	key = normalizeKey(key)
 	switch key {
@@ -157,6 +165,7 @@ func (m *Model) CopyKey(key string) (string, bool) {
 	return "", false
 }
 
+// CopyOpenSearchID는 관련 동작을 처리한다.
 func (m *Model) CopyOpenSearchID() (string, bool) {
 	if m.lineageResult == nil || m.lineageResult.id == "" {
 		if m.lastRunStatus == nil || len(m.lastRunStatus.LineageRefs) == 0 {
@@ -171,10 +180,12 @@ func (m *Model) CopyOpenSearchID() (string, bool) {
 	return m.lineageResult.id, true
 }
 
+// scrollContent는 관련 동작을 처리한다.
 func (m *Model) scrollContent(delta int) {
 	m.contentScroll = max(0, m.contentScroll+delta)
 }
 
+// AdvanceLoading는 관련 동작을 처리한다.
 func (m *Model) AdvanceLoading() {
 	if m.backendRuntime {
 		return

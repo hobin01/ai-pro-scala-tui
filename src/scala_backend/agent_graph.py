@@ -7,10 +7,13 @@ from langgraph.graph import END, START, StateGraph
 
 
 def _merge_sequence(left: list[str], right: list[str]) -> list[str]:
+    """merge sequence 내부 처리를 수행한다."""
     return [*left, *right]
 
 
 class AgentGraphState(TypedDict):
+    """AgentGraphState 객체의 책임을 정의한다."""
+
     run_id: str
     stages: Annotated[list[str], _merge_sequence]
     nodes: Annotated[list[str], _merge_sequence]
@@ -31,6 +34,7 @@ AGENT_STAGE_ORDER = (
 
 
 def build_agent_graph() -> Any:
+    """build agent graph 구성을 만든다."""
     builder = StateGraph(AgentGraphState)
     for node, stage in _runtime_nodes():
         builder.add_node(node, cast("Any", _stage_node(node, stage)))
@@ -100,6 +104,7 @@ def run_agent_graph(
     cache_miss: bool = True,
     needs_feedback: bool = False,
 ) -> AgentGraphState:
+    """run agent graph 동작을 처리한다."""
     graph = build_agent_graph()
     result = graph.invoke(
         {
@@ -122,6 +127,7 @@ def run_agent_graph(
 
 
 def _runtime_nodes() -> tuple[tuple[str, str | None], ...]:
+    """runtime nodes 내부 처리를 수행한다."""
     return (
         ("elasticsearch_siem", None),
         ("splunk_siem", None),
@@ -160,7 +166,10 @@ def _stage_node(
     node_name: str,
     stage: str | None,
 ) -> Callable[[AgentGraphState], dict[str, list[str]]]:
+    """stage node 내부 처리를 수행한다."""
+
     def node(_state: AgentGraphState) -> dict[str, list[str]]:
+        """node 동작을 처리한다."""
         update = {"nodes": [node_name]}
         if stage is not None:
             update["stages"] = [stage]
@@ -170,6 +179,7 @@ def _stage_node(
 
 
 def _cache_route(state: AgentGraphState) -> str | list[str]:
+    """cache route 내부 처리를 수행한다."""
     has_hit = state.get("cache_hit", False)
     has_miss = state.get("cache_miss", True)
     if has_hit and has_miss:
@@ -178,12 +188,15 @@ def _cache_route(state: AgentGraphState) -> str | list[str]:
 
 
 def _feedback_route(state: AgentGraphState) -> str:
+    """feedback route 내부 처리를 수행한다."""
     return "feedback" if state.get("needs_feedback", False) else "valid"
 
 
 def _cache_branch_route(state: AgentGraphState) -> str:
+    """cache branch route 내부 처리를 수행한다."""
     return "wait" if state.get("cache_miss", True) else "final"
 
 
 def _miss_branch_route(state: AgentGraphState) -> str:
+    """miss branch route 내부 처리를 수행한다."""
     return "wait" if state.get("cache_hit", False) else "final"

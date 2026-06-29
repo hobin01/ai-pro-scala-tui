@@ -7,11 +7,15 @@ from scala_backend.normalization import expand_raw_json
 
 
 class FixtureConnector:
+    """FixtureConnector 객체의 책임을 정의한다."""
+
     def __init__(self, solution: str, documents: list[RawDocument]) -> None:
+        """객체 초기 상태를 준비한다."""
         self.solution = solution
         self._documents = documents
 
     def fetch_schema_samples(self, index: str, limit: int = 5) -> list[FieldSample]:
+        """fetch schema samples 데이터를 조회한다."""
         rows = [doc for doc in self._documents if doc.source_index == index]
         fields: dict[str, list[JsonValue]] = {}
         types: dict[str, str] = {}
@@ -27,9 +31,11 @@ class FixtureConnector:
         ]
 
     def iter_documents(self, index: str) -> Iterable[RawDocument]:
+        """iter documents 데이터를 순회한다."""
         return (doc for doc in self._documents if doc.source_index == index)
 
     def fetch_raw_document(self, index: str, doc_id: str) -> RawDocument | None:
+        """fetch raw document 데이터를 조회한다."""
         return next(
             (
                 doc
@@ -41,6 +47,7 @@ class FixtureConnector:
 
 
 def default_connectors() -> dict[str, FixtureConnector]:
+    """default connectors 동작을 처리한다."""
     return {
         "elasticsearch": FixtureConnector(
             "elasticsearch",
@@ -79,6 +86,7 @@ def default_connectors() -> dict[str, FixtureConnector]:
 
 
 def _json_type(value: JsonValue) -> str:
+    """json type 내부 처리를 수행한다."""
     if value is None:
         return "null"
     if isinstance(value, bool):

@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 )
 
+// Client는 client에서 사용하는 타입을 정의한다.
 type Client struct {
 	conn net.Conn
 
@@ -30,11 +31,13 @@ type Client struct {
 	closeErr  error
 }
 
+// response는 client에서 사용하는 타입을 정의한다.
 type response struct {
 	err    error
 	result json.RawMessage
 }
 
+// Dial는 관련 동작을 처리한다.
 func Dial(ctx context.Context, addr string) (*Client, error) {
 	var dialer net.Dialer
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
@@ -52,10 +55,12 @@ func Dial(ctx context.Context, addr string) (*Client, error) {
 	return client, nil
 }
 
+// Incoming는 관련 동작을 처리한다.
 func (c *Client) Incoming() <-chan Inbound {
 	return c.incoming
 }
 
+// Call는 관련 동작을 처리한다.
 func (c *Client) Call(ctx context.Context, method string, params any, result any) error {
 	if params == nil {
 		params = map[string]any{}
@@ -95,6 +100,7 @@ func (c *Client) Call(ctx context.Context, method string, params any, result any
 	}
 }
 
+// Respond는 관련 동작을 처리한다.
 func (c *Client) Respond(ctx context.Context, id RequestID, result any) error {
 	if !id.Valid() {
 		return ErrInvalidID
@@ -113,6 +119,7 @@ func (c *Client) Respond(ctx context.Context, id RequestID, result any) error {
 	return nil
 }
 
+// RespondError는 관련 동작을 처리한다.
 func (c *Client) RespondError(ctx context.Context, id RequestID, rpcErr *RPCError) error {
 	if !id.Valid() {
 		return ErrInvalidID
@@ -135,6 +142,7 @@ func (c *Client) RespondError(ctx context.Context, id RequestID, rpcErr *RPCErro
 	return nil
 }
 
+// Close는 관련 동작을 처리한다.
 func (c *Client) Close() error {
 	c.closeOnce.Do(func() {
 		c.closed.Store(true)
@@ -145,6 +153,7 @@ func (c *Client) Close() error {
 	return c.closeErr
 }
 
+// readLoop는 관련 동작을 처리한다.
 func (c *Client) readLoop() {
 	defer close(c.done)
 	defer close(c.incoming)
@@ -165,6 +174,7 @@ func (c *Client) readLoop() {
 	c.failPending(fmt.Errorf("backend rpc closed: %w", io.EOF))
 }
 
+// handleLine는 관련 동작을 처리한다.
 func (c *Client) handleLine(line []byte) {
 	var msg wireMessage
 	if err := json.Unmarshal(line, &msg); err != nil {
@@ -177,6 +187,7 @@ func (c *Client) handleLine(line []byte) {
 	c.completePending(msg)
 }
 
+// emitInbound는 관련 동작을 처리한다.
 func (c *Client) emitInbound(msg wireMessage) {
 	inbound := Inbound{
 		Method: msg.Method,
@@ -189,6 +200,7 @@ func (c *Client) emitInbound(msg wireMessage) {
 	}
 }
 
+// completePending는 관련 동작을 처리한다.
 func (c *Client) completePending(msg wireMessage) {
 	key := string(msg.ID)
 	if key == "" {
@@ -209,6 +221,7 @@ func (c *Client) completePending(msg wireMessage) {
 	done <- response{result: append(json.RawMessage(nil), msg.Result...)}
 }
 
+// send는 관련 동작을 처리한다.
 func (c *Client) send(ctx context.Context, msg outboundMessage) error {
 	select {
 	case <-ctx.Done():
@@ -239,12 +252,14 @@ func (c *Client) send(ctx context.Context, msg outboundMessage) error {
 	return nil
 }
 
+// addPending는 관련 동작을 처리한다.
 func (c *Client) addPending(key string, done chan response) {
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()
 	c.pending[key] = done
 }
 
+// removePending는 관련 동작을 처리한다.
 func (c *Client) removePending(key string) chan response {
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()
@@ -253,6 +268,7 @@ func (c *Client) removePending(key string) chan response {
 	return done
 }
 
+// failPending는 관련 동작을 처리한다.
 func (c *Client) failPending(err error) {
 	c.pendingMu.Lock()
 	defer c.pendingMu.Unlock()

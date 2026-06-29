@@ -22,63 +22,83 @@ from scala_backend.store import PostgresStore
 
 @dataclass
 class SqlCall:
+    """SqlCall 테스트 대상을 표현한다."""
+
     sql: str
     params: tuple[object, ...] | None
 
 
 @dataclass
 class FakeCursor:
+    """FakeCursor 테스트 대상을 표현한다."""
+
     calls: list[SqlCall] = field(default_factory=list)
     row: tuple[object, ...] | None = None
     rows: list[tuple[object, ...]] = field(default_factory=list)
 
     def __enter__(self) -> FakeCursor:
+        """enter 내부 처리를 수행한다."""
         return self
 
     def __exit__(self, *_args: object) -> None:
-        return None
+        """exit 내부 처리를 수행한다."""
 
     def execute(self, sql: str, params: tuple[object, ...] | None = None) -> None:
+        """execute 동작을 처리한다."""
         self.calls.append(SqlCall(sql, params))
 
     def fetchone(self) -> tuple[object, ...] | None:
+        """fetchone 동작을 처리한다."""
         return self.row
 
     def fetchall(self) -> list[tuple[object, ...]]:
+        """fetchall 동작을 처리한다."""
         return self.rows
 
 
 @dataclass
 class FakeConnection:
+    """FakeConnection 테스트 대상을 표현한다."""
+
     cursor_obj: FakeCursor
     commits: int = 0
 
     def __enter__(self) -> FakeConnection:
+        """enter 내부 처리를 수행한다."""
         return self
 
     def __exit__(self, *_args: object) -> None:
-        return None
+        """exit 내부 처리를 수행한다."""
 
     def cursor(self) -> FakeCursor:
+        """cursor 동작을 처리한다."""
         return self.cursor_obj
 
     def commit(self) -> None:
+        """commit 동작을 처리한다."""
         self.commits += 1
 
 
 @dataclass
 class FakeRedis:
+    """FakeRedis 테스트 대상을 표현한다."""
+
     values: dict[str, str] = field(default_factory=dict)
 
     def get(self, name: str) -> str | None:
+        """get 동작을 처리한다."""
         return self.values.get(name)
 
     def set(self, name: str, value: str) -> None:
+        """set 동작을 처리한다."""
         self.values[name] = value
 
 
 def fake_connect(connection: FakeConnection) -> Callable[[str], FakeConnection]:
+    """fake connect 동작을 처리한다."""
+
     def connect(_url: str) -> FakeConnection:
+        """connect 동작을 처리한다."""
         return connection
 
     return connect
@@ -87,6 +107,7 @@ def fake_connect(connection: FakeConnection) -> Callable[[str], FakeConnection]:
 def test_postgres_store_writes_expected_tables_when_records_are_saved(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """postgres store writes expected tables when records are saved 동작을 검증한다."""
     cursor = FakeCursor()
     connection = FakeConnection(cursor)
     monkeypatch.setattr(
@@ -143,6 +164,7 @@ def test_postgres_store_writes_expected_tables_when_records_are_saved(
 def test_postgres_store_reads_lineage_metadata_when_opensearch_id_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """OpenSearch ID로 lineage 메타데이터를 읽는지 검증한다."""
     run_id = uuid4()
     created_at = datetime(2026, 1, 2, tzinfo=UTC)
     cursor = FakeCursor(
@@ -177,6 +199,7 @@ def test_postgres_store_reads_lineage_metadata_when_opensearch_id_exists(
 
 
 def test_redis_mapping_cache_round_trips_mapping_decision_as_json() -> None:
+    """redis mapping cache round trips mapping decision as json 동작을 검증한다."""
     client = FakeRedis()
     cache = RedisMappingCache(client)
     decision = MappingDecision(
@@ -201,6 +224,7 @@ def test_redis_mapping_cache_round_trips_mapping_decision_as_json() -> None:
 
 
 def _usage_record(run_id: UUID, created_at: datetime) -> UsageRecord:
+    """usage record 내부 처리를 수행한다."""
     return UsageRecord(
         run_id=run_id,
         agent=AgentName.NORMALIZATION,

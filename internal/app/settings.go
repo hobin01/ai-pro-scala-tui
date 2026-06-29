@@ -2,10 +2,12 @@ package app
 
 import "strings"
 
+// moveSettings는 관련 동작을 처리한다.
 func (m *Model) moveSettings(delta int) {
 	m.settingsCursor = clamp(m.settingsCursor+delta, 0, len(settingsRows(m))-1)
 }
 
+// enterSettings는 관련 동작을 처리한다.
 func (m *Model) enterSettings() {
 	if m.settingsCursor == 6 {
 		m.notice = "API key is read-only and must stay in .env."
@@ -23,6 +25,7 @@ func (m *Model) enterSettings() {
 	m.editValue = m.currentSettingValue()
 }
 
+// updateSettingEdit는 관련 동작을 처리한다.
 func (m *Model) updateSettingEdit(key string) {
 	switch key {
 	case "enter":
@@ -39,6 +42,7 @@ func (m *Model) updateSettingEdit(key string) {
 	}
 }
 
+// currentSettingValue는 관련 동작을 처리한다.
 func (m *Model) currentSettingValue() string {
 	switch m.settingsCursor {
 	case 0:
@@ -66,6 +70,7 @@ func (m *Model) currentSettingValue() string {
 	}
 }
 
+// saveSetting는 관련 동작을 처리한다.
 func (m *Model) saveSetting() {
 	value := strings.TrimSpace(m.editValue)
 	if value == "" {
@@ -123,6 +128,7 @@ func (m *Model) saveSetting() {
 	m.notice = "Setting saved."
 }
 
+// currentSettingBackendValue는 관련 동작을 처리한다.
 func (m *Model) currentSettingBackendValue(value string) (string, any, bool) {
 	switch m.settingsCursor {
 	case 0:

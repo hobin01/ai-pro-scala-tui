@@ -1,5 +1,6 @@
 package app
 
+// lookupLineage는 관련 동작을 처리한다.
 func (m *Model) lookupLineage(id string) {
 	m.lineageLoading = true
 	m.lineageLookupID = id
@@ -11,6 +12,7 @@ func (m *Model) lookupLineage(id string) {
 	})
 }
 
+// resolveLineage는 관련 동작을 처리한다.
 func (m *Model) resolveLineage() {
 	id := m.lineageLookupID
 	record, ok := m.lineage[id]
@@ -24,6 +26,7 @@ func (m *Model) resolveLineage() {
 	m.lineageResult = &record
 }
 
+// clearLineage는 관련 동작을 처리한다.
 func (m *Model) clearLineage() {
 	m.lineageLoading = false
 	m.lineageLookupID = ""
