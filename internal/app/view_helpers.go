@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// renderHelp는 화면 문자열을 렌더링한다.
+// renderHelp는 slash command 도움말 블록을 본문에 붙인다.
 func renderHelp(b *strings.Builder) {
 	fmt.Fprintln(b, "\nCommands")
 	fmt.Fprintln(b, "/source-selection  /data-samples  /agent-workflow")
 	fmt.Fprintln(b, "/lineage-viewer    /agent-monitoring  /settings  /main")
 }
 
-// renderBlock는 화면 문자열을 렌더링한다.
+// renderBlock는 lineage 문서 섹션을 제목과 들여쓴 줄로 출력한다.
 func renderBlock(b *strings.Builder, title string, lines []string) {
 	fmt.Fprintf(b, "%s\n", title)
 	for _, line := range lines {
@@ -21,7 +21,7 @@ func renderBlock(b *strings.Builder, title string, lines []string) {
 	fmt.Fprintln(b)
 }
 
-// cursor는 관련 동작을 처리한다.
+// cursor는 선택된 행에만 강조 cursor glyph를 표시한다.
 func cursor(active bool) string {
 	if active {
 		return renderCursor("▸")
@@ -29,12 +29,12 @@ func cursor(active bool) string {
 	return " "
 }
 
-// fmtInt는 관련 동작을 처리한다.
+// fmtInt는 숫자를 TUI label에 넣을 문자열로 바꾼다.
 func fmtInt(value int) string {
 	return fmt.Sprintf("%d", value)
 }
 
-// noticeStyle는 관련 동작을 처리한다.
+// noticeStyle은 notice 문구 성격에 맞춰 오류, 성공, 강조 색을 고른다.
 func noticeStyle(value string) string {
 	if strings.HasPrefix(value, "✗") || strings.Contains(value, "Select at least") || strings.Contains(value, "read-only") {
 		return errorStyle.Render(value)
@@ -45,7 +45,7 @@ func noticeStyle(value string) string {
 	return accentStyle.Render(value)
 }
 
-// selectedSourceSummary는 관련 동작을 처리한다.
+// selectedSourceSummary는 선택 source 개수와 종류 요약을 만든다.
 func (m *Model) selectedSourceSummary() string {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -54,7 +54,7 @@ func (m *Model) selectedSourceSummary() string {
 	return fmt.Sprintf("%d · %s", len(selected), selectedKindSummary(selected))
 }
 
-// selectedKindSummary는 관련 동작을 처리한다.
+// selectedKindSummary는 선택 source를 종류별 개수 문자열로 요약한다.
 func selectedKindSummary(selected []source) string {
 	counts := map[string]int{}
 	kinds := []string{}
@@ -71,7 +71,7 @@ func selectedKindSummary(selected []source) string {
 	return strings.Join(parts, ", ")
 }
 
-// agentActivity는 관련 동작을 처리한다.
+// agentActivity는 mock monitoring row의 최근 활동 문구를 채운다.
 func agentActivity(name string) string {
 	switch name {
 	case "Orchestrator":
@@ -93,7 +93,7 @@ func agentActivity(name string) string {
 	}
 }
 
-// mainItemDescription는 관련 동작을 처리한다.
+// mainItemDescription은 main menu 항목의 보조 설명을 반환한다.
 func mainItemDescription(item string) string {
 	switch item {
 	case "Collect & Normalize":
@@ -107,7 +107,7 @@ func mainItemDescription(item string) string {
 	}
 }
 
-// mainResultCommand는 관련 동작을 처리한다.
+// mainResultCommand는 View Results 하위 항목의 slash command를 반환한다.
 func mainResultCommand(item string) string {
 	switch item {
 	case "Lineage Viewer":
@@ -121,7 +121,7 @@ func mainResultCommand(item string) string {
 	}
 }
 
-// totalDocs는 관련 동작을 처리한다.
+// totalDocs는 선택 source들의 문서 수 합계를 계산한다.
 func totalDocs(sources []source) int {
 	total := 0
 	for _, source := range sources {
@@ -130,7 +130,7 @@ func totalDocs(sources []source) int {
 	return total
 }
 
-// limit는 관련 동작을 처리한다.
+// limit는 앞에서부터 최대 개수만 남겨 preview 길이를 제한한다.
 func limit(values []string, max int) []string {
 	if len(values) <= max {
 		return values
@@ -138,7 +138,7 @@ func limit(values []string, max int) []string {
 	return values[:max]
 }
 
-// tail는 관련 동작을 처리한다.
+// tail은 stream에서 마지막 최대 개수만 남겨 최근 로그를 보여준다.
 func tail(values []string, max int) []string {
 	if len(values) <= max {
 		return values

@@ -17,52 +17,52 @@ import (
 	"github.com/hobin01/ai-pro-scala-tui/internal/backendrpc"
 )
 
-// tickMsg는 TUI 메시지 데이터를 표현한다.
+// tickMsg는 spinner와 mock 진행 상태를 주기적으로 갱신하라는 신호다.
 type tickMsg time.Time
 
-// backendReadyMsg는 TUI 메시지 데이터를 표현한다.
+// backendReadyMsg는 응답 본문이 없는 RPC 성공을 알린다.
 type backendReadyMsg struct{}
 
-// backendErrMsg는 TUI 메시지 데이터를 표현한다.
+// backendErrMsg는 실패한 백엔드 method와 오류를 Bubble Tea 메시지로 싣는다.
 type backendErrMsg struct {
 	method string
 	err    error
 }
 
-// backendSettingsMsg는 TUI 메시지 데이터를 표현한다.
+// backendSettingsMsg는 settings.get 결과를 app 모델에 전달한다.
 type backendSettingsMsg app.BackendSettings
 
-// backendSamplesMsg는 TUI 메시지 데이터를 표현한다.
+// backendSamplesMsg는 samples.fetch 최종 결과를 app 모델에 전달한다.
 type backendSamplesMsg app.SamplesFetchResult
 
-// backendProgressMsg는 TUI 메시지 데이터를 표현한다.
+// backendProgressMsg는 agent progress notification을 전달한다.
 type backendProgressMsg app.BackendProgress
 
-// backendSampleProgressMsg는 TUI 메시지 데이터를 표현한다.
+// backendSampleProgressMsg는 source sample 조회 상태를 전달한다.
 type backendSampleProgressMsg app.SampleFetchProgress
 
-// backendRunStartedMsg는 TUI 메시지 데이터를 표현한다.
+// backendRunStartedMsg는 pipeline.run 응답의 run_id를 전달한다.
 type backendRunStartedMsg string
 
-// backendRunStatusMsg는 TUI 메시지 데이터를 표현한다.
+// backendRunStatusMsg는 run.status notification을 전달한다.
 type backendRunStatusMsg app.RunStatus
 
-// backendOutputChunkMsg는 TUI 메시지 데이터를 표현한다.
+// backendOutputChunkMsg는 orchestrator 출력 조각을 전달한다.
 type backendOutputChunkMsg string
 
-// backendFeedbackMsg는 TUI 메시지 데이터를 표현한다.
+// backendFeedbackMsg는 feedback.request id와 질문 payload를 함께 전달한다.
 type backendFeedbackMsg struct {
 	id      backendrpc.RequestID
 	request app.FeedbackRequest
 }
 
-// backendLineageMsg는 TUI 메시지 데이터를 표현한다.
+// backendLineageMsg는 lineage.lookup 결과를 전달한다.
 type backendLineageMsg app.LineageLookupResult
 
-// backendMonitoringMsg는 TUI 메시지 데이터를 표현한다.
+// backendMonitoringMsg는 monitoring.query 결과를 전달한다.
 type backendMonitoringMsg app.MonitoringResult
 
-// tuiModel는 main에서 사용하는 타입을 정의한다.
+// tuiModel는 Bubble Tea shell이 core app, spinner, backend client를 함께 다루는 상태다.
 type tuiModel struct {
 	core     *app.Model
 	spinner  spinner.Model
@@ -107,7 +107,7 @@ func main() {
 	}
 }
 
-// Init는 관련 동작을 처리한다.
+// Init는 첫 tick과 백엔드 초기 요청 대기 command를 등록한다.
 func (m tuiModel) Init() tea.Cmd {
 	if !m.mockMode {
 		return tea.Batch(tick(), m.nextBackendAction(), m.waitBackend())
@@ -115,7 +115,7 @@ func (m tuiModel) Init() tea.Cmd {
 	return tick()
 }
 
-// Update는 모델 상태를 갱신한다.
+// Update는 키 입력, 창 크기, 백엔드 메시지를 core 모델에 반영한다.
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tickMsg:
@@ -188,7 +188,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View는 화면 문자열을 렌더링한다.
+// View는 core app 문자열을 Bubble Tea alt-screen view로 감싼다.
 func (m tuiModel) View() tea.View {
 	content := m.core.View()
 	content = strings.Replace(content, "{spinner}", m.spinner.View(), 1)
@@ -197,14 +197,14 @@ func (m tuiModel) View() tea.View {
 	return view
 }
 
-// tick는 관련 동작을 처리한다.
+// tick는 loading animation과 mock 진행을 위한 주기 메시지를 만든다.
 func tick() tea.Cmd {
 	return tea.Tick(350*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
 
-// afterStateChange는 관련 동작을 처리한다.
+// afterStateChange는 상태 변경 뒤 필요한 백엔드 요청과 tick command를 묶는다.
 func (m tuiModel) afterStateChange(extra tea.Cmd) tea.Cmd {
 	commands := []tea.Cmd{}
 	if extra != nil {
@@ -219,7 +219,7 @@ func (m tuiModel) afterStateChange(extra tea.Cmd) tea.Cmd {
 	return tea.Batch(commands...)
 }
 
-// nextBackendAction는 관련 동작을 처리한다.
+// nextBackendAction은 app.Model에 쌓인 다음 RPC action을 실행한다.
 func (m tuiModel) nextBackendAction() tea.Cmd {
 	if m.backend == nil {
 		return nil
@@ -284,7 +284,7 @@ func (m tuiModel) nextBackendAction() tea.Cmd {
 	}
 }
 
-// waitBackend는 관련 동작을 처리한다.
+// waitBackend는 백엔드에서 들어오는 다음 notification/request를 기다린다.
 func (m tuiModel) waitBackend() tea.Cmd {
 	if m.backend == nil {
 		return nil
@@ -298,7 +298,7 @@ func (m tuiModel) waitBackend() tea.Cmd {
 	}
 }
 
-// decodeInbound는 관련 동작을 처리한다.
+// decodeInbound는 JSON-RPC inbound method를 Bubble Tea 메시지 타입으로 풀어낸다.
 func decodeInbound(inbound backendrpc.Inbound) tea.Msg {
 	switch inbound.Method {
 	case "progress":
@@ -336,7 +336,7 @@ func decodeInbound(inbound backendrpc.Inbound) tea.Msg {
 	}
 }
 
-// envDefault는 관련 동작을 처리한다.
+// envDefault는 환경변수가 비어 있으면 fallback 값을 돌려준다.
 func envDefault(key string, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

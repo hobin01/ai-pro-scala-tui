@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// View는 화면 문자열을 렌더링한다.
+// View는 현재 route 본문을 frame, notice, input, footer와 합성한다.
 func (m *Model) View() string {
 	var content strings.Builder
 	switch m.route {
@@ -35,7 +35,7 @@ func (m *Model) View() string {
 	return m.renderFrame(content.String(), notice, m.inputLine(), m.footerLine())
 }
 
-// inputLine는 관련 동작을 처리한다.
+// inputLine은 현재 route와 edit 상태에 맞는 하단 입력 줄을 만든다.
 func (m *Model) inputLine() string {
 	switch {
 	case m.pipelineRunning:
@@ -63,7 +63,7 @@ func (m *Model) inputLine() string {
 	}
 }
 
-// settingsRows는 관련 동작을 처리한다.
+// settingsRows는 Settings 화면에 표시할 행 목록을 현재 설정에서 만든다.
 func settingsRows(m *Model) []string {
 	rows := []string{
 		"Elasticsearch URL        " + m.settings.elasticsearchURL,
@@ -84,7 +84,7 @@ func settingsRows(m *Model) []string {
 	return append(rows, "Back to main")
 }
 
-// backSettingsRow는 관련 동작을 처리한다.
+// backSettingsRow는 Settings 화면의 마지막 Back 행 index를 반환한다.
 func (m *Model) backSettingsRow() int {
 	return len(settingsRows(m)) - 1
 }

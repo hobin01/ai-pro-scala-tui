@@ -28,7 +28,7 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 class PipelineRunner:
-    """PipelineRunner 객체의 책임을 정의한다."""
+    """정규화 파이프라인에서 함께 이동해야 하는 상태를 묶는다."""
 
     def __init__(
         self,
@@ -39,7 +39,7 @@ class PipelineRunner:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
-        """객체 초기 상태를 준비한다."""
+        """정규화 pipeline 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache
@@ -63,7 +63,7 @@ class PipelineRunner:
         connectors: dict[str, SiemConnector] | None = None,
         opensearch: OpenSearchLoader | None = None,
     ) -> str:
-        """start 동작을 처리한다."""
+        """단일 실행 lock을 잡고 run record 생성 후 execute를 background로 넘긴다."""
         async with self._lock:
             if self._active_run is not None:
                 raise RunInProgressError(str(self._active_run))
@@ -88,7 +88,7 @@ class PipelineRunner:
         sources: list[SourceSelection],
         peer: object,
     ) -> None:
-        """execute 동작을 처리한다."""
+        """정규화 파이프라인의 execute 변경을 저장 계층에 반영한다."""
         loaded = 0
         lineage_refs: list[dict[str, str]] = []
         try:
@@ -181,7 +181,7 @@ class PipelineRunner:
         connectors: dict[str, SiemConnector],
         opensearch: OpenSearchLoader | None,
     ) -> None:
-        """replace runtime 내부 처리를 수행한다."""
+        """정규화 파이프라인의 replace runtime 보조 경로를 분리한다."""
         self._connectors = connectors
         self._opensearch = opensearch
         self._decider = MappingDecider(
@@ -193,7 +193,7 @@ class PipelineRunner:
         )
 
     def _collect_documents(self, sources: list[SourceSelection]) -> list[RawDocument]:
-        """collect documents 내부 처리를 수행한다."""
+        """정규화 파이프라인의 collect documents 보조 경로를 분리한다."""
         docs: list[RawDocument] = []
         for source in sources:
             docs.extend(
@@ -202,7 +202,7 @@ class PipelineRunner:
         return docs
 
     def _write_cache(self, writes: list[CacheWrite]) -> int:
-        """write cache 내부 처리를 수행한다."""
+        """정규화 파이프라인의 write cache 보조 경로를 분리한다."""
         for write in writes:
             self._cache.set(write.key, write.decision)
         return len(writes)
@@ -214,7 +214,7 @@ class PipelineRunner:
         cached: int,
         mapping_result: MappingResult,
     ) -> None:
-        """record usage 내부 처리를 수행한다."""
+        """정규화 파이프라인의 record usage 보조 경로를 분리한다."""
         self._store.add_usage(
             make_usage(run_id, AgentName.ORCHESTRATOR, "showed final result"),
         )
@@ -255,7 +255,7 @@ class PipelineRunner:
         lineage_refs: list[dict[str, str]],
         peer: object,
     ) -> None:
-        """send completed 내부 처리를 수행한다."""
+        """정규화 파이프라인의 send completed 보조 경로를 분리한다."""
         await notify(
             peer,
             "run.status",
@@ -276,13 +276,13 @@ class PipelineRunner:
 
 
 def _opensearch_index(settings: dict[str, object]) -> str:
-    """opensearch index 내부 처리를 수행한다."""
+    """정규화 파이프라인의 opensearch index 보조 경로를 분리한다."""
     value = settings.get("output.opensearch.index")
     return value if isinstance(value, str) else "scala-normalized"
 
 
 def _opensearch_link(settings: dict[str, object]) -> str:
-    """opensearch link 내부 처리를 수행한다."""
+    """정규화 파이프라인의 opensearch link 보조 경로를 분리한다."""
     url = settings.get("console.opensearch.url")
     base = url if isinstance(url, str) else "http://localhost:5602"
     index = _opensearch_index(settings)
@@ -290,7 +290,7 @@ def _opensearch_link(settings: dict[str, object]) -> str:
 
 
 def stable_opensearch_id(doc: RawDocument) -> str:
-    """stable opensearch id 동작을 처리한다."""
+    """원본 source 식별자를 재실행에도 같은 OpenSearch _id로 해시한다."""
     source_key = "\x00".join(
         [doc.source_solution, doc.source_index, doc.source_doc_id],
     )

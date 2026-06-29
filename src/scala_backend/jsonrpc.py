@@ -26,17 +26,17 @@ RpcHandler = Callable[[str, JsonObject, "JsonRpcPeer"], Awaitable[JsonObject]]
 
 @dataclass
 class _PendingResponse:
-    """_PendingResponse 데이터 구조를 표현한다."""
+    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
 
     event: anyio.Event
     payload: JsonObject | None = None
 
 
 class JsonRpcPeer:
-    """JsonRpcPeer 객체의 책임을 정의한다."""
+    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
 
     def __init__(self, stream: SocketStream, task_group: TaskGroup) -> None:
-        """객체 초기 상태를 준비한다."""
+        """JSON-RPC peer 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
         self._stream = stream
         self._task_group = task_group
         self._send_lock = anyio.Lock()
@@ -44,11 +44,11 @@ class JsonRpcPeer:
         self._pending: dict[JsonId, _PendingResponse] = {}
 
     async def notify(self, method: str, params: JsonObject) -> None:
-        """notify 동작을 처리한다."""
+        """peer가 notification을 지원할 때 진행 메시지를 전송한다."""
         await self.send({"jsonrpc": "2.0", "method": method, "params": params})
 
     async def request(self, method: str, params: JsonObject) -> JsonObject:
-        """request 동작을 처리한다."""
+        """server-originated JSON-RPC request를 보내고 response body를 받는다."""
         request_id = f"srv-{next(self._next_id)}"
         pending = _PendingResponse(event=anyio.Event())
         self._pending[request_id] = pending
@@ -74,17 +74,17 @@ class JsonRpcPeer:
         func: Callable[..., Coroutine[Any, Any, None]],
         *args: object,
     ) -> None:
-        """start soon 동작을 처리한다."""
+        """peer task group이 있으면 background coroutine을 등록한다."""
         self._task_group.start_soon(func, *args)
 
     async def send(self, message: JsonObject) -> None:
-        """send 동작을 처리한다."""
+        """response 또는 notification payload를 peer send로 전달한다."""
         payload = json.dumps(message, ensure_ascii=False, separators=(",", ":"))
         async with self._send_lock:
             await self._stream.send((payload + "\n").encode("utf-8"))
 
     def accept_response(self, message: JsonObject) -> bool:
-        """accept response 동작을 처리한다."""
+        """server-originated request에 대한 client response를 검증한다."""
         request_id = _json_id(message.get("id"))
         pending = self._pending.pop(request_id, None)
         if pending is None:
@@ -95,10 +95,10 @@ class JsonRpcPeer:
 
 
 class JsonRpcConnection:
-    """JsonRpcConnection 객체의 책임을 정의한다."""
+    """JSON-RPC 프레이밍에서 함께 이동해야 하는 상태를 묶는다."""
 
     def __init__(self, handler: RpcHandler) -> None:
-        """객체 초기 상태를 준비한다."""
+        """JSON-RPC peer 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
         self._handler = handler
 
     async def run(self, stream: SocketStream) -> None:
@@ -114,7 +114,7 @@ class JsonRpcConnection:
                 await self._handle_line(peer, line)
 
     async def _handle_line(self, peer: JsonRpcPeer, line: bytes) -> None:
-        """handle line 내부 처리를 수행한다."""
+        """JSON-RPC 프레이밍의 handle line 보조 경로를 분리한다."""
         message, error = decode_message_line(line)
         if error is not None:
             await peer.send(error)
@@ -145,7 +145,7 @@ class JsonRpcConnection:
             await peer.send({"jsonrpc": "2.0", "id": request_id, "result": result})
 
     async def _dispatch(self, peer: JsonRpcPeer, message: JsonObject) -> JsonObject:
-        """dispatch 내부 처리를 수행한다."""
+        """JSON-RPC 프레이밍의 dispatch 보조 경로를 분리한다."""
         if message.get("jsonrpc") != "2.0":
             raise InvalidParamsError("jsonrpc must be 2.0")
         method = message.get("method")
@@ -163,7 +163,7 @@ def _error(
     message: str,
     data: dict[str, str] | None = None,
 ) -> JsonObject:
-    """error 내부 처리를 수행한다."""
+    """JSON-RPC 프레이밍의 error 보조 경로를 분리한다."""
     payload: dict[str, JsonValue] = {"code": code, "message": message}
     if data is not None:
         payload["data"] = data
@@ -182,5 +182,5 @@ def decode_message_line(line: bytes) -> tuple[JsonObject | None, JsonObject | No
 
 
 def _json_id(value: JsonValue) -> JsonId:
-    """json id 내부 처리를 수행한다."""
+    """JSON-RPC 프레이밍의 json id 보조 경로를 분리한다."""
     return value if isinstance(value, str | int) or value is None else None

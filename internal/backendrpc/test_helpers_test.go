@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// rpcServer는 test_helpers_test에서 사용하는 타입을 정의한다.
+// rpcServer는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 type rpcServer struct {
 	listener net.Listener
 	conn     net.Conn
@@ -17,21 +17,21 @@ type rpcServer struct {
 	accepted chan net.Conn
 }
 
-// wireRequest는 test_helpers_test에서 사용하는 타입을 정의한다.
+// wireRequest는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 type wireRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
 	Method  string          `json:"method"`
 }
 
-// wireResponse는 test_helpers_test에서 사용하는 타입을 정의한다.
+// wireResponse는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 type wireResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id"`
 	Result  map[string]any  `json:"result"`
 }
 
-// startRPCServer는 관련 동작을 처리한다.
+// startRPCServer는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func startRPCServer(t *testing.T) (*rpcServer, string) {
 	t.Helper()
 
@@ -54,7 +54,7 @@ func startRPCServer(t *testing.T) (*rpcServer, string) {
 	return server, listener.Addr().String()
 }
 
-// dialTestClient는 관련 동작을 처리한다.
+// dialTestClient는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func dialTestClient(t *testing.T, addr string) *Client {
 	t.Helper()
 
@@ -65,7 +65,7 @@ func dialTestClient(t *testing.T, addr string) *Client {
 	return client
 }
 
-// ensureConn는 관련 동작을 처리한다.
+// ensureConn는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func (s *rpcServer) ensureConn(t *testing.T) {
 	t.Helper()
 
@@ -84,7 +84,7 @@ func (s *rpcServer) ensureConn(t *testing.T) {
 	}
 }
 
-// readRequest는 관련 동작을 처리한다.
+// readRequest는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func (s *rpcServer) readRequest(t *testing.T) wireRequest {
 	t.Helper()
 
@@ -102,7 +102,7 @@ func (s *rpcServer) readRequest(t *testing.T) wireRequest {
 	return req
 }
 
-// readResponse는 관련 동작을 처리한다.
+// readResponse는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func (s *rpcServer) readResponse(t *testing.T) wireResponse {
 	t.Helper()
 
@@ -120,7 +120,7 @@ func (s *rpcServer) readResponse(t *testing.T) wireResponse {
 	return resp
 }
 
-// writeMessage는 관련 동작을 처리한다.
+// writeMessage는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func (s *rpcServer) writeMessage(t *testing.T, msg map[string]any) {
 	t.Helper()
 
@@ -134,7 +134,7 @@ func (s *rpcServer) writeMessage(t *testing.T, msg map[string]any) {
 	}
 }
 
-// writeEchoResult는 관련 동작을 처리한다.
+// writeEchoResult는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func writeEchoResult(t *testing.T, server *rpcServer, req wireRequest) {
 	t.Helper()
 
@@ -145,7 +145,7 @@ func writeEchoResult(t *testing.T, server *rpcServer, req wireRequest) {
 	})
 }
 
-// close는 관련 동작을 처리한다.
+// close는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func (s *rpcServer) close(t *testing.T) {
 	t.Helper()
 

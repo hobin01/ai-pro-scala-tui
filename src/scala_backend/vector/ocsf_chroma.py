@@ -9,10 +9,10 @@ from scala_backend.providers import EmbeddingProvider
 
 
 class ChromaCollection(Protocol):
-    """ChromaCollection 객체의 책임을 정의한다."""
+    """ChromaDB OCSF 검색에서 함께 이동해야 하는 상태를 묶는다."""
 
     def count(self) -> int:
-        """count 동작을 처리한다."""
+        """ChromaDB OCSF 검색에서 필요한 count 결과를 읽어 온다."""
         ...
 
     def upsert(
@@ -23,7 +23,7 @@ class ChromaCollection(Protocol):
         metadatas: list[dict[str, str]],
         embeddings: list[list[float]],
     ) -> None:
-        """upsert 동작을 처리한다."""
+        """ChromaDB OCSF 검색의 upsert 변경을 저장 계층에 반영한다."""
         ...
 
     def query(
@@ -33,20 +33,20 @@ class ChromaCollection(Protocol):
         n_results: int,
         include: list[str],
     ) -> dict[str, list[list[dict[str, str]]]]:
-        """query 동작을 처리한다."""
+        """query embedding으로 Chroma collection에서 OCSF field metadata를 찾는다."""
         ...
 
 
 class ChromaClient(Protocol):
-    """ChromaClient 호출 계약을 정의한다."""
+    """ChromaDB OCSF 검색에서 외부 구현체가 제공할 메서드를 명시한다."""
 
     def get_or_create_collection(self, name: str) -> ChromaCollection:
-        """get or create collection 값을 조회한다."""
+        """ChromaDB OCSF 검색에서 필요한 get or create collection 결과를 읽어 온다."""
         ...
 
 
 class ChromaOcsfIndex:
-    """ChromaOcsfIndex 객체의 책임을 정의한다."""
+    """ChromaDB OCSF 검색에서 함께 이동해야 하는 상태를 묶는다."""
 
     def __init__(
         self,
@@ -59,7 +59,7 @@ class ChromaOcsfIndex:
         host: str | None = None,
         port: int = 8000,
     ) -> None:
-        """객체 초기 상태를 준비한다."""
+        """Chroma OCSF index 인스턴스가 쓸 client, store, cache 참조를 연결한다."""
         self._provider = embedding_provider
         self._model = model
         self._collection = (
@@ -67,7 +67,7 @@ class ChromaOcsfIndex:
         ).get_or_create_collection(collection_name)
 
     def upsert(self, fields: list[OcsfField]) -> int:
-        """upsert 동작을 처리한다."""
+        """ChromaDB OCSF 검색의 upsert 변경을 저장 계층에 반영한다."""
         documents = [_field_text(field) for field in fields]
         self._collection.upsert(
             ids=[field.name for field in fields],
@@ -78,7 +78,7 @@ class ChromaOcsfIndex:
         return len(fields)
 
     def query(self, text: str, top_k: int = 3) -> list[OcsfField]:
-        """query 동작을 처리한다."""
+        """query embedding으로 Chroma collection에서 OCSF field metadata를 찾는다."""
         result = self._collection.query(
             query_embeddings=self._provider.embed([text], self._model),
             n_results=top_k,
@@ -87,7 +87,7 @@ class ChromaOcsfIndex:
         return [_field_from_metadata(item) for item in result.get("metadatas", [[]])[0]]
 
     def count(self) -> int:
-        """count 동작을 처리한다."""
+        """ChromaDB OCSF 검색에서 필요한 count 결과를 읽어 온다."""
         return self._collection.count()
 
     def _make_client(
@@ -97,7 +97,7 @@ class ChromaOcsfIndex:
         host: str | None,
         port: int,
     ) -> ChromaClient:
-        """make client 내부 처리를 수행한다."""
+        """ChromaDB OCSF 검색의 make client 보조 경로를 분리한다."""
         chromadb = importlib.import_module("chromadb")
         if host is not None:
             return cast(ChromaClient, chromadb.HttpClient(host=host, port=port))
@@ -108,12 +108,12 @@ class ChromaOcsfIndex:
 
 
 def _field_text(field: OcsfField) -> str:
-    """field text 내부 처리를 수행한다."""
+    """ChromaDB OCSF 검색의 field text 보조 경로를 분리한다."""
     return f"{field.name} {field.type_name} {field.caption} {field.description}"
 
 
 def _metadata(field: OcsfField) -> dict[str, str]:
-    """metadata 내부 처리를 수행한다."""
+    """ChromaDB OCSF 검색의 metadata 보조 경로를 분리한다."""
     return {
         "name": field.name,
         "type_name": field.type_name,
@@ -123,7 +123,7 @@ def _metadata(field: OcsfField) -> dict[str, str]:
 
 
 def _field_from_metadata(data: dict[str, str]) -> OcsfField:
-    """field from metadata 내부 처리를 수행한다."""
+    """ChromaDB OCSF 검색의 field from metadata 보조 경로를 분리한다."""
     return OcsfField(
         name=data["name"],
         type_name=data["type_name"],

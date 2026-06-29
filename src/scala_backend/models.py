@@ -15,7 +15,7 @@ type JsonId = str | int | None
 
 
 class AgentName(StrEnum):
-    """AgentName 객체의 책임을 정의한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     ORCHESTRATOR = "orchestrator"
     SCHEMA_PROFILER = "schema_profiler"
@@ -45,7 +45,7 @@ ALL_AGENTS = (
 
 
 class SourceSelection(BaseModel):
-    """SourceSelection 객체의 책임을 정의한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -54,7 +54,7 @@ class SourceSelection(BaseModel):
 
 
 class FieldSample(BaseModel):
-    """FieldSample 객체의 책임을 정의한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -64,7 +64,7 @@ class FieldSample(BaseModel):
 
 
 class IndexSamples(BaseModel):
-    """IndexSamples 객체의 책임을 정의한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -74,7 +74,7 @@ class IndexSamples(BaseModel):
 
 
 class SettingsSetParams(BaseModel):
-    """SettingsSetParams 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -83,7 +83,7 @@ class SettingsSetParams(BaseModel):
 
 
 class SamplesFetchParams(BaseModel):
-    """SamplesFetchParams 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -91,7 +91,7 @@ class SamplesFetchParams(BaseModel):
 
 
 class PipelineRunParams(BaseModel):
-    """PipelineRunParams 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -99,7 +99,7 @@ class PipelineRunParams(BaseModel):
 
 
 class LineageLookupParams(BaseModel):
-    """LineageLookupParams 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -107,7 +107,7 @@ class LineageLookupParams(BaseModel):
 
 
 class MonitoringQueryParams(BaseModel):
-    """MonitoringQueryParams 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -115,7 +115,7 @@ class MonitoringQueryParams(BaseModel):
 
 
 class UsageRecord(BaseModel):
-    """UsageRecord 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -131,7 +131,7 @@ class UsageRecord(BaseModel):
 
 
 class RunRecord(BaseModel):
-    """RunRecord 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -144,7 +144,7 @@ class RunRecord(BaseModel):
 
 
 class LineageRecord(BaseModel):
-    """LineageRecord 데이터 구조를 표현한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -161,7 +161,7 @@ class LineageRecord(BaseModel):
 
 @dataclass(frozen=True)
 class RawDocument:
-    """RawDocument 객체의 책임을 정의한다."""
+    """백엔드 요청/응답 모델에서 함께 이동해야 하는 상태를 묶는다."""
 
     source_solution: str
     source_index: str

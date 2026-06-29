@@ -15,14 +15,14 @@ from scala_backend.models import (
 
 
 class PostgresStore:
-    """PostgresStore 객체의 책임을 정의한다."""
+    """PostgreSQL 저장소 어댑터에서 함께 이동해야 하는 상태를 묶는다."""
 
     def __init__(self, database_url: str) -> None:
-        """객체 초기 상태를 준비한다."""
+        """PostgreSQL store adapter가 사용할 database URL을 보관한다."""
         self._database_url = database_url
 
     def get_settings(self) -> dict[str, JsonValue]:
-        """get settings 값을 조회한다."""
+        """PostgreSQL 저장소 어댑터에서 필요한 get settings 결과를 읽어 온다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,
@@ -34,7 +34,7 @@ class PostgresStore:
             return dict(cursor.fetchall())
 
     def set_setting(self, key: str, value: JsonValue) -> None:
-        """set setting 값을 저장한다."""
+        """PostgreSQL 저장소 어댑터의 set setting 변경을 저장 계층에 반영한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -48,7 +48,7 @@ class PostgresStore:
             connection.commit()
 
     def create_run(self, run: RunRecord) -> None:
-        """create run 동작을 처리한다."""
+        """scala_runs에 선택 source와 시작 시각을 insert한다."""
         selected_sources = [
             source.model_dump(mode="json") for source in run.selected_sources
         ]
@@ -75,7 +75,7 @@ class PostgresStore:
         status: str,
         doc_count: int | None = None,
     ) -> None:
-        """update run 상태를 갱신한다."""
+        """PostgreSQL 저장소 어댑터의 update run 변경을 저장 계층에 반영한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -87,7 +87,7 @@ class PostgresStore:
             connection.commit()
 
     def add_usage(self, record: UsageRecord) -> None:
-        """add usage 동작을 처리한다."""
+        """PostgreSQL 저장소 어댑터의 add usage 변경을 저장 계층에 반영한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -110,7 +110,7 @@ class PostgresStore:
             connection.commit()
 
     def list_usage(self) -> list[UsageRecord]:
-        """list usage 동작을 처리한다."""
+        """PostgreSQL 저장소 어댑터에서 필요한 list usage 결과를 읽어 온다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,
@@ -146,7 +146,7 @@ class PostgresStore:
             ]
 
     def add_lineage(self, record: LineageRecord) -> None:
-        """add lineage 동작을 처리한다."""
+        """PostgreSQL 저장소 어댑터의 add lineage 변경을 저장 계층에 반영한다."""
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -167,7 +167,7 @@ class PostgresStore:
             connection.commit()
 
     def get_lineage(self, opensearch_id: str) -> LineageRecord | None:
-        """get lineage 값을 조회한다."""
+        """PostgreSQL 저장소 어댑터에서 필요한 get lineage 결과를 읽어 온다."""
         with (
             psycopg.connect(self._database_url) as connection,
             connection.cursor() as cursor,

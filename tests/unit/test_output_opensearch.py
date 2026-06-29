@@ -2,26 +2,26 @@ from scala_backend.output.opensearch import OpenSearchLoader
 
 
 class FakeOpenSearchClient:
-    """FakeOpenSearchClient 호출 계약을 정의한다."""
+    """OpenSearchLoader가 보내는 index/get 호출을 메모리에 기록한다."""
 
     def __init__(self) -> None:
-        """객체 초기 상태를 준비한다."""
+        """테스트 목적: OpenSearch 적재와 단건 조회."""
         self.index_calls: list[dict[str, object]] = []
         self.docs: dict[str, dict[str, object]] = {}
 
     def index(self, *, index: str, id: str, body: dict[str, object]) -> dict[str, str]:
-        """index 동작을 처리한다."""
+        """테스트 목적: OpenSearch 적재와 단건 조회."""
         self.index_calls.append({"index": index, "id": id, "body": body})
         self.docs[id] = body
         return {"_id": id}
 
     def get(self, *, index: str, id: str) -> dict[str, object]:
-        """get 동작을 처리한다."""
+        """테스트 목적: OpenSearch 적재와 단건 조회."""
         return {"found": id in self.docs, "_source": self.docs.get(id, {})}
 
 
 def test_opensearch_loader_indexes_normalized_document() -> None:
-    """opensearch loader indexes normalized document 동작을 검증한다."""
+    """테스트 목적: OpenSearch 적재와 단건 조회."""
     client = FakeOpenSearchClient()
     loader = OpenSearchLoader(client=client)
     doc = {"activity_name": "allow", "src_endpoint": {"ip": "10.0.0.5"}}
@@ -35,7 +35,7 @@ def test_opensearch_loader_indexes_normalized_document() -> None:
 
 
 def test_opensearch_loader_fetches_normalized_document_by_id() -> None:
-    """opensearch loader fetches normalized document by id 동작을 검증한다."""
+    """테스트 목적: OpenSearch 적재와 단건 조회."""
     client = FakeOpenSearchClient()
     loader = OpenSearchLoader(client=client)
     doc = {"activity_name": "allow"}

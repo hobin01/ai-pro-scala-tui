@@ -27,7 +27,7 @@ var (
 	warningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBrightYellow))
 )
 
-// renderStatus는 화면 문자열을 렌더링한다.
+// renderStatus는 header status 값에 상태별 색을 입힌다.
 func renderStatus(value string) string {
 	label := strings.TrimSpace(value)
 	style := statusStyle.Foreground(lipgloss.Color(ansiBrightCyan))
@@ -42,22 +42,22 @@ func renderStatus(value string) string {
 	return style.Render(value)
 }
 
-// renderInput는 화면 문자열을 렌더링한다.
+// renderInput은 하단 입력 줄에 입력 전용 색을 입힌다.
 func renderInput(value string) string {
 	return inputStyle.Render(value)
 }
 
-// renderCursor는 화면 문자열을 렌더링한다.
+// renderCursor는 선택 cursor glyph를 강조색으로 표시한다.
 func renderCursor(value string) string {
 	return accentStyle.Bold(true).Render(value)
 }
 
-// renderSuccess는 화면 문자열을 렌더링한다.
+// renderSuccess는 성공 메시지에 녹색 계열 색을 입힌다.
 func renderSuccess(value string) string {
 	return successStyle.Render(value)
 }
 
-// renderWarning는 화면 문자열을 렌더링한다.
+// renderWarning는 확인이 필요한 문구에 노란색 계열 색을 입힌다.
 func renderWarning(value string) string {
 	return warningStyle.Render(value)
 }

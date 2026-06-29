@@ -6,52 +6,52 @@ import (
 	"strings"
 )
 
-// BackendAction는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendAction은 백엔드 JSON-RPC method, params, request id를 담는다.
 type BackendAction struct {
 	Method    string
 	Params    any
 	RequestID string
 }
 
-// SourceRef는 backend_actions에서 사용하는 타입을 정의한다.
+// SourceRef는 백엔드와 공유하는 solution/index 식별자다.
 type SourceRef struct {
 	Solution string `json:"solution"`
 	Index    string `json:"index"`
 }
 
-// SettingsSetParams는 backend_actions에서 사용하는 타입을 정의한다.
+// SettingsSetParams는 settings.set 요청의 key/value payload다.
 type SettingsSetParams struct {
 	Key   string `json:"key"`
 	Value any    `json:"value"`
 }
 
-// SamplesFetchParams는 backend_actions에서 사용하는 타입을 정의한다.
+// SamplesFetchParams는 samples.fetch 대상 source 목록이다.
 type SamplesFetchParams struct {
 	Sources []SourceRef `json:"sources"`
 }
 
-// PipelineRunParams는 backend_actions에서 사용하는 타입을 정의한다.
+// PipelineRunParams는 pipeline.run에 넘길 선택 source 목록이다.
 type PipelineRunParams struct {
 	Sources []SourceRef `json:"sources"`
 }
 
-// LineageLookupParams는 backend_actions에서 사용하는 타입을 정의한다.
+// LineageLookupParams는 lineage.lookup의 OpenSearch _id 입력이다.
 type LineageLookupParams struct {
 	OpenSearchID string `json:"opensearch_id"`
 }
 
-// MonitoringQueryParams는 backend_actions에서 사용하는 타입을 정의한다.
+// MonitoringQueryParams는 monitoring scope 값을 전달한다.
 type MonitoringQueryParams struct {
 	Scope string `json:"scope"`
 }
 
-// FeedbackResponse는 backend_actions에서 사용하는 타입을 정의한다.
+// FeedbackResponse는 사용자 feedback 선택과 comment를 백엔드에 돌려준다.
 type FeedbackResponse struct {
 	Decision string `json:"decision"`
 	Comment  string `json:"comment,omitempty"`
 }
 
-// BackendSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendSettings는 settings.get 응답을 TUI 상태로 옮기는 루트 payload다.
 type BackendSettings struct {
 	Agents             map[string]BackendAgentSettings   `json:"agents"`
 	Sources            map[string]BackendSourceSettings  `json:"sources"`
@@ -60,67 +60,67 @@ type BackendSettings struct {
 	OpenAIAPIKeyMasked string                            `json:"openai_api_key_masked"`
 }
 
-// BackendAgentSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendAgentSettings는 agent별 OpenAI model 설정이다.
 type BackendAgentSettings struct {
 	Model string `json:"model"`
 }
 
-// BackendSourceSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendSourceSettings는 source connector URL과 index 목록이다.
 type BackendSourceSettings struct {
 	URL     string   `json:"url"`
 	Indices []string `json:"indices"`
 }
 
-// BackendOutputSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendOutputSettings는 normalized output 대상 설정을 묶는다.
 type BackendOutputSettings struct {
 	OpenSearch BackendOpenSearchSettings `json:"opensearch"`
 }
 
-// BackendOpenSearchSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendOpenSearchSettings는 OpenSearch endpoint와 결과 index 이름이다.
 type BackendOpenSearchSettings struct {
 	URL   string `json:"url"`
 	Index string `json:"index"`
 }
 
-// BackendConsoleSettings는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendConsoleSettings는 Kibana, Splunk Web, Dashboards 접속 URL이다.
 type BackendConsoleSettings struct {
 	URL string `json:"url"`
 }
 
-// SampleFetchProgress는 backend_actions에서 사용하는 타입을 정의한다.
+// SampleFetchProgress는 source별 sample fetch 진행 메시지다.
 type SampleFetchProgress struct {
 	Target  SourceRef `json:"target"`
 	Status  string    `json:"status"`
 	Message string    `json:"message"`
 }
 
-// SamplesFetchResult는 backend_actions에서 사용하는 타입을 정의한다.
+// SamplesFetchResult는 source index별 field sample 묶음이다.
 type SamplesFetchResult struct {
 	Indices []IndexSamples `json:"indices"`
 }
 
-// IndexSamples는 backend_actions에서 사용하는 타입을 정의한다.
+// IndexSamples는 한 solution/index에서 읽은 field sample 목록이다.
 type IndexSamples struct {
 	Solution string        `json:"solution"`
 	Index    string        `json:"index"`
 	Fields   []FieldSample `json:"fields"`
 }
 
-// FieldSample는 backend_actions에서 사용하는 타입을 정의한다.
+// FieldSample는 한 원본 필드의 타입과 예시 값이다.
 type FieldSample struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	Samples []any  `json:"samples"`
 }
 
-// BackendProgress는 backend_actions에서 사용하는 타입을 정의한다.
+// BackendProgress는 agent 이름과 진행 로그 한 줄을 담는다.
 type BackendProgress struct {
 	RunID   string `json:"run_id"`
 	Agent   string `json:"agent"`
 	Message string `json:"message"`
 }
 
-// RunStatus는 backend_actions에서 사용하는 타입을 정의한다.
+// RunStatus는 run.status notification의 진행, 완료, 실패 정보를 담는다.
 type RunStatus struct {
 	RunID          string       `json:"run_id"`
 	Status         string       `json:"status"`
@@ -130,7 +130,7 @@ type RunStatus struct {
 	LineageRefs    []LineageRef `json:"lineage_refs"`
 }
 
-// RunSummary는 backend_actions에서 사용하는 타입을 정의한다.
+// RunSummary는 pipeline 완료 시 문서 처리 단계별 건수를 담는다.
 type RunSummary struct {
 	Mapped  int `json:"mapped"`
 	KeptRaw int `json:"kept_raw"`
@@ -139,7 +139,7 @@ type RunSummary struct {
 	Cached  int `json:"cached"`
 }
 
-// LineageRef는 backend_actions에서 사용하는 타입을 정의한다.
+// LineageRef는 완료 화면에서 복사할 sample OpenSearch _id를 보관한다.
 type LineageRef struct {
 	SourceSolution string `json:"source_solution"`
 	SourceIndex    string `json:"source_index"`
@@ -147,7 +147,7 @@ type LineageRef struct {
 	OpenSearchID   string `json:"opensearch_id"`
 }
 
-// FeedbackRequest는 backend_actions에서 사용하는 타입을 정의한다.
+// FeedbackRequest는 서버 발신 human feedback 질문 payload다.
 type FeedbackRequest struct {
 	RunID          string                 `json:"run_id"`
 	Field          FeedbackField          `json:"field"`
@@ -155,14 +155,14 @@ type FeedbackRequest struct {
 	Options        []string               `json:"options"`
 }
 
-// FeedbackField는 backend_actions에서 사용하는 타입을 정의한다.
+// FeedbackField는 review가 필요한 원본 필드와 sample 값이다.
 type FeedbackField struct {
 	SourceField string `json:"source_field"`
 	Type        string `json:"type"`
 	Samples     []any  `json:"samples"`
 }
 
-// FeedbackRecommendation는 backend_actions에서 사용하는 타입을 정의한다.
+// FeedbackRecommendation는 agent가 제안한 OCSF field와 근거다.
 type FeedbackRecommendation struct {
 	OCSFField string `json:"ocsf_field"`
 	OCSFType  string `json:"ocsf_type"`
@@ -170,7 +170,7 @@ type FeedbackRecommendation struct {
 	Why       string `json:"why"`
 }
 
-// LineageLookupResult는 backend_actions에서 사용하는 타입을 정의한다.
+// LineageLookupResult는 lineage 화면에 표시할 메타, raw, normalized 문서다.
 type LineageLookupResult struct {
 	Found              bool            `json:"found"`
 	Metadata           LineageMetadata `json:"metadata"`
@@ -178,7 +178,7 @@ type LineageLookupResult struct {
 	NormalizedDocument map[string]any  `json:"normalized_document"`
 }
 
-// LineageMetadata는 backend_actions에서 사용하는 타입을 정의한다.
+// LineageMetadata는 원본 문서와 OpenSearch 문서를 이어 주는 식별자다.
 type LineageMetadata struct {
 	SourceSolution  string `json:"source_solution"`
 	SourceIndex     string `json:"source_index"`
@@ -187,7 +187,7 @@ type LineageMetadata struct {
 	OpenSearchID    string `json:"opensearch_id"`
 }
 
-// MonitoringResult는 backend_actions에서 사용하는 타입을 정의한다.
+// MonitoringResult는 Agent Monitoring 화면의 scope별 snapshot이다.
 type MonitoringResult struct {
 	Scope  string            `json:"scope"`
 	AsOf   string            `json:"as_of"`
@@ -195,7 +195,7 @@ type MonitoringResult struct {
 	Agents []MonitoringAgent `json:"agents"`
 }
 
-// MonitoringTotal는 backend_actions에서 사용하는 타입을 정의한다.
+// MonitoringTotal는 선택 scope의 run, token, 비용 집계다.
 type MonitoringTotal struct {
 	Runs       int      `json:"runs"`
 	Tokens     int      `json:"tokens"`
@@ -204,7 +204,7 @@ type MonitoringTotal struct {
 	LastRunID  string   `json:"last_run_id"`
 }
 
-// MonitoringAgent는 backend_actions에서 사용하는 타입을 정의한다.
+// MonitoringAgent는 agent별 model, token, 최근 활동 snapshot이다.
 type MonitoringAgent struct {
 	Agent        string  `json:"agent"`
 	Model        string  `json:"model"`
@@ -213,17 +213,17 @@ type MonitoringAgent struct {
 	Cost         float64 `json:"cost"`
 }
 
-// SetBackendRuntime는 관련 동작을 처리한다.
+// SetBackendRuntime은 TUI가 mock 대신 실제 backend action queue를 쓰게 한다.
 func (m *Model) SetBackendRuntime(enabled bool) {
 	m.backendRuntime = enabled
 }
 
-// RequestInitialData는 관련 동작을 처리한다.
+// RequestInitialData는 시작 직후 settings.get을 action queue에 넣는다.
 func (m *Model) RequestInitialData() {
 	m.queueBackendAction(BackendAction{Method: "settings.get"})
 }
 
-// ConsumeBackendAction는 관련 동작을 처리한다.
+// ConsumeBackendAction은 다음 백엔드 요청을 FIFO로 꺼낸다.
 func (m *Model) ConsumeBackendAction() (BackendAction, bool) {
 	if len(m.backendActions) == 0 {
 		return BackendAction{}, false
@@ -234,7 +234,7 @@ func (m *Model) ConsumeBackendAction() (BackendAction, bool) {
 	return action, true
 }
 
-// ApplySettings는 모델 상태를 갱신한다.
+// ApplySettings는 settings.get 응답을 TUI 설정, source, monitoring 상태에 반영한다.
 func (m *Model) ApplySettings(result BackendSettings) {
 	if result.OpenAIAPIKeyMasked != "" {
 		m.settings.apiKeyMasked = result.OpenAIAPIKeyMasked
@@ -280,7 +280,7 @@ func (m *Model) ApplySettings(result BackendSettings) {
 	m.notice = "Settings loaded from backend."
 }
 
-// ApplySamplesProgress는 모델 상태를 갱신한다.
+// ApplySamplesProgress는 source sample 조회 진행 상태를 notice와 source 오류에 반영한다.
 func (m *Model) ApplySamplesProgress(progress SampleFetchProgress) {
 	if progress.Status == "error" {
 		m.updateSource(progress.Target, func(source *source) {
@@ -298,7 +298,7 @@ func (m *Model) ApplySamplesProgress(progress SampleFetchProgress) {
 	}
 }
 
-// ApplySamplesResult는 모델 상태를 갱신한다.
+// ApplySamplesResult는 samples.fetch 결과 필드를 source 카드에 채운다.
 func (m *Model) ApplySamplesResult(result SamplesFetchResult) {
 	for _, index := range result.Indices {
 		ref := SourceRef{Solution: index.Solution, Index: index.Index}
@@ -312,7 +312,7 @@ func (m *Model) ApplySamplesResult(result SamplesFetchResult) {
 	m.notice = "Samples loaded from backend."
 }
 
-// ApplyPipelineStarted는 모델 상태를 갱신한다.
+// ApplyPipelineStarted는 run_id를 저장하고 Human Feedback 화면으로 전환한다.
 func (m *Model) ApplyPipelineStarted(runID string) {
 	m.activeRunID = runID
 	m.route = routeFeedback
@@ -322,7 +322,7 @@ func (m *Model) ApplyPipelineStarted(runID string) {
 	m.stream = append(m.stream, "Pipeline accepted by backend: "+runID)
 }
 
-// ApplyProgress는 모델 상태를 갱신한다.
+// ApplyProgress는 agent progress notification을 스트림에 추가한다.
 func (m *Model) ApplyProgress(progress BackendProgress) {
 	message := progress.Message
 	if progress.Agent != "" {
@@ -333,14 +333,14 @@ func (m *Model) ApplyProgress(progress BackendProgress) {
 	}
 }
 
-// ApplyOutputChunk는 모델 상태를 갱신한다.
+// ApplyOutputChunk는 orchestrator output chunk를 화면 스트림에 추가한다.
 func (m *Model) ApplyOutputChunk(text string) {
 	if text != "" {
 		m.stream = append(m.stream, text)
 	}
 }
 
-// ApplyFeedbackRequest는 모델 상태를 갱신한다.
+// ApplyFeedbackRequest는 서버 feedback.request를 선택 UI 상태로 만든다.
 func (m *Model) ApplyFeedbackRequest(requestID string, request FeedbackRequest) {
 	m.route = routeFeedback
 	m.pipelineRunning = false
@@ -351,7 +351,7 @@ func (m *Model) ApplyFeedbackRequest(requestID string, request FeedbackRequest) 
 	m.stream = append(m.stream, "Human review requested for "+request.Field.SourceField)
 }
 
-// ApplyRunStatus는 모델 상태를 갱신한다.
+// ApplyRunStatus는 run.status notification에 맞춰 완료 화면과 오류 표시를 맞춘다.
 func (m *Model) ApplyRunStatus(status RunStatus) {
 	if status.RunID != "" {
 		m.activeRunID = status.RunID
@@ -382,14 +382,14 @@ func (m *Model) ApplyRunStatus(status RunStatus) {
 	}
 }
 
-// ApplyLineageProgress는 모델 상태를 갱신한다.
+// ApplyLineageProgress는 백엔드 응답을 TUI route, notice, stream 상태에 반영한다.
 func (m *Model) ApplyLineageProgress(message string) {
 	if message != "" {
 		m.notice = message
 	}
 }
 
-// ApplyLineageResult는 모델 상태를 갱신한다.
+// ApplyLineageResult는 lineage.lookup 응답을 viewer record로 변환한다.
 func (m *Model) ApplyLineageResult(result LineageLookupResult) {
 	m.lineageLoading = false
 	m.lineageResult = nil
@@ -421,7 +421,7 @@ func (m *Model) ApplyLineageResult(result LineageLookupResult) {
 	m.lineageResult = &record
 }
 
-// ApplyMonitoring는 모델 상태를 갱신한다.
+// ApplyMonitoring은 monitoring.query 응답을 현재 scope snapshot으로 저장한다.
 func (m *Model) ApplyMonitoring(result MonitoringResult) {
 	snapshot := monitoringSnapshot{
 		scope:       displayScope(result.Scope),
@@ -449,7 +449,7 @@ func (m *Model) ApplyMonitoring(result MonitoringResult) {
 	m.monitoringScope = scope
 }
 
-// ApplyBackendError는 모델 상태를 갱신한다.
+// ApplyBackendError는 실패한 RPC method에 맞춰 loading/running 상태를 내린다.
 func (m *Model) ApplyBackendError(method string, message string) {
 	if message == "" {
 		message = "backend request failed"
@@ -465,12 +465,12 @@ func (m *Model) ApplyBackendError(method string, message string) {
 	m.notice = "✗ " + method + ": " + message
 }
 
-// queueBackendAction는 관련 동작을 처리한다.
+// queueBackendAction은 백엔드 RPC worker가 소비할 요청을 뒤에 붙인다.
 func (m *Model) queueBackendAction(action BackendAction) {
 	m.backendActions = append(m.backendActions, action)
 }
 
-// queueSamplesFetch는 관련 동작을 처리한다.
+// queueSamplesFetch는 현재 선택 source로 samples.fetch action을 만든다.
 func (m *Model) queueSamplesFetch() {
 	m.queueBackendAction(BackendAction{
 		Method: "samples.fetch",
@@ -478,7 +478,7 @@ func (m *Model) queueSamplesFetch() {
 	})
 }
 
-// queuePipelineRun는 관련 동작을 처리한다.
+// queuePipelineRun은 선택 source를 pipeline.run 요청으로 큐에 넣는다.
 func (m *Model) queuePipelineRun() {
 	m.queueBackendAction(BackendAction{
 		Method: "pipeline.run",
@@ -486,7 +486,7 @@ func (m *Model) queuePipelineRun() {
 	})
 }
 
-// queueMonitoringQuery는 관련 동작을 처리한다.
+// queueMonitoringQuery는 현재 monitoring scope를 조회하도록 큐에 넣는다.
 func (m *Model) queueMonitoringQuery() {
 	m.queueBackendAction(BackendAction{
 		Method: "monitoring.query",
@@ -494,7 +494,7 @@ func (m *Model) queueMonitoringQuery() {
 	})
 }
 
-// queueFeedbackResponse는 관련 동작을 처리한다.
+// queueFeedbackResponse는 사용자의 feedback 선택을 서버 request 응답으로 큐에 넣는다.
 func (m *Model) queueFeedbackResponse(decision string, comment string) {
 	if m.feedbackRequestID == "" {
 		return
@@ -510,7 +510,7 @@ func (m *Model) queueFeedbackResponse(decision string, comment string) {
 	m.feedbackRequestID = ""
 }
 
-// updateSource는 관련 동작을 처리한다.
+// updateSource는 solution/index가 일치하는 source 항목만 수정한다.
 func (m *Model) updateSource(ref SourceRef, update func(*source)) {
 	for i := range m.sources {
 		if m.sources[i].index == ref.Index && solutionFromKind(m.sources[i].kind) == ref.Solution {
@@ -520,7 +520,7 @@ func (m *Model) updateSource(ref SourceRef, update func(*source)) {
 	}
 }
 
-// sourcesFromSettings는 관련 동작을 처리한다.
+// sourcesFromSettings는 settings의 index 목록을 Source Selection 항목으로 펼친다.
 func sourcesFromSettings(settings settings) []source {
 	sources := make([]source, 0, len(settings.elasticsearchIndices)+len(settings.splunkIndices))
 	for _, index := range settings.elasticsearchIndices {
@@ -542,7 +542,7 @@ func sourcesFromSettings(settings settings) []source {
 	return sources
 }
 
-// reconcileSelected는 관련 동작을 처리한다.
+// reconcileSelected는 설정 변경 뒤에도 남아 있는 source 선택만 유지한다.
 func reconcileSelected(previous map[string]bool, sources []source) map[string]bool {
 	next := make(map[string]bool, len(sources))
 	for _, source := range sources {
@@ -553,7 +553,7 @@ func reconcileSelected(previous map[string]bool, sources []source) map[string]bo
 	return next
 }
 
-// sourceRefs는 관련 동작을 처리한다.
+// sourceRefs는 TUI source 모델을 백엔드 SourceRef 배열로 바꾼다.
 func sourceRefs(sources []source) []SourceRef {
 	refs := make([]SourceRef, 0, len(sources))
 	for _, source := range sources {
@@ -565,7 +565,7 @@ func sourceRefs(sources []source) []SourceRef {
 	return refs
 }
 
-// solutionFromKind는 관련 동작을 처리한다.
+// solutionFromKind는 화면 label을 백엔드 solution 키로 정규화한다.
 func solutionFromKind(kind string) string {
 	switch strings.ToLower(kind) {
 	case "elasticsearch":
@@ -577,7 +577,7 @@ func solutionFromKind(kind string) string {
 	}
 }
 
-// fieldsFromBackend는 관련 동작을 처리한다.
+// fieldsFromBackend는 JSON-RPC field sample을 TUI field 모델로 변환한다.
 func fieldsFromBackend(fields []FieldSample) []field {
 	converted := make([]field, 0, len(fields))
 	for _, item := range fields {
@@ -590,7 +590,7 @@ func fieldsFromBackend(fields []FieldSample) []field {
 	return converted
 }
 
-// displayValues는 관련 동작을 처리한다.
+// displayValues는 sample 값을 화면 출력용 문자열로 바꾼다.
 func displayValues(values []any) []string {
 	display := make([]string, 0, len(values))
 	for _, value := range values {
@@ -599,7 +599,7 @@ func displayValues(values []any) []string {
 	return display
 }
 
-// mapLines는 관련 동작을 처리한다.
+// mapLines는 map payload를 key 정렬된 key=value 줄로 만든다.
 func mapLines(values map[string]any) []string {
 	keys := make([]string, 0, len(values))
 	for key := range values {
@@ -613,7 +613,7 @@ func mapLines(values map[string]any) []string {
 	return lines
 }
 
-// agentLabel는 관련 동작을 처리한다.
+// agentLabel는 backend agent key를 화면에 읽기 쉬운 이름으로 바꾼다.
 func agentLabel(value string) string {
 	switch value {
 	case "orchestrator":
@@ -638,7 +638,7 @@ func agentLabel(value string) string {
 	}
 }
 
-// scopeName는 관련 동작을 처리한다.
+// scopeName은 monitoring cursor를 JSON-RPC scope 문자열로 바꾼다.
 func scopeName(index int) string {
 	switch clamp(index, 0, 2) {
 	case 0:
@@ -650,7 +650,7 @@ func scopeName(index int) string {
 	}
 }
 
-// scopeIndex는 관련 동작을 처리한다.
+// scopeIndex는 backend scope 문자열을 TUI cursor 위치로 바꾼다.
 func scopeIndex(scope string) int {
 	switch scope {
 	case "today":
@@ -662,7 +662,7 @@ func scopeIndex(scope string) int {
 	}
 }
 
-// displayScope는 관련 동작을 처리한다.
+// displayScope는 backend monitoring scope를 화면 label로 바꾼다.
 func displayScope(scope string) string {
 	switch scope {
 	case "today":
@@ -674,7 +674,7 @@ func displayScope(scope string) string {
 	}
 }
 
-// emptyDash는 관련 동작을 처리한다.
+// emptyDash는 빈 문자열을 표의 dash placeholder로 바꾼다.
 func emptyDash(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return "-"
@@ -682,7 +682,7 @@ func emptyDash(value string) string {
 	return value
 }
 
-// monitoringTotalCost는 관련 동작을 처리한다.
+// monitoringTotalCost는 비용 집계가 있으면 달러 문자열로 표시한다.
 func monitoringTotalCost(total MonitoringTotal) string {
 	if total.Cost == nil || total.CostSource == "unavailable" {
 		return "cost unavailable"
@@ -690,7 +690,7 @@ func monitoringTotalCost(total MonitoringTotal) string {
 	return fmt.Sprintf("$%.4f", *total.Cost)
 }
 
-// parseCSV는 관련 동작을 처리한다.
+// parseCSV는 settings index 입력을 빈 항목 없는 문자열 목록으로 나눈다.
 func parseCSV(value string) []string {
 	parts := strings.Split(value, ",")
 	items := make([]string, 0, len(parts))

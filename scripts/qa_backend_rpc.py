@@ -13,7 +13,7 @@ from typing import Any
 
 
 def main() -> None:
-    """main 진입 동작을 실행한다."""
+    """환경변수를 읽어 BackendApp JSON-RPC 서버를 실행한다."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--addr", default="127.0.0.1:8765")
     parser.add_argument("--evidence", required=True)
@@ -69,7 +69,7 @@ def _call(
     method: str,
     params: dict[str, Any],
 ) -> dict[str, Any]:
-    """call 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 call 보조 경로를 분리한다."""
     request = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
     _write(file, transcript, "send", request)
     while True:
@@ -84,7 +84,7 @@ def _run_pipeline(
     transcript: list[dict[str, Any]],
     request_id: int,
 ) -> None:
-    """run pipeline 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 run pipeline 보조 경로를 분리한다."""
     _write(
         file,
         transcript,
@@ -126,7 +126,7 @@ def _run_pipeline(
 
 
 def _completed_opensearch_id(transcript: list[dict[str, Any]], solution: str) -> str:
-    """completed opensearch id 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 completed opensearch id 보조 경로를 분리한다."""
     for row in transcript:
         message = row["message"]
         if message.get("method") == "run.status":
@@ -139,7 +139,7 @@ def _completed_opensearch_id(transcript: list[dict[str, Any]], solution: str) ->
 
 
 def _raise_for_error(message: dict[str, Any]) -> None:
-    """raise for error 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 raise for error 보조 경로를 분리한다."""
     if "error" in message:
         raise RuntimeError(json.dumps(message["error"], ensure_ascii=False))
 
@@ -147,14 +147,14 @@ def _raise_for_error(message: dict[str, Any]) -> None:
 def _write(
     file: Any, transcript: list[dict[str, Any]], direction: str, message: dict[str, Any]
 ) -> None:
-    """write 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 write 보조 경로를 분리한다."""
     transcript.append({"direction": direction, "message": message})
     file.write((json.dumps(message, separators=(",", ":")) + "\n").encode("utf-8"))
     file.flush()
 
 
 def _read(file: Any, transcript: list[dict[str, Any]]) -> dict[str, Any]:
-    """read 내부 처리를 수행한다."""
+    """백엔드 JSON-RPC QA 시나리오의 read 보조 경로를 분리한다."""
     line = file.readline()
     if not line:
         raise RuntimeError("backend closed the connection")

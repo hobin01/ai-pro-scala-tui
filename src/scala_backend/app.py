@@ -44,7 +44,7 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 class BackendApp:
-    """BackendApp 객체의 책임을 정의한다."""
+    """TUI JSON-RPC 요청을 설정, 샘플, 실행, 조회 핸들러로 라우팅한다."""
 
     def __init__(
         self,
@@ -56,7 +56,7 @@ class BackendApp:
         ocsf_index: ChromaOcsfIndex | None = None,
         llm_provider: LlmProvider | None = None,
     ) -> None:
-        """객체 초기 상태를 준비한다."""
+        """BackendApp이 사용할 설정, 저장소, 캐시, provider를 묶는다."""
         self.config = config
         self.store = store or InMemoryStore()
         self.connectors = connectors or default_connectors()
@@ -68,7 +68,7 @@ class BackendApp:
         self.set_pipeline()
 
     async def handle(self, method: str, params: JsonObject, peer: object) -> JsonObject:
-        """handle 동작을 처리한다."""
+        """메서드 이름을 검증된 백엔드 핸들러 호출로 분기한다."""
         try:
             match method:
                 case "settings.get":
@@ -94,21 +94,21 @@ class BackendApp:
             raise InvalidParamsError(str(exc)) from exc
 
     def settings_get(self) -> JsonObject:
-        """settings get 동작을 처리한다."""
+        """TUI에 표시할 설정과 OpenAI key 설정 여부를 반환한다."""
         return settings_to_display(
             self.store.get_settings(),
             mask_secret(self.config.openai_api_key),
         )
 
     def settings_set(self, params: SettingsSetParams) -> JsonObject:
-        """settings set 동작을 처리한다."""
+        """Settings 화면에서 저장한 값을 scala_settings 저장소에 반영한다."""
         self.store.set_setting(params.key, params.value)
         return {"key": params.key, "value": params.value, "applied": "hot-reload"}
 
     async def samples_fetch(
         self, params: SamplesFetchParams, peer: object
     ) -> JsonObject:
-        """samples fetch 동작을 처리한다."""
+        """선택된 source의 필드 샘플을 읽고 progress 알림을 보낸다."""
         self.refresh_connectors()
         indices: list[JsonValue] = []
         for source in params.sources:
@@ -133,7 +133,7 @@ class BackendApp:
         return {"indices": indices}
 
     def monitoring_query(self, params: MonitoringQueryParams) -> JsonObject:
-        """monitoring query 동작을 처리한다."""
+        """저장된 agent usage와 OpenAI 비용 스냅샷을 합산한다."""
         usage = self.store.list_usage()
         if params.scope == "session":
             usage = [row for row in usage if row.created_at >= self.started_at]
@@ -148,7 +148,7 @@ class BackendApp:
     async def lineage_lookup(
         self, params: LineageLookupParams, peer: object
     ) -> JsonObject:
-        """lineage lookup 동작을 처리한다."""
+        """OpenSearch _id로 PG 메타, 원본 raw, 정규화 문서를 묶어 반환한다."""
         await notify(
             peer, "progress", {"stage": "metadata", "status": "fetching", "target": ""}
         )
@@ -195,7 +195,7 @@ class BackendApp:
         }
 
     async def pipeline_run(self, params: PipelineRunParams, peer: object) -> JsonObject:
-        """pipeline run 동작을 처리한다."""
+        """실행 전 설정과 provider를 검증한 뒤 파이프라인을 시작한다."""
         self._validate_pipeline_settings(params)
         self.refresh_connectors()
         self.refresh_opensearch()
@@ -208,7 +208,7 @@ class BackendApp:
         return {"run_id": str(run_id)}
 
     def _validate_pipeline_settings(self, params: PipelineRunParams) -> None:
-        """validate pipeline settings 내부 처리를 수행한다."""
+        """run 생성 전에 source, output, agent model, OpenAI provider를 확인한다."""
         if len(params.sources) < 2:
             raise ConfigurationError("at least two sources must be selected")
         settings = self.store.get_settings()
@@ -235,14 +235,14 @@ class BackendApp:
                 )
 
     def refresh_connectors(self) -> None:
-        """refresh connectors 동작을 처리한다."""
+        """현재 settings와 .env auth로 SIEM connector 구성을 다시 만든다."""
         self.connectors = connectors_from_settings(
             self.store.get_settings(),
             self.config,
         )
 
     def refresh_opensearch(self) -> None:
-        """refresh opensearch 동작을 처리한다."""
+        """현재 settings가 가리키는 OpenSearch loader를 다시 연결한다."""
         settings = self.store.get_settings()
         url = settings.get("output.opensearch.url")
         if not isinstance(url, str) or url.startswith("memory://"):
@@ -255,7 +255,7 @@ class BackendApp:
         )
 
     def set_pipeline(self) -> None:
-        """set pipeline 값을 저장한다."""
+        """최신 connector/cache/loader/provider로 PipelineRunner를 재조립한다."""
         self.pipeline = PipelineRunner(
             self.store,
             self.connectors,
@@ -270,7 +270,7 @@ class BackendApp:
         params: MonitoringQueryParams,
         usage: list[UsageRecord],
     ) -> Decimal | None:
-        """openai cost 내부 처리를 수행한다."""
+        """monitoring scope에 맞는 기간으로 OpenAI Costs API 금액을 조회한다."""
         provider = self.llm_provider
         if provider is None or not hasattr(provider, "organization_cost_usd"):
             return None

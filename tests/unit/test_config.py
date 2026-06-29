@@ -4,7 +4,7 @@ from scala_backend.config import load_config, mask_secret
 
 
 def test_config_loads_from_temp_env_file(tmp_path: Path) -> None:
-    """config loads from temp env file 동작을 검증한다."""
+    """테스트 목적: .env와 secret file 설정 로딩."""
     env_file = tmp_path / ".env"
     env_file.write_text(
         "\n".join(
@@ -26,7 +26,7 @@ def test_config_loads_from_temp_env_file(tmp_path: Path) -> None:
 
 
 def test_config_loads_openai_key_from_secret_file(tmp_path: Path) -> None:
-    """config loads openai key from secret file 동작을 검증한다."""
+    """테스트 목적: .env와 secret file 설정 로딩."""
     secret = tmp_path / "openai_api_key"
     secret.write_text("sk-secret-file-1234\n", encoding="utf-8")
     env_file = tmp_path / ".env"
@@ -45,7 +45,7 @@ def test_config_loads_openai_key_from_secret_file(tmp_path: Path) -> None:
 
 
 def test_mask_secret_never_returns_original_value() -> None:
-    """mask secret never returns original value 동작을 검증한다."""
+    """테스트 목적: .env와 secret file 설정 로딩."""
     assert mask_secret("sk-test-12345678") == "set"
     assert mask_secret("YOUR_OPENAI_API_KEY") == "(not set)"
     assert "12345678" not in mask_secret("sk-test-12345678")

@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def test_initial_migration_defines_required_tables() -> None:
-    """initial migration defines required tables 동작을 검증한다."""
+    """초기 migration SQL에 필수 테이블이 들어 있는지 확인한다."""
     sql = Path("src/scala_backend/migrations/001_initial.sql").read_text()
 
     for table in (

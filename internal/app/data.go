@@ -1,6 +1,6 @@
 package app
 
-// source는 data에서 사용하는 타입을 정의한다.
+// source는 Source Selection 화면에 표시할 한 인덱스 항목이다.
 type source struct {
 	id         string
 	kind       string
@@ -11,14 +11,14 @@ type source struct {
 	fields     []field
 }
 
-// field는 data에서 사용하는 타입을 정의한다.
+// field는 sample 화면에 표시할 원본 field 타입과 예시 값이다.
 type field struct {
 	name   string
 	kind   string
 	values []string
 }
 
-// settings는 data에서 사용하는 타입을 정의한다.
+// settings는 TUI가 표시하고 백엔드에 저장하는 연결/모델 설정이다.
 type settings struct {
 	elasticsearchURL     string
 	splunkURL            string
@@ -36,7 +36,7 @@ type settings struct {
 	openSearchDash       string
 }
 
-// lineageRecord는 data에서 사용하는 타입을 정의한다.
+// lineageRecord는 Lineage Viewer에 보여줄 raw/normalized 문서 줄이다.
 type lineageRecord struct {
 	id         string
 	source     string
@@ -46,7 +46,7 @@ type lineageRecord struct {
 	normalDoc  []string
 }
 
-// monitoringSnapshot는 data에서 사용하는 타입을 정의한다.
+// monitoringSnapshot는 Agent Monitoring scope 한 탭의 집계 상태다.
 type monitoringSnapshot struct {
 	scope       string
 	totalRuns   int
@@ -59,7 +59,7 @@ type monitoringSnapshot struct {
 	emptyState  bool
 }
 
-// monitoringRow는 data에서 사용하는 타입을 정의한다.
+// monitoringRow는 Agent Monitoring 표의 agent 한 줄이다.
 type monitoringRow struct {
 	name     string
 	model    string
@@ -68,7 +68,7 @@ type monitoringRow struct {
 	activity string
 }
 
-// defaultSources는 관련 동작을 처리한다.
+// defaultSources는 mock mode에서 보여줄 Elasticsearch/Splunk source fixture다.
 func defaultSources() []source {
 	return []source{
 		{
@@ -129,7 +129,7 @@ func defaultSources() []source {
 	}
 }
 
-// defaultSettings는 관련 동작을 처리한다.
+// defaultSettings는 mock mode와 초기 화면에 쓸 설정 fixture를 만든다.
 func defaultSettings() settings {
 	return settings{
 		elasticsearchURL:     "https://es.local:9200",
@@ -149,7 +149,7 @@ func defaultSettings() settings {
 	}
 }
 
-// defaultLineage는 관련 동작을 처리한다.
+// defaultLineage는 mock Lineage Viewer에서 조회 가능한 sample record다.
 func defaultLineage() map[string]lineageRecord {
 	return map[string]lineageRecord{
 		"aZ12bQ8": {
@@ -181,7 +181,7 @@ func defaultLineage() map[string]lineageRecord {
 	}
 }
 
-// defaultMonitoring는 관련 동작을 처리한다.
+// defaultMonitoring는 mock Agent Monitoring의 scope별 snapshot을 만든다.
 func defaultMonitoring(settings settings) []monitoringSnapshot {
 	rows := []monitoringRow{
 		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "0 tokens", cost: "--"},

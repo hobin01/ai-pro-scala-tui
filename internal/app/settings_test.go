@@ -2,7 +2,7 @@ package app
 
 import "testing"
 
-// TestSettingsHotReloadAndReadOnlyAPIKey는 관련 동작을 검증한다.
+// TestSettingsHotReloadAndReadOnlyAPIKey는 settings test의 화면 출력과 상태 전이를 확인한다.
 func TestSettingsHotReloadAndReadOnlyAPIKey(t *testing.T) {
 	model := NewModel()
 
@@ -31,7 +31,7 @@ func TestSettingsHotReloadAndReadOnlyAPIKey(t *testing.T) {
 	assertContains(t, model.View(), "read-only · .env")
 }
 
-// TestSettingsURLChangesHotReloadWithoutRestartState는 관련 동작을 검증한다.
+// TestSettingsURLChangesHotReloadWithoutRestartState는 settings test의 화면 출력과 상태 전이를 확인한다.
 func TestSettingsURLChangesHotReloadWithoutRestartState(t *testing.T) {
 	model := NewModel()
 	typeText(model, "/settings")
@@ -51,7 +51,7 @@ func TestSettingsURLChangesHotReloadWithoutRestartState(t *testing.T) {
 	assertContains(t, model.View(), "Welcome. SCALA normalizes")
 }
 
-// TestSettingsSourceURLChangesHotReloadWithoutPendingMarkers는 관련 동작을 검증한다.
+// TestSettingsSourceURLChangesHotReloadWithoutPendingMarkers는 settings test의 화면 출력과 상태 전이를 확인한다.
 func TestSettingsSourceURLChangesHotReloadWithoutPendingMarkers(t *testing.T) {
 	model := NewModel()
 	typeText(model, "/settings")

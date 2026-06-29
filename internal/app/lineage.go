@@ -1,6 +1,6 @@
 package app
 
-// lookupLineage는 관련 동작을 처리한다.
+// lookupLineage는 입력 _id를 lineage.lookup 요청으로 큐에 넣는다.
 func (m *Model) lookupLineage(id string) {
 	m.lineageLoading = true
 	m.lineageLookupID = id
@@ -12,7 +12,7 @@ func (m *Model) lookupLineage(id string) {
 	})
 }
 
-// resolveLineage는 관련 동작을 처리한다.
+// resolveLineage는 mock lineage map에서 조회 결과를 채운다.
 func (m *Model) resolveLineage() {
 	id := m.lineageLookupID
 	record, ok := m.lineage[id]
@@ -26,7 +26,7 @@ func (m *Model) resolveLineage() {
 	m.lineageResult = &record
 }
 
-// clearLineage는 관련 동작을 처리한다.
+// clearLineage는 Lineage Viewer의 조회 입력과 결과 상태를 비운다.
 func (m *Model) clearLineage() {
 	m.lineageLoading = false
 	m.lineageLookupID = ""

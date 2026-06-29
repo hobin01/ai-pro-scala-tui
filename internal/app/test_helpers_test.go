@@ -8,7 +8,7 @@ import (
 
 var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-// newModelAtDataSamples는 관련 동작을 처리한다.
+// newModelAtDataSamples는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func newModelAtDataSamples() *Model {
 	model := NewModel()
 	model.UpdateKey("enter")
@@ -21,14 +21,14 @@ func newModelAtDataSamples() *Model {
 	return model
 }
 
-// newModelAtWorkflowGate는 관련 동작을 처리한다.
+// newModelAtWorkflowGate는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func newModelAtWorkflowGate() *Model {
 	model := newModelAtDataSamples()
 	model.UpdateKey("enter")
 	return model
 }
 
-// typeText는 관련 동작을 처리한다.
+// typeText는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func typeText(model *Model, text string) {
 	for _, r := range text {
 		model.UpdateKey(string(r))
@@ -61,7 +61,7 @@ func assertContainsRaw(t *testing.T, got string, want string) {
 	}
 }
 
-// stripANSI는 관련 동작을 처리한다.
+// stripANSI는 test helpers test의 화면 출력과 상태 전이를 확인한다.
 func stripANSI(value string) string {
 	return ansiPattern.ReplaceAllString(value, "")
 }

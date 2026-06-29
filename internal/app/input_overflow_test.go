@@ -7,7 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// TestLineageView_wrapsLongDocumentLines_whenViewportIsNarrow는 관련 동작을 검증한다.
+// TestLineageView_wrapsLongDocumentLines_whenViewportIsNarrow는 input overflow test의 화면 출력과 상태 전이를 확인한다.
 func TestLineageView_wrapsLongDocumentLines_whenViewportIsNarrow(t *testing.T) {
 	// Given
 	model := modelWithLineageResult()
@@ -21,7 +21,7 @@ func TestLineageView_wrapsLongDocumentLines_whenViewportIsNarrow(t *testing.T) {
 	assertFrameLinesWithinWidth(t, view, 64)
 }
 
-// TestLineageView_scrollsLongResults_whenContentExceedsViewport는 관련 동작을 검증한다.
+// TestLineageView_scrollsLongResults_whenContentExceedsViewport는 input overflow test의 화면 출력과 상태 전이를 확인한다.
 func TestLineageView_scrollsLongResults_whenContentExceedsViewport(t *testing.T) {
 	// Given
 	model := modelWithLineageResult()
@@ -36,7 +36,7 @@ func TestLineageView_scrollsLongResults_whenContentExceedsViewport(t *testing.T)
 	assertContains(t, model.View(), "bottom-marker")
 }
 
-// TestMonitoringView_scrollsLongResults_whenContentExceedsViewport는 관련 동작을 검증한다.
+// TestMonitoringView_scrollsLongResults_whenContentExceedsViewport는 input overflow test의 화면 출력과 상태 전이를 확인한다.
 func TestMonitoringView_scrollsLongResults_whenContentExceedsViewport(t *testing.T) {
 	// Given
 	model := NewModel()
@@ -67,7 +67,7 @@ func TestMonitoringView_scrollsLongResults_whenContentExceedsViewport(t *testing
 	assertContains(t, model.View(), "bottom-monitor-marker")
 }
 
-// modelWithLineageResult는 관련 동작을 처리한다.
+// modelWithLineageResult는 input overflow test의 화면 출력과 상태 전이를 확인한다.
 func modelWithLineageResult() *Model {
 	model := NewModel()
 	typeText(model, "/lineage-viewer")

@@ -2,7 +2,7 @@ package app
 
 import "strings"
 
-// enter는 관련 동작을 처리한다.
+// enter는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enter() {
 	if m.input != "" {
 		m.submitInput()
@@ -28,7 +28,7 @@ func (m *Model) enter() {
 	}
 }
 
-// enterSources는 관련 동작을 처리한다.
+// enterSources는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterSources() {
 	if len(m.sources) == 0 {
 		m.route = routeSettings
@@ -46,7 +46,7 @@ func (m *Model) enterSources() {
 	m.queueSamplesFetch()
 }
 
-// enterSamples는 관련 동작을 처리한다.
+// enterSamples는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterSamples() {
 	if m.sampleLoading {
 		return
@@ -62,7 +62,7 @@ func (m *Model) enterSamples() {
 	m.notice = ""
 }
 
-// enterWorkflow는 관련 동작을 처리한다.
+// enterWorkflow는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterWorkflow() {
 	if m.workflowGate && m.workflowCursor == 1 {
 		m.route = routeSamples
@@ -75,7 +75,7 @@ func (m *Model) enterWorkflow() {
 	m.route = routeMain
 }
 
-// enterLineage는 관련 동작을 처리한다.
+// enterLineage는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterLineage() {
 	if m.lineageLoading {
 		return
@@ -86,7 +86,7 @@ func (m *Model) enterLineage() {
 	m.route = routeMain
 }
 
-// submitInput는 관련 동작을 처리한다.
+// submitInput은 slash command와 lineage _id lookup 입력을 분기한다.
 func (m *Model) submitInput() {
 	value := strings.TrimSpace(m.input)
 	if m.route == routeLineage && value != "" && !strings.HasPrefix(value, "/") {
@@ -106,7 +106,7 @@ func (m *Model) submitInput() {
 	m.notice = `✗ Unknown command "` + value + `". Try /help.`
 }
 
-// routeCommand는 관련 동작을 처리한다.
+// routeCommand는 slash command를 페이지 이동과 fetch action으로 해석한다.
 func (m *Model) routeCommand(command string) bool {
 	switch command {
 	case "/help":
@@ -145,7 +145,7 @@ func (m *Model) routeCommand(command string) bool {
 	return true
 }
 
-// move는 관련 동작을 처리한다.
+// move는 현재 화면 cursor를 유효 범위 안에서 이동한다.
 func (m *Model) move(delta int) {
 	switch m.route {
 	case routeMain:
@@ -173,7 +173,7 @@ func (m *Model) move(delta int) {
 	}
 }
 
-// page는 관련 동작을 처리한다.
+// page는 sample page 또는 monitoring scope를 좌우 키로 이동한다.
 func (m *Model) page(delta int) {
 	switch m.route {
 	case routeSamples:
@@ -186,7 +186,7 @@ func (m *Model) page(delta int) {
 	}
 }
 
-// space는 관련 동작을 처리한다.
+// space는 source selection에서 선택 토글을 수행하고 일반 입력에서는 공백을 넣는다.
 func (m *Model) space() {
 	if m.input != "" {
 		m.input += " "
@@ -203,14 +203,14 @@ func (m *Model) space() {
 	m.notice = ""
 }
 
-// openSources는 관련 동작을 처리한다.
+// openSources는 Source Selection route를 처음 cursor 위치로 연다.
 func (m *Model) openSources() {
 	m.route = routeSources
 	m.sourceCursor = 0
 	m.notice = ""
 }
 
-// selectedSources는 관련 동작을 처리한다.
+// selectedSources는 현재 선택된 source 항목만 순서대로 모은다.
 func (m *Model) selectedSources() []source {
 	selected := make([]source, 0, len(m.sources))
 	for _, source := range m.sources {
@@ -221,7 +221,7 @@ func (m *Model) selectedSources() []source {
 	return selected
 }
 
-// currentSampleSource는 관련 동작을 처리한다.
+// currentSampleSource는 현재 sample page가 가리키는 선택 source를 돌려준다.
 func (m *Model) currentSampleSource() (source, bool) {
 	selected := m.selectedSources()
 	if len(selected) == 0 {
@@ -231,7 +231,7 @@ func (m *Model) currentSampleSource() (source, bool) {
 	return selected[page], true
 }
 
-// enterSampleError는 관련 동작을 처리한다.
+// enterSampleError는 enter 키 입력에서 다음 route나 실행 여부를 결정한다.
 func (m *Model) enterSampleError() {
 	switch m.sampleErrorCursor {
 	case 0:
