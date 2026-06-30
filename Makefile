@@ -45,12 +45,13 @@ docker-backend-build: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) build backend
 
 docker-backend-up: docker-backend-secret
-	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) up -d backend kibana opensearch-dashboards
+	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) up -d postgres redis chroma opensearch elasticsearch splunk kibana opensearch-dashboards
 
 docker-backend-init: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) run --rm backend scala-backend migrate
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) run --rm backend scala-backend seed-dev-settings
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) run --rm backend scala-backend ingest-ocsf
+	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) up -d backend
 
 docker-backend-seed: docker-backend-secret
 	SCALA_OPENAI_SECRET_FILE="$(OPENAI_SECRET_FILE)" $(DOCKER_COMPOSE) run --rm backend scala-backend seed-dev-data --count "$(COUNT)"
