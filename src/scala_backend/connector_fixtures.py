@@ -63,6 +63,37 @@ def default_connectors() -> dict[str, FixtureConnector]:
                         "empty": "",
                     },
                 ),
+                RawDocument(
+                    "elasticsearch",
+                    "scala-es-network",
+                    "es-network-1",
+                    {
+                        "@timestamp": "2026-06-28T08:00:00Z",
+                        "src_ip": "10.10.0.5",
+                        "source_ip": "10.20.0.5",
+                        "dst_ip": "172.16.0.10",
+                        "dest_port": "443",
+                        "dst_port": 80,
+                        "action": "allow",
+                        "severity": "informational",
+                        "vendor_custom": "es-network-extra",
+                    },
+                ),
+                RawDocument(
+                    "elasticsearch",
+                    "scala-es-endpoint",
+                    "es-endpoint-1",
+                    {
+                        "time": "2026-06-28T09:00:00Z",
+                        "client_ip": "192.168.1.5",
+                        "remote_addr": "203.0.113.5",
+                        "destination_port": "3389",
+                        "status": "success",
+                        "process_name": "ssh",
+                        "parent_process": None,
+                        "es_only_endpoint_flag": True,
+                    },
+                ),
             ],
         ),
         "splunk": FixtureConnector(
@@ -78,6 +109,23 @@ def default_connectors() -> dict[str, FixtureConnector]:
                         "status": "allow",
                         "_time": "2026-06-28T08:00:00Z",
                         "nullable": None,
+                    },
+                ),
+                RawDocument(
+                    "splunk",
+                    "security",
+                    "security-1",
+                    {
+                        "_time": "2026-06-28T11:00:00Z",
+                        "_raw": (
+                            '{"source_ip": "10.40.0.5", '
+                            '"dest_port": "445", "action": "allow"}'
+                        ),
+                        "source_ip": "10.40.0.5",
+                        "sourceAddress": "10.41.0.5",
+                        "DestinationPort": "1224",
+                        "EventCode": 4624,
+                        "splunk_only_security_flag": True,
                     },
                 ),
             ],

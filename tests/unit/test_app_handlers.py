@@ -66,19 +66,61 @@ class RecordingProvider:
         self.calls.append({"prompt": prompt, "model": model, "price": price})
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
-            raise AssertionError("mapping prompt must contain JSON")
-        fallback = payload.get("fallback")
-        if not isinstance(fallback, dict):
-            raise AssertionError("mapping prompt must contain fallback")
+            raise AssertionError("agent prompt must contain JSON")
+        text = self._response_text(payload)
         return LlmResponse(
-            text=json.dumps(fallback),
+            text=text,
             usage=ProviderUsage(
                 prompt_tokens=11,
                 completion_tokens=5,
                 total_tokens=16,
-                cost_usd=Decimal("0"),
+                cost_usd=Decimal("0.000031"),
             ),
         )
+
+    def _response_text(self, payload: JsonObject) -> str:
+        task = str(payload.get("task") or "")
+        if task == "Generate one OCSF mapping decision.":
+            source = payload.get("source")
+            if not isinstance(source, dict):
+                raise AssertionError("normalization prompt must contain source")
+            field = str(source.get("field") or "")
+            if field in {"src_ip", "clientip", "client_ip", "source_ip"}:
+                return json.dumps(
+                    {
+                        "action": "map",
+                        "ocsf_field": "src_endpoint.ip",
+                        "ocsf_type": "ip",
+                    }
+                )
+            if field in {"port", "dest_port", "dst_port"}:
+                return json.dumps(
+                    {
+                        "action": "map",
+                        "ocsf_field": "dst_endpoint.port",
+                        "ocsf_type": "integer",
+                    }
+                )
+            if field in {"action", "status"}:
+                return json.dumps(
+                    {
+                        "action": "map",
+                        "ocsf_field": "activity_name",
+                        "ocsf_type": "string",
+                    }
+                )
+            return json.dumps({"action": "keep_raw"})
+        if task == "Validate SCALA mapping decisions.":
+            return json.dumps(
+                {
+                    "status": "feedback_required",
+                    "feedback_request": {
+                        "source_field": "clientip",
+                        "question": "Confirm source IP mapping.",
+                    },
+                }
+            )
+        return json.dumps({"status": "ok"})
 
 
 class FailingProvider(RecordingProvider):
@@ -290,7 +332,7 @@ async def test_pipeline_run_rejects_invalid_openai_key_before_mapping() -> None:
             RecordingPeer(),
         )
 
-    assert provider.validate_calls == ["gpt-normalizer"]
+    assert provider.validate_calls == ["gpt-orchestrator"]
     assert provider.complete_called is False
 
 
@@ -320,15 +362,37 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
         with anyio.fail_after(1):
             await peer.completed.wait()
 
-    assert {call["model"] for call in provider.calls} == {"gpt-normalizer"}
+    assert provider.validate_calls == [
+        "gpt-orchestrator",
+        "gpt-profiler",
+        "gpt-normalizer",
+        "gpt-validator",
+    ]
+    assert {call["model"] for call in provider.calls} == {
+        "gpt-orchestrator",
+        "gpt-profiler",
+        "gpt-normalizer",
+        "gpt-validator",
+    }
     assert provider.calls
-    assert all("NORMALIZE SYSTEM" in str(call["prompt"]) for call in provider.calls)
+    normalization_calls = [
+        call for call in provider.calls if call["model"] == "gpt-normalizer"
+    ]
+    assert normalization_calls
+    assert all(
+        "NORMALIZE SYSTEM" in str(call["prompt"]) for call in normalization_calls
+    )
     usage = store.list_usage()
-    normalizer_usage = [row for row in usage if row.agent == AgentName.NORMALIZATION]
-    assert len(normalizer_usage) == len(provider.calls)
-    assert all(row.prompt_tokens == 11 for row in normalizer_usage)
-    assert all(row.completion_tokens == 5 for row in normalizer_usage)
-    assert all(row.cost_usd == 0 for row in normalizer_usage)
+    for agent in (
+        AgentName.ORCHESTRATOR,
+        AgentName.SCHEMA_PROFILER,
+        AgentName.NORMALIZATION,
+        AgentName.VALIDATOR,
+    ):
+        agent_usage = [row for row in usage if row.agent == agent]
+        assert agent_usage
+        assert sum(row.total_tokens for row in agent_usage) > 0
+        assert sum(row.cost_usd for row in agent_usage) > 0
 
 
 def _configured_store() -> InMemoryStore:

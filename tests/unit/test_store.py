@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import uuid4
 
 from scala_backend.config import DEFAULT_OPENAI_MODEL
@@ -19,8 +20,15 @@ def test_seed_dev_settings_is_explicit() -> None:
 
     seed_dev_settings(store)
 
-    assert store.get_settings()["source.splunk.indices"] == ["main"]
+    assert store.get_settings()["source.elasticsearch.indices"] == [
+        "scala-es-network",
+        "scala-es-endpoint",
+    ]
+    assert store.get_settings()["source.splunk.indices"] == ["main", "security"]
     assert store.get_settings()["agent.normalization.model"] == DEFAULT_OPENAI_MODEL
+    assert (
+        store.get_settings()[f"model.{DEFAULT_OPENAI_MODEL}.input_cost_per_1m"] == 0.75
+    )
     assert "agent.schema_profiler.system_prompt" in store.get_settings()
 
 
@@ -48,3 +56,27 @@ def test_monitoring_aggregate_contains_all_agents() -> None:
     load_row = next(row for row in result["agents"] if row["agent"] == "load")
     assert load_row["tokens"] == 0
     assert load_row["cost"] == 0.0
+
+
+def test_monitoring_aggregate_sums_agent_costs() -> None:
+    run_id = uuid4()
+    usage = [
+        make_usage(run_id, AgentName.ORCHESTRATOR, "planned", "gpt", 10),
+        make_usage(
+            run_id,
+            AgentName.NORMALIZATION,
+            "mapped",
+            "gpt",
+            20,
+            cost=Decimal("0.12"),
+        ),
+    ]
+
+    result = aggregate_usage(usage, "all_time")
+
+    assert result["total"]["cost"] == 0.12
+    assert result["total"]["cost_source"] == "stored_usage"
+    normalization = next(
+        row for row in result["agents"] if row["agent"] == "normalization"
+    )
+    assert normalization["cost"] == 0.12

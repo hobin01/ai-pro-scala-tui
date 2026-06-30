@@ -8,6 +8,8 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field
 
 DEFAULT_OPENAI_MODEL: Final = "gpt-5.4-mini"
+DEFAULT_OPENAI_INPUT_COST_PER_1M: Final = 0.75
+DEFAULT_OPENAI_OUTPUT_COST_PER_1M: Final = 4.50
 
 
 class BackendConfig(BaseModel):
@@ -30,6 +32,8 @@ class BackendConfig(BaseModel):
     openai_cost_api_key_id: str | None = None
     openai_cost_project_id: str | None = None
     openai_model: str = DEFAULT_OPENAI_MODEL
+    openai_input_cost_per_1m: float = DEFAULT_OPENAI_INPUT_COST_PER_1M
+    openai_output_cost_per_1m: float = DEFAULT_OPENAI_OUTPUT_COST_PER_1M
     openai_embedding_model: str = "text-embedding-3-small"
     opensearch_url: str = "memory://opensearch"
     opensearch_username: str | None = None
@@ -62,6 +66,8 @@ ENV_KEY_MAP = {
     "SCALA_OPENAI_COST_API_KEY_ID": "openai_cost_api_key_id",
     "SCALA_OPENAI_COST_PROJECT_ID": "openai_cost_project_id",
     "SCALA_OPENAI_MODEL": "openai_model",
+    "SCALA_OPENAI_INPUT_COST_PER_1M": "openai_input_cost_per_1m",
+    "SCALA_OPENAI_OUTPUT_COST_PER_1M": "openai_output_cost_per_1m",
     "SCALA_OPENAI_EMBEDDING_MODEL": "openai_embedding_model",
     "SCALA_OPENSEARCH_URL": "opensearch_url",
     "SCALA_OPENSEARCH_USERNAME": "opensearch_username",

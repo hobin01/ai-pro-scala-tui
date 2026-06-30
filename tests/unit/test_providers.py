@@ -30,15 +30,20 @@ class RejectingOpenAiModule(ModuleType):
     OpenAI = RejectingOpenAI
 
 
-def test_usage_records_tokens_without_local_cost_estimate() -> None:
-    """UsageRecord가 token 수를 기록하되 local 비용 추정은 0으로 두는지 확인한다."""
+def test_usage_records_model_price_cost() -> None:
     usage = calculate_usage(
         prompt_tokens=1000,
         completion_tokens=500,
-        price={"prompt_per_1k": 0.15, "completion_per_1k": 0.60},
+        price={"input_per_1m": 150.0, "output_per_1m": 600.0},
     )
 
     assert usage.total_tokens == 1500
+    assert usage.cost_usd == Decimal("0.45")
+
+
+def test_usage_cost_is_zero_without_model_price() -> None:
+    usage = calculate_usage(prompt_tokens=1000, completion_tokens=500, price=None)
+
     assert usage.cost_usd == Decimal("0")
 
 

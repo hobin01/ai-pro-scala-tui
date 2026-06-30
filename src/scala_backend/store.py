@@ -7,7 +7,11 @@ from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
-from scala_backend.config import DEFAULT_OPENAI_MODEL
+from scala_backend.config import (
+    DEFAULT_OPENAI_INPUT_COST_PER_1M,
+    DEFAULT_OPENAI_MODEL,
+    DEFAULT_OPENAI_OUTPUT_COST_PER_1M,
+)
 from scala_backend.models import (
     ALL_AGENTS,
     AgentName,
@@ -141,14 +145,20 @@ def seed_dev_settings(
             "request human feedback only when a decision is ambiguous."
         ),
         "source.elasticsearch.url": "memory://elasticsearch",
-        "source.elasticsearch.indices": ["logs-2026"],
+        "source.elasticsearch.indices": ["scala-es-network", "scala-es-endpoint"],
         "source.splunk.url": "memory://splunk",
-        "source.splunk.indices": ["main"],
+        "source.splunk.indices": ["main", "security"],
         "output.opensearch.url": "memory://opensearch",
         "output.opensearch.index": "scala-normalized",
         "console.kibana.url": "http://localhost:5601",
         "console.splunk.url": "http://localhost:8000",
         "console.opensearch.url": "http://localhost:5602",
+        f"model.{DEFAULT_OPENAI_MODEL}.input_cost_per_1m": (
+            DEFAULT_OPENAI_INPUT_COST_PER_1M
+        ),
+        f"model.{DEFAULT_OPENAI_MODEL}.output_cost_per_1m": (
+            DEFAULT_OPENAI_OUTPUT_COST_PER_1M
+        ),
     }
     if overrides is not None:
         entries.update(overrides)
@@ -201,12 +211,15 @@ def aggregate_usage(
     ]
     agents = []
     total_tokens = 0
+    total_cost = Decimal("0")
     last_run_id = ""
     for agent in ALL_AGENTS:
         selected = [row for row in rows if row.agent == agent]
         tokens = sum(row.total_tokens for row in selected)
+        cost = sum((row.cost_usd for row in selected), Decimal("0"))
         last = selected[-1] if selected else None
         total_tokens += tokens
+        total_cost += cost
         if last is not None:
             last_run_id = str(last.run_id)
         agents.append(
@@ -215,7 +228,7 @@ def aggregate_usage(
                 "model": last.model if last else None,
                 "last_activity": last.last_activity if last else "",
                 "tokens": tokens,
-                "cost": 0,
+                "cost": float(cost),
             },
         )
     return {
@@ -223,8 +236,8 @@ def aggregate_usage(
         "as_of": now.strftime("%H:%M"),
         "total": {
             "tokens": total_tokens,
-            "cost": None,
-            "cost_source": "unavailable",
+            "cost": float(total_cost),
+            "cost_source": "stored_usage",
             "last_run_id": last_run_id,
             "runs": len({row.run_id for row in rows}),
         },

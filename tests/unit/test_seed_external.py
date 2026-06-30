@@ -39,6 +39,17 @@ class FakeSplunkService:
         self.indexes = {"main": FakeSplunkIndex()}
 
 
+class CreatableSplunkIndexes(dict[str, FakeSplunkIndex]):
+    def create(self, index: str) -> FakeSplunkIndex:
+        self[index] = FakeSplunkIndex()
+        return self[index]
+
+
+class CreatableSplunkService:
+    def __init__(self) -> None:
+        self.indexes = CreatableSplunkIndexes()
+
+
 def test_seed_elasticsearch_documents_indexes_with_stable_source_ids() -> None:
     """Elasticsearch seed가 안정적인 source id로 문서를 index하는지 확인한다."""
     client = FakeElasticsearchClient()
@@ -58,3 +69,13 @@ def test_seed_splunk_events_submits_json_events() -> None:
 
     assert ids == ["splunk-seed-1"]
     assert '"source_doc_id": "splunk-seed-1"' in service.indexes["main"].events[0]
+
+
+def test_seed_splunk_events_creates_missing_index() -> None:
+    service = CreatableSplunkService()
+
+    ids = seed_splunk_events(service, "security", [{"source_ip": "10.0.0.5"}])
+
+    assert ids == ["splunk-seed-1"]
+    assert "security" in service.indexes
+    assert '"source_ip": "10.0.0.5"' in service.indexes["security"].events[0]

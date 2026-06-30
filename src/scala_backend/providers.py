@@ -172,8 +172,25 @@ def calculate_usage(
 ) -> ProviderUsage:
     """provider 토큰 카운트를 내부 Usage 객체로 포장한다."""
     total = prompt_tokens + completion_tokens
-    del price
-    return ProviderUsage(prompt_tokens, completion_tokens, total, Decimal("0"))
+    cost = Decimal("0")
+    if price:
+        prompt_per_1m = _rate(price, "input_per_1m", "prompt_per_1m")
+        completion_per_1m = _rate(price, "output_per_1m", "completion_per_1m")
+        cost += Decimal(prompt_tokens) * prompt_per_1m / Decimal(1_000_000)
+        cost += Decimal(completion_tokens) * completion_per_1m / Decimal(1_000_000)
+    return ProviderUsage(prompt_tokens, completion_tokens, total, cost)
+
+
+def _rate(
+    price: dict[str, float],
+    per_1m_key: str,
+    legacy_per_1k_key: str,
+) -> Decimal:
+    if per_1m_key in price:
+        return Decimal(str(price[per_1m_key]))
+    if legacy_per_1k_key in price:
+        return Decimal(str(price[legacy_per_1k_key])) * Decimal(1000)
+    return Decimal("0")
 
 
 def _sum_cost_payload(payload: object) -> Decimal:

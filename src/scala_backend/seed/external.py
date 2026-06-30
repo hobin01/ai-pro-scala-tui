@@ -60,10 +60,20 @@ def seed_splunk_events(
     ]
     if _seeded_splunk_ids(service, index, ids) >= len(ids):
         return ids
-    target = service.indexes[index]
+    target = _splunk_index(service, index)
     for doc_id, event in zip(ids, events, strict=True):
         target.submit(json.dumps(event | {"source_doc_id": doc_id}, sort_keys=True))
     return ids
+
+
+def _splunk_index(service: SplunkSeedService, index: str) -> SplunkIndex:
+    indexes = service.indexes
+    if index in indexes:
+        return indexes[index]
+    create = getattr(indexes, "create", None)
+    if create is None:
+        raise KeyError(index)
+    return cast(SplunkIndex, create(index))
 
 
 def _seeded_splunk_ids(
@@ -77,7 +87,7 @@ def _seeded_splunk_ids(
     if export is None:
         return 0
     query = (
-        f"search index={index} source_doc_id=splunk-seed-* "
+        f"search index={index} source_doc_id=* "
         "| fields source_doc_id | dedup source_doc_id"
     )
     with suppress(Exception):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -20,6 +21,8 @@ from scala_backend.store import agent_model_settings, seed_dev_settings
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 app = typer.Typer(no_args_is_help=True)
+ES_SEED_INDICES = ("scala-es-network", "scala-es-endpoint")
+SPLUNK_SEED_INDICES = ("main", "security")
 
 
 @app.command()
@@ -58,9 +61,9 @@ def seed_settings(env_file: Annotated[Path | None, typer.Option()] = None) -> No
     config = load_config(env_file)
     if config.database_url == "memory://":
         backend = create_app(config)
-        seed_dev_settings(backend.store, _settings_overrides(config))
+        seed_dev_settings(backend.store, settings_overrides(config))
     else:
-        seed_postgres(config.database_url, _settings_overrides(config))
+        seed_postgres(config.database_url, settings_overrides(config))
     typer.echo("dev settings seeded")
 
 
@@ -104,8 +107,12 @@ def seed_data(
         password=config.splunk_password,
         verify=False,
     )
-    es_ids = seed_elasticsearch_documents(es, "scala-es-logs", _es_docs(count))
-    splunk_ids = seed_splunk_events(splunk, "main", _splunk_docs(count))
+    es_ids: list[str] = []
+    for index, docs in es_seed_batches(count).items():
+        es_ids.extend(seed_elasticsearch_documents(es, index, docs))
+    splunk_ids: list[str] = []
+    for index, docs in splunk_seed_batches(count).items():
+        splunk_ids.extend(seed_splunk_events(splunk, index, docs))
     typer.echo(f"seeded elasticsearch={len(es_ids)} splunk={len(splunk_ids)} documents")
 
 
@@ -114,52 +121,147 @@ async def _serve_async(config: BackendConfig, backend: BackendApp) -> None:
     await serve_backend(config, backend)
 
 
-def _settings_overrides(config: BackendConfig) -> dict[str, object]:
+def settings_overrides(config: BackendConfig) -> dict[str, object]:
     """scala-backend CLI의 settings overrides 보조 경로를 분리한다."""
     return {
         **agent_model_settings(config.openai_model),
         "source.elasticsearch.url": config.elasticsearch_url,
-        "source.elasticsearch.indices": ["scala-es-logs"],
+        "source.elasticsearch.indices": list(ES_SEED_INDICES),
         "source.splunk.url": config.splunk_url,
-        "source.splunk.indices": ["main"],
+        "source.splunk.indices": list(SPLUNK_SEED_INDICES),
         "output.opensearch.url": config.opensearch_url,
         "output.opensearch.index": "scala-normalized",
         "console.kibana.url": "http://127.0.0.1:5601",
         "console.splunk.url": "http://127.0.0.1:8000",
         "console.opensearch.url": "http://127.0.0.1:5602",
+        f"model.{config.openai_model}.input_cost_per_1m": (
+            config.openai_input_cost_per_1m
+        ),
+        f"model.{config.openai_model}.output_cost_per_1m": (
+            config.openai_output_cost_per_1m
+        ),
     }
 
 
-def _es_docs(count: int) -> list[dict[str, object]]:
-    """scala-backend CLI의 es docs 보조 경로를 분리한다."""
-    return [
-        {
-            "source_doc_id": f"es-seed-{index}",
-            "src_ip": f"10.10.0.{index % 250 + 1}",
-            "dest_port": "443" if index % 2 == 0 else "8443",
-            "action": "allow" if index % 3 else "blocked",
-            "empty": "",
-            "nullable": None,
-            "vendor_custom": f"es-extra-{index}",
-        }
-        for index in range(1, count + 1)
-    ]
+def es_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
+    first, second = _split_count(count)
+    return {
+        "scala-es-network": _es_network_docs(first),
+        "scala-es-endpoint": _es_endpoint_docs(second),
+    }
 
 
-def _splunk_docs(count: int) -> list[dict[str, object]]:
-    """scala-backend CLI의 splunk docs 보조 경로를 분리한다."""
-    return [
-        {
-            "source_doc_id": f"splunk-seed-{index}",
-            "clientip": f"192.168.1.{index % 250 + 1}",
-            "port": "443" if index % 2 else "8443",
-            "status": "allow" if index % 3 else "blocked",
-            "_time": "2026-06-28T08:00:00Z",
-            "nullable": None,
-            "splunk_custom": f"sp-extra-{index}",
-        }
-        for index in range(1, count + 1)
-    ]
+def splunk_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
+    first, second = _split_count(count)
+    return {
+        "main": _splunk_main_docs(first),
+        "security": _splunk_security_docs(second),
+    }
+
+
+def _split_count(count: int) -> tuple[int, int]:
+    first = count // 2
+    return first, count - first
+
+
+def _es_network_docs(count: int) -> list[dict[str, object]]:
+    return [_es_network_doc(index) for index in range(1, count + 1)]
+
+
+def _es_endpoint_docs(count: int) -> list[dict[str, object]]:
+    return [_es_endpoint_doc(index) for index in range(1, count + 1)]
+
+
+def _splunk_main_docs(count: int) -> list[dict[str, object]]:
+    return [_splunk_main_doc(index) for index in range(1, count + 1)]
+
+
+def _splunk_security_docs(count: int) -> list[dict[str, object]]:
+    return [_splunk_security_doc(index) for index in range(1, count + 1)]
+
+
+def _es_network_doc(index: int) -> dict[str, object]:
+    return {
+        "source_doc_id": f"es-network-seed-{index}",
+        "@timestamp": f"2026-06-28T08:{index % 60:02d}:00Z",
+        "src_ip": f"10.10.{index % 20}.{index % 250 + 1}",
+        "source_ip": f"10.20.{index % 15}.{index % 250 + 1}",
+        "dst_ip": f"172.16.{index % 30}.{index % 250 + 1}",
+        "dest_port": "443" if index % 2 == 0 else "8443",
+        "dst_port": 53 if index % 7 == 0 else 80,
+        "action": "allow" if index % 3 else "blocked",
+        "event_type": "network_activity",
+        "severity": "high" if index % 11 == 0 else "informational",
+        "protocol": "tcp" if index % 5 else "udp",
+        "bytes_in": index * 17,
+        "bytes_out": index * 31,
+        "user_name": None if index % 13 == 0 else f"user{index % 9}",
+        "host_name": f"es-net-{index % 12}",
+        "rule_name": f"egress-policy-{index % 6}",
+        "vendor_custom": f"es-network-extra-{index}",
+        "empty_note": "" if index % 4 == 0 else "observed",
+    }
+
+
+def _es_endpoint_doc(index: int) -> dict[str, object]:
+    return {
+        "source_doc_id": f"es-endpoint-seed-{index}",
+        "time": f"2026-06-28T09:{index % 60:02d}:30Z",
+        "client_ip": f"192.168.{index % 40}.{index % 250 + 1}",
+        "remote_addr": f"203.0.113.{index % 250 + 1}",
+        "destination_port": "22" if index % 5 == 0 else "3389",
+        "status": "success" if index % 4 else "failed",
+        "process_name": "powershell.exe" if index % 6 == 0 else "ssh",
+        "process_pid": 2000 + index,
+        "parent_process": "cmd.exe" if index % 6 == 0 else None,
+        "file_hash_sha256": f"{index:064x}"[-64:],
+        "file_path": f"/opt/scala/events/scala-{index}.bin",
+        "endpoint_hostname": f"endpoint-{index % 18}",
+        "os_type": "windows" if index % 3 == 0 else "linux",
+        "es_only_endpoint_flag": index % 2 == 0,
+        "nullable": None,
+    }
+
+
+def _splunk_main_doc(index: int) -> dict[str, object]:
+    return {
+        "source_doc_id": f"splunk-main-seed-{index}",
+        "_time": f"2026-06-28T10:{index % 60:02d}:00Z",
+        "clientip": f"198.51.100.{index % 250 + 1}",
+        "src_ip": f"10.30.{index % 20}.{index % 250 + 1}",
+        "dest": f"app-{index % 10}.internal",
+        "port": "443" if index % 2 else "8080",
+        "status": "allowed" if index % 3 else "blocked",
+        "http_method": "GET" if index % 2 else "POST",
+        "url": f"https://service.example/login/{index % 7}",
+        "user_agent": "curl/8.5" if index % 9 == 0 else "Mozilla/5.0",
+        "bytes": index * 41,
+        "session_id": f"splunk-session-{index % 50}",
+        "splunk_custom": f"sp-main-extra-{index}",
+        "maybe_missing": None if index % 10 == 0 else "present",
+    }
+
+
+def _splunk_security_doc(index: int) -> dict[str, object]:
+    raw_payload = {
+        "source_ip": f"10.40.{index % 25}.{index % 250 + 1}",
+        "dest_port": "445" if index % 4 == 0 else "389",
+        "action": "allow" if index % 5 else "deny",
+        "user": None if index % 12 == 0 else f"svc_{index % 8}",
+    }
+    return {
+        "source_doc_id": f"splunk-security-seed-{index}",
+        "_time": f"2026-06-28T11:{index % 60:02d}:15Z",
+        "_raw": json.dumps(raw_payload, sort_keys=True),
+        "EventCode": 4624 if index % 3 else 4625,
+        "src": f"security-host-{index % 16}",
+        "source_ip": raw_payload["source_ip"],
+        "sourceAddress": f"10.41.{index % 25}.{index % 250 + 1}",
+        "DestinationPort": str(1024 + index % 200),
+        "signature": "Successful Logon" if index % 3 else "Failed Logon",
+        "severity": "medium" if index % 3 else "high",
+        "splunk_only_security_flag": True,
+    }
 
 
 def main() -> None:

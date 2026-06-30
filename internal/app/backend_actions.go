@@ -437,7 +437,7 @@ func (m *Model) ApplyMonitoring(result MonitoringResult) {
 			name:     agentLabel(agent.Agent),
 			model:    emptyDash(agent.Model),
 			tokens:   fmt.Sprintf("%d tokens", agent.Tokens),
-			cost:     "--",
+			cost:     monitoringAgentCost(agent.Cost),
 			activity: emptyDash(agent.LastActivity),
 		})
 	}
@@ -688,6 +688,13 @@ func monitoringTotalCost(total MonitoringTotal) string {
 		return "cost unavailable"
 	}
 	return fmt.Sprintf("$%.4f", *total.Cost)
+}
+
+func monitoringAgentCost(cost float64) string {
+	if cost <= 0 {
+		return "$0.0000"
+	}
+	return fmt.Sprintf("$%.4f", cost)
 }
 
 // parseCSV는 settings index 입력을 빈 항목 없는 문자열 목록으로 나눈다.
