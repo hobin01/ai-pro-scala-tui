@@ -186,6 +186,7 @@ def _rate(
     per_1m_key: str,
     legacy_per_1k_key: str,
 ) -> Decimal:
+    """가격 사전에서 지정 key의 token 단가를 Decimal로 읽는다."""
     if per_1m_key in price:
         return Decimal(str(price[per_1m_key]))
     if legacy_per_1k_key in price:

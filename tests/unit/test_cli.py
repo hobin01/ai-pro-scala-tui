@@ -23,6 +23,7 @@ def test_cli_help_lists_backend_commands() -> None:
 
 
 def test_dev_settings_expose_four_complex_source_indices() -> None:
+    """개발 settings가 복잡한 4개 source index를 노출하는지 확인한다."""
     settings = settings_overrides(BackendConfig())
 
     assert settings["source.elasticsearch.indices"] == [
@@ -35,6 +36,7 @@ def test_dev_settings_expose_four_complex_source_indices() -> None:
 
 
 def test_seed_batches_split_count_across_four_indices() -> None:
+    """seed batch가 Elasticsearch/Splunk index별 개수를 균등 분배하는지 확인한다."""
     es = es_seed_batches(8)
     splunk = splunk_seed_batches(8)
 

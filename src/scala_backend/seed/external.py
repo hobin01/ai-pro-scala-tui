@@ -67,6 +67,7 @@ def seed_splunk_events(
 
 
 def _splunk_index(service: SplunkSeedService, index: str) -> SplunkIndex:
+    """Splunk service에서 index 이름에 맞는 index 객체를 찾는다."""
     indexes = service.indexes
     if index in indexes:
         return indexes[index]

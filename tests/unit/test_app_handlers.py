@@ -79,6 +79,7 @@ class RecordingProvider:
         )
 
     def _response_text(self, payload: JsonObject) -> str:
+        """agent task 이름에 맞는 JSON 응답 문자열을 만든다."""
         task = str(payload.get("task") or "")
         if task == "Generate OCSF mapping decisions for cache-miss fields.":
             fields = payload.get("fields")
@@ -109,6 +110,7 @@ class RecordingProvider:
         return json.dumps({"status": "ok"})
 
     def _mapping_decision(self, item_id: str, field: str) -> JsonObject:
+        """field 이름에 맞는 mapping decision JSON을 만든다."""
         if field in {"src_ip", "clientip", "client_ip", "source_ip"}:
             return {
                 "item_id": item_id,
@@ -134,6 +136,7 @@ class RecordingProvider:
 
 
 def _field_item_id(field: JsonObject) -> str:
+    """normalization prompt field에서 item_id를 읽어 검증한다."""
     item_id = field.get("item_id")
     if not isinstance(item_id, str) or not item_id:
         raise AssertionError("normalization prompt field must contain item_id")

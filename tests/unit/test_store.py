@@ -59,6 +59,7 @@ def test_monitoring_aggregate_contains_all_agents() -> None:
 
 
 def test_monitoring_aggregate_sums_agent_costs() -> None:
+    """monitoring aggregate가 agent 비용과 총 비용을 합산하는지 확인한다."""
     run_id = uuid4()
     usage = [
         make_usage(run_id, AgentName.ORCHESTRATOR, "planned", "gpt", 10),

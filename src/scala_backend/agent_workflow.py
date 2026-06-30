@@ -32,11 +32,14 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
 def _merge_sequence(left: list[Any], right: list[Any]) -> list[Any]:
+    """LangGraph reducer가 여러 node update 목록을 이어 붙인다."""
     return [*left, *right]
 
 
 @dataclass(frozen=True)
 class FieldWorkItem:
+    """필드 매핑 작업에 필요한 source, cache key, OCSF 후보를 묶는다."""
+
     source_url: str
     source: SourceSelection
     field: FieldSample
@@ -46,6 +49,8 @@ class FieldWorkItem:
 
 @dataclass(frozen=True)
 class NormalizedRecord:
+    """원본 문서와 정규화 결과, OpenSearch id를 함께 전달한다."""
+
     raw: RawDocument
     document: JsonObject
     opensearch_id: str
@@ -53,6 +58,8 @@ class NormalizedRecord:
 
 @dataclass(frozen=True)
 class AgentWorkflowResult:
+    """LangGraph pipeline 실행 결과를 기존 PipelineResult 계약에 맞게 담는다."""
+
     decisions: list[MappingDecision]
     cache_hit_count: int
     cache_miss_count: int
@@ -66,21 +73,27 @@ class AgentWorkflowResult:
 
 @dataclass
 class UsageTotals:
+    """한 agent node 안에서 여러 LLM 호출의 token과 비용을 누적한다."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost_usd: Decimal = Decimal("0")
 
     @property
     def total_tokens(self) -> int:
+        """입력과 출력 토큰 합계를 반환한다."""
         return self.prompt_tokens + self.completion_tokens
 
     def add(self, usage: ProviderUsage) -> None:
+        """provider usage 한 건을 현재 누적값에 더한다."""
         self.prompt_tokens += usage.prompt_tokens
         self.completion_tokens += usage.completion_tokens
         self.cost_usd += usage.cost_usd
 
 
 class AgentWorkflowState(TypedDict):
+    """LangGraph node들이 공유하는 pipeline state schema다."""
+
     run_id: str
     stages: Annotated[list[str], _merge_sequence]
     nodes: Annotated[list[str], _merge_sequence]
@@ -108,6 +121,8 @@ class AgentWorkflowState(TypedDict):
 
 
 class AgentWorkflowRunner:
+    """PRD mermaid 흐름을 실행 가능한 LangGraph pipeline으로 구동한다."""
+
     def __init__(
         self,
         store: BackendStore,
@@ -117,6 +132,7 @@ class AgentWorkflowRunner:
         ocsf_index: ChromaOcsfIndex | None,
         llm_provider: LlmProvider | None,
     ) -> None:
+        """workflow 실행에 필요한 store, connector, cache, provider를 보관한다."""
         self._store = store
         self._connectors = connectors
         self._cache = cache
@@ -130,6 +146,7 @@ class AgentWorkflowRunner:
         sources: list[SourceSelection],
         peer: object,
     ) -> AgentWorkflowResult:
+        """선택 source 목록으로 agent workflow를 실행하고 결과 DTO를 반환한다."""
         if self._llm_provider is None:
             raise ProviderError("OpenAI API key is not configured")
         graph = self._build_graph(peer)
@@ -158,6 +175,7 @@ class AgentWorkflowRunner:
         )
 
     def _build_graph(self, peer: object) -> Any:
+        """LangGraph node와 PRD edge를 등록한 실행 graph를 만든다."""
         builder = StateGraph(AgentWorkflowState)
         custom_nodes = {
             "siem_connector",
@@ -210,7 +228,10 @@ class AgentWorkflowRunner:
         return builder.compile()
 
     def _stage_node(self, node_name: str, stage: str | None) -> Any:
+        """LLM 호출이 없는 mermaid 보조 node 함수를 만든다."""
+
         def node(_state: AgentWorkflowState) -> dict[str, list[str]]:
+            """LLM 없는 mermaid 보조 node의 방문 이력을 기록한다."""
             update = {"nodes": [node_name]}
             if stage is not None:
                 update["stages"] = [stage]
@@ -219,6 +240,7 @@ class AgentWorkflowRunner:
         return node
 
     def _siem_connector(self, state: AgentWorkflowState) -> dict[str, object]:
+        """선택된 SIEM source의 원본 문서를 connector에서 수집한다."""
         docs: list[RawDocument] = []
         for source in state["sources"]:
             docs.extend(
@@ -227,6 +249,7 @@ class AgentWorkflowRunner:
         return {"nodes": ["siem_connector"], "documents": docs}
 
     def _orchestrator_request(self, state: AgentWorkflowState) -> dict[str, list[str]]:
+        """Orchestrator가 pipeline 시작과 수집 문서 수를 확인한다."""
         docs = state.get("documents", [])
         self._complete_agent(
             UUID(state["run_id"]),
@@ -237,6 +260,7 @@ class AgentWorkflowRunner:
         return {"nodes": ["orchestrator_request"], "stages": ["orchestrator"]}
 
     def _schema_profiler(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Schema Profiler가 source field와 cache key를 구성한다."""
         settings = self._store.get_settings()
         items: list[FieldWorkItem] = []
         for source in state["sources"]:
@@ -259,6 +283,7 @@ class AgentWorkflowRunner:
         }
 
     def _redis_cache(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Redis mapping cache를 조회해 hit 결정과 miss field를 분리한다."""
         cached: list[MappingDecision] = []
         misses: list[FieldWorkItem] = []
         for item in state.get("field_items", []):
@@ -276,9 +301,11 @@ class AgentWorkflowRunner:
         }
 
     def _cache_hit_mapping(self, _state: AgentWorkflowState) -> dict[str, list[str]]:
+        """Cache hit branch가 mermaid edge상 통과했음을 표시한다."""
         return {"nodes": ["cache_hit_mapping"]}
 
     def _chromadb_ocsf(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Cache miss field에 대해 ChromaDB OCSF 후보를 붙인다."""
         enriched: list[FieldWorkItem] = []
         for item in state.get("miss_items", []):
             candidates: tuple[OcsfField, ...] = ()
@@ -298,6 +325,7 @@ class AgentWorkflowRunner:
         return {"nodes": ["chromadb_ocsf"], "miss_items": enriched}
 
     def _normalization_rules(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Normalization agent가 cache miss field의 OCSF 매핑 결정을 생성한다."""
         totals = UsageTotals()
         decisions: list[MappingDecision] = []
         writes: list[CacheWrite] = []
@@ -334,6 +362,7 @@ class AgentWorkflowRunner:
         }
 
     def _validator_check(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Validator가 매핑 결정을 검증하고 feedback 필요 여부를 판단한다."""
         decisions = list(state.get("normalization_decisions", []))
         text = self._complete_agent(
             UUID(state["run_id"]),
@@ -356,6 +385,7 @@ class AgentWorkflowRunner:
         self,
         state: AgentWorkflowState,
     ) -> dict[str, list[str]]:
+        """Orchestrator가 Validator feedback 요청을 사용자 채널로 중계한다."""
         self._complete_agent(
             UUID(state["run_id"]),
             AgentName.ORCHESTRATOR,
@@ -365,7 +395,10 @@ class AgentWorkflowRunner:
         return {"nodes": ["orchestrator_feedback_request"], "stages": ["orchestrator"]}
 
     def _user_feedback(self, peer: object) -> Any:
+        """TUI peer로부터 human feedback 응답을 받는 LangGraph node를 만든다."""
+
         async def node(state: AgentWorkflowState) -> dict[str, object]:
+            """feedback.request를 보내고 사용자의 결정을 state에 반영한다."""
             response = await request(
                 peer, "feedback.request", state.get("feedback_payload", {})
             )
@@ -377,6 +410,7 @@ class AgentWorkflowRunner:
         self,
         state: AgentWorkflowState,
     ) -> dict[str, object]:
+        """Orchestrator가 feedback 결과를 매핑 결정 목록에 반영한다."""
         decisions = _apply_feedback(
             state.get("normalization_decisions", []),
             state.get("feedback_payload", {}),
@@ -394,6 +428,7 @@ class AgentWorkflowRunner:
         }
 
     def _validator_final(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Feedback 이후 최종 매핑 결정을 한 번 더 검증한다."""
         decisions = state.get(
             "feedback_decisions", state.get("normalization_decisions", [])
         )
@@ -406,6 +441,7 @@ class AgentWorkflowRunner:
         return {"nodes": ["validator_final"], "stages": ["validator"]}
 
     def _normalization_final(self, state: AgentWorkflowState) -> dict[str, object]:
+        """Cached 결정과 miss 결정을 합쳐 원본 문서를 정규화한다."""
         miss_decisions = state.get(
             "feedback_decisions", state.get("normalization_decisions", [])
         )
@@ -428,6 +464,7 @@ class AgentWorkflowRunner:
         }
 
     def _load(self, state: AgentWorkflowState) -> dict[str, object]:
+        """정규화 문서를 OpenSearch에 적재하고 Load usage를 기록한다."""
         settings = self._store.get_settings()
         index = _opensearch_index(settings)
         loaded_records: list[NormalizedRecord] = []
@@ -453,6 +490,7 @@ class AgentWorkflowRunner:
         }
 
     def _caching(self, state: AgentWorkflowState) -> dict[str, object]:
+        """확정된 cache miss 매핑을 Redis cache에 저장한다."""
         writes = state.get("cache_writes", [])
         for write in writes:
             self._cache.set(write.key, write.decision)
@@ -466,6 +504,7 @@ class AgentWorkflowRunner:
         return {"nodes": ["caching"], "stages": ["caching"], "cached": len(writes)}
 
     def _lineage(self, state: AgentWorkflowState) -> dict[str, object]:
+        """적재된 문서의 source와 OpenSearch id lineage를 PostgreSQL에 저장한다."""
         settings = self._store.get_settings()
         index = _opensearch_index(settings)
         refs: list[dict[str, str]] = []
@@ -504,6 +543,7 @@ class AgentWorkflowRunner:
         self,
         state: AgentWorkflowState,
     ) -> dict[str, list[str]]:
+        """Orchestrator가 최종 적재 결과를 요약한다."""
         self._complete_agent(
             UUID(state["run_id"]),
             AgentName.ORCHESTRATOR,
@@ -519,6 +559,7 @@ class AgentWorkflowRunner:
         task_prompt: str,
         activity: str,
     ) -> str:
+        """공통 LLM agent 호출과 usage 저장을 처리한다."""
         settings = self._store.get_settings()
         model = _agent_model(settings, agent)
         price = _model_price(settings, model)
@@ -538,6 +579,7 @@ class AgentWorkflowRunner:
         model: str,
         totals: UsageTotals,
     ) -> None:
+        """누적 token과 비용을 store의 agent usage row에 저장한다."""
         self._store.add_usage(
             make_usage(
                 run_id,
@@ -553,6 +595,7 @@ class AgentWorkflowRunner:
 
 
 def _wire_prd_edges(builder: StateGraph[AgentWorkflowState]) -> None:
+    """PRD mermaid와 같은 node 호출 순서를 LangGraph edge로 연결한다."""
     builder.add_edge(START, "elasticsearch_siem")
     builder.add_edge(START, "splunk_siem")
     builder.add_edge(START, "future_siem")
@@ -611,6 +654,7 @@ def _wire_prd_edges(builder: StateGraph[AgentWorkflowState]) -> None:
 
 
 def _runtime_nodes() -> tuple[tuple[str, str | None], ...]:
+    """Mermaid node 이름과 표시 stage 이름 목록을 반환한다."""
     return (
         ("elasticsearch_siem", None),
         ("splunk_siem", None),
@@ -646,6 +690,7 @@ def _runtime_nodes() -> tuple[tuple[str, str | None], ...]:
 
 
 def _cache_route(state: AgentWorkflowState) -> str | list[str]:
+    """Cache hit/miss 존재 여부에 따라 conditional edge를 선택한다."""
     has_hit = state.get("cache_hit", False)
     has_miss = state.get("cache_miss", True)
     if has_hit and has_miss:
@@ -654,23 +699,28 @@ def _cache_route(state: AgentWorkflowState) -> str | list[str]:
 
 
 def _feedback_route(state: AgentWorkflowState) -> str:
+    """Validator 결과를 feedback branch 또는 valid branch로 라우팅한다."""
     return "feedback" if state.get("needs_feedback", False) else "valid"
 
 
 def _cache_branch_route(state: AgentWorkflowState) -> str:
+    """Miss branch가 남아 있으면 cache branch 완료를 기다리게 한다."""
     return "wait" if state.get("cache_miss", True) else "final"
 
 
 def _miss_branch_route(state: AgentWorkflowState) -> str:
+    """Hit branch가 남아 있으면 miss branch 완료를 기다리게 한다."""
     return "wait" if state.get("cache_hit", False) else "final"
 
 
 def _source_url(settings: dict[str, object], solution: str) -> str:
+    """Settings에서 source URL을 찾고 없으면 solution 이름을 fallback으로 쓴다."""
     value = settings.get(f"source.{solution}.url")
     return value if isinstance(value, str) else solution
 
 
 def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
+    """Agent별 model 설정을 읽고 없으면 명시적 설정 오류를 발생시킨다."""
     value = settings.get(f"agent.{agent.value}.model")
     if isinstance(value, str) and value:
         return value
@@ -680,6 +730,7 @@ def _agent_model(settings: dict[str, object], agent: AgentName) -> str:
 def _agent_prompt(
     settings: dict[str, object], agent: AgentName, task_prompt: str
 ) -> str:
+    """저장된 system prompt와 현재 task prompt를 결합한다."""
     system_prompt = settings.get(f"agent.{agent.value}.system_prompt")
     if not isinstance(system_prompt, str):
         system_prompt = f"You are the SCALA {agent.value} agent."
@@ -687,6 +738,7 @@ def _agent_prompt(
 
 
 def _model_price(settings: dict[str, object], model: str) -> dict[str, float] | None:
+    """Settings에 저장된 per-1M token 단가를 provider 가격 형식으로 바꾼다."""
     input_cost = _float_setting(settings.get(f"model.{model}.input_cost_per_1m"))
     output_cost = _float_setting(settings.get(f"model.{model}.output_cost_per_1m"))
     if input_cost is None and output_cost is None:
@@ -698,6 +750,7 @@ def _model_price(settings: dict[str, object], model: str) -> dict[str, float] | 
 
 
 def _float_setting(value: object) -> float | None:
+    """숫자 또는 숫자 문자열 setting을 float로 변환한다."""
     if isinstance(value, int | float):
         return float(value)
     if isinstance(value, str) and value:
@@ -706,11 +759,13 @@ def _float_setting(value: object) -> float | None:
 
 
 def _opensearch_index(settings: dict[str, object]) -> str:
+    """Settings의 OpenSearch target index를 읽고 기본값을 제공한다."""
     value = settings.get("output.opensearch.index")
     return value if isinstance(value, str) else "scala-normalized"
 
 
 def _candidate_query(field: FieldSample) -> str:
+    """OCSF vector 검색에 사용할 field 이름, 타입, 샘플 문자열을 만든다."""
     samples = " ".join(str(sample) for sample in field.samples[:3])
     return f"{field.name} {field.type} {samples}"
 
@@ -719,6 +774,7 @@ def _orchestrator_start_prompt(
     sources: list[SourceSelection],
     docs: list[RawDocument],
 ) -> str:
+    """Pipeline 시작 시 Orchestrator에 전달할 JSON prompt를 만든다."""
     payload = {
         "task": "Acknowledge and plan one SCALA normalization pipeline run.",
         "sources": [source.model_dump(mode="json") for source in sources],
@@ -729,6 +785,7 @@ def _orchestrator_start_prompt(
 
 
 def _schema_profile_prompt(items: list[FieldWorkItem]) -> str:
+    """Schema Profiler가 field 목록을 분석하도록 JSON prompt를 만든다."""
     payload = {
         "task": "Profile source fields before OCSF normalization.",
         "fields": [
@@ -751,6 +808,7 @@ def _schema_profile_prompt(items: list[FieldWorkItem]) -> str:
 
 
 def _normalization_batch_prompt(items: list[FieldWorkItem]) -> str:
+    """Normalization agent의 cache miss field batch prompt를 만든다."""
     payload = {
         "task": "Generate OCSF mapping decisions for cache-miss fields.",
         "fields": [
@@ -801,6 +859,7 @@ def _normalization_batch_prompt(items: list[FieldWorkItem]) -> str:
 
 
 def _normalization_field_payload(position: int, item: FieldWorkItem) -> JsonObject:
+    """한 field work item을 LLM 응답 매칭 가능한 payload로 바꾼다."""
     return {
         "item_id": _normalization_item_id(position),
         "solution": item.source.solution,
@@ -820,10 +879,12 @@ def _normalization_field_payload(position: int, item: FieldWorkItem) -> JsonObje
 
 
 def _normalization_item_id(position: int) -> str:
+    """Batch prompt 안에서 field를 안정적으로 식별할 item id를 만든다."""
     return f"field-{position:03d}"
 
 
 def _validator_prompt(decisions: list[MappingDecision]) -> str:
+    """Validator가 매핑 결정 목록을 검증하도록 JSON prompt를 만든다."""
     payload = {
         "task": "Validate SCALA mapping decisions.",
         "decisions": [asdict(decision) for decision in decisions],
@@ -844,6 +905,7 @@ def _validator_prompt(decisions: list[MappingDecision]) -> str:
 
 
 def _feedback_prompt(payload: JsonObject) -> str:
+    """Orchestrator feedback 요청 정리용 JSON prompt를 만든다."""
     return json.dumps(
         {"task": "Prepare a concise human feedback request.", "feedback": payload},
         ensure_ascii=False,
@@ -852,6 +914,7 @@ def _feedback_prompt(payload: JsonObject) -> str:
 
 
 def _orchestrator_result_prompt(state: AgentWorkflowState) -> str:
+    """Orchestrator 최종 결과 요약용 JSON prompt를 만든다."""
     payload = {
         "task": "Summarize final SCALA pipeline result for the user.",
         "loaded": state.get("loaded", 0),
@@ -868,6 +931,7 @@ def _parse_mapping_decisions(
     items: list[FieldWorkItem],
     text: str,
 ) -> list[MappingDecision]:
+    """Normalization batch 응답을 work item 순서의 MappingDecision 목록으로 읽는다."""
     try:
         payload = json.loads(_extract_json(text))
     except json.JSONDecodeError as exc:
@@ -899,6 +963,7 @@ def _decisions_by_key(
     raw_decisions: list[object],
     key: str,
 ) -> dict[str, dict[str, object]]:
+    """LLM decision 목록을 지정 key 기준 dictionary로 인덱싱한다."""
     decisions: dict[str, dict[str, object]] = {}
     for item in raw_decisions:
         if not isinstance(item, dict):
@@ -912,6 +977,7 @@ def _decisions_by_key(
 def _decision_buckets_by_field(
     raw_decisions: list[object],
 ) -> dict[str, list[dict[str, object]]]:
+    """item_id가 없는 과거 응답을 source_field별 bucket으로 묶는다."""
     decisions: dict[str, list[dict[str, object]]] = {}
     for item in raw_decisions:
         if not isinstance(item, dict):
@@ -926,6 +992,7 @@ def _pop_decision_by_field(
     decisions: dict[str, list[dict[str, object]]],
     source_field: str,
 ) -> dict[str, object] | None:
+    """source_field fallback bucket에서 다음 decision을 하나 꺼낸다."""
     matches = decisions.get(source_field)
     if not matches:
         return None
@@ -936,6 +1003,7 @@ def _parse_mapping_decision_payload(
     field: FieldSample,
     payload: dict[str, object],
 ) -> MappingDecision:
+    """단일 LLM decision payload를 검증된 MappingDecision으로 바꾼다."""
     action = payload.get("action")
     if action == "keep_raw":
         return MappingDecision(field.name, field.type, "keep_raw", None, None)
@@ -954,6 +1022,7 @@ def _parse_validator_feedback(
     text: str,
     decisions: list[MappingDecision],
 ) -> JsonObject | None:
+    """Validator 응답에서 human feedback 요청 payload를 추출한다."""
     try:
         payload = json.loads(_extract_json(text))
     except json.JSONDecodeError as exc:
@@ -989,6 +1058,7 @@ def _decision_for_feedback(
     decisions: list[MappingDecision],
     field_name: str,
 ) -> MappingDecision:
+    """Feedback 대상 field에 대응하는 매핑 결정을 찾는다."""
     for decision in decisions:
         if decision.source_field == field_name:
             return decision
@@ -1001,6 +1071,7 @@ def _apply_feedback(
     decisions: list[MappingDecision],
     feedback: JsonObject,
 ) -> list[MappingDecision]:
+    """사용자 feedback이 keep_raw를 요구하면 해당 field 결정을 갱신한다."""
     field_payload = feedback.get("field")
     field_name = ""
     if isinstance(field_payload, dict):
@@ -1024,6 +1095,7 @@ def _apply_feedback(
 
 
 def _extract_json(text: str) -> str:
+    """LLM 응답의 코드펜스나 설명에서 JSON 객체 문자열만 추출한다."""
     value = text.strip()
     if value.startswith("```"):
         lines = value.splitlines()

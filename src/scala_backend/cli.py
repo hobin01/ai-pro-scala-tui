@@ -144,6 +144,7 @@ def settings_overrides(config: BackendConfig) -> dict[str, object]:
 
 
 def es_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
+    """Elasticsearch seed 문서를 network/endpoint index로 나눈다."""
     first, second = _split_count(count)
     return {
         "scala-es-network": _es_network_docs(first),
@@ -152,6 +153,7 @@ def es_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
 
 
 def splunk_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
+    """Splunk seed 이벤트를 main/security index로 나눈다."""
     first, second = _split_count(count)
     return {
         "main": _splunk_main_docs(first),
@@ -160,27 +162,33 @@ def splunk_seed_batches(count: int) -> dict[str, list[dict[str, object]]]:
 
 
 def _split_count(count: int) -> tuple[int, int]:
+    """전체 seed 개수를 두 index에 최대한 균등하게 나눈다."""
     first = count // 2
     return first, count - first
 
 
 def _es_network_docs(count: int) -> list[dict[str, object]]:
+    """Elasticsearch network seed 문서 목록을 만든다."""
     return [_es_network_doc(index) for index in range(1, count + 1)]
 
 
 def _es_endpoint_docs(count: int) -> list[dict[str, object]]:
+    """Elasticsearch endpoint seed 문서 목록을 만든다."""
     return [_es_endpoint_doc(index) for index in range(1, count + 1)]
 
 
 def _splunk_main_docs(count: int) -> list[dict[str, object]]:
+    """Splunk main seed 이벤트 목록을 만든다."""
     return [_splunk_main_doc(index) for index in range(1, count + 1)]
 
 
 def _splunk_security_docs(count: int) -> list[dict[str, object]]:
+    """Splunk security seed 이벤트 목록을 만든다."""
     return [_splunk_security_doc(index) for index in range(1, count + 1)]
 
 
 def _es_network_doc(index: int) -> dict[str, object]:
+    """네트워크 흐름형 Elasticsearch seed 문서 한 건을 만든다."""
     return {
         "source_doc_id": f"es-network-seed-{index}",
         "@timestamp": f"2026-06-28T08:{index % 60:02d}:00Z",
@@ -204,6 +212,7 @@ def _es_network_doc(index: int) -> dict[str, object]:
 
 
 def _es_endpoint_doc(index: int) -> dict[str, object]:
+    """엔드포인트 활동형 Elasticsearch seed 문서 한 건을 만든다."""
     return {
         "source_doc_id": f"es-endpoint-seed-{index}",
         "time": f"2026-06-28T09:{index % 60:02d}:30Z",
@@ -224,6 +233,7 @@ def _es_endpoint_doc(index: int) -> dict[str, object]:
 
 
 def _splunk_main_doc(index: int) -> dict[str, object]:
+    """웹 접근 로그형 Splunk seed 이벤트 한 건을 만든다."""
     return {
         "source_doc_id": f"splunk-main-seed-{index}",
         "_time": f"2026-06-28T10:{index % 60:02d}:00Z",
@@ -243,6 +253,7 @@ def _splunk_main_doc(index: int) -> dict[str, object]:
 
 
 def _splunk_security_doc(index: int) -> dict[str, object]:
+    """보안 탐지형 Splunk seed 이벤트 한 건을 만든다."""
     raw_payload = {
         "source_ip": f"10.40.{index % 25}.{index % 250 + 1}",
         "dest_port": "445" if index % 4 == 0 else "389",

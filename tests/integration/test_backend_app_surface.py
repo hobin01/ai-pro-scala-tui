@@ -58,12 +58,16 @@ class InlinePeer:
 
 
 class AgentJsonProvider:
+    """agent별 JSON 응답을 돌려주는 integration provider 대역이다."""
+
     def __init__(self, *, feedback_required: bool = False) -> None:
+        """feedback 필요 여부와 호출 기록을 초기화한다."""
         self.feedback_required = feedback_required
         self.calls: list[dict[str, object]] = []
         self.validate_calls: list[str] = []
 
     def validate(self, model: str) -> None:
+        """preflight model 검증 호출을 기록한다."""
         self.validate_calls.append(model)
 
     def complete(
@@ -72,6 +76,7 @@ class AgentJsonProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
+        """prompt payload를 해석해 agent별 JSON 응답과 usage를 반환한다."""
         self.calls.append({"prompt": prompt, "model": model, "price": price})
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
@@ -82,6 +87,7 @@ class AgentJsonProvider:
         )
 
     def _response_text(self, payload: JsonObject) -> str:
+        """agent task 이름에 맞는 JSON 응답 문자열을 만든다."""
         task = str(payload.get("task") or "")
         if task == "Generate OCSF mapping decisions for cache-miss fields.":
             fields = payload.get("fields")
@@ -114,6 +120,7 @@ class AgentJsonProvider:
         return json.dumps({"status": "ok"})
 
     def _mapping_decision(self, item_id: str, field: str) -> JsonObject:
+        """field 이름에 맞는 deterministic mapping decision을 만든다."""
         if field in {"src_ip", "source_ip", "clientip", "client_ip"}:
             return {
                 "item_id": item_id,
@@ -146,6 +153,7 @@ class AgentJsonProvider:
 
 
 def _field_item_id(field: JsonObject) -> str:
+    """normalization prompt field에서 item_id를 읽어 검증한다."""
     item_id = field.get("item_id")
     if not isinstance(item_id, str) or not item_id:
         raise AssertionError("normalization prompt field must contain item_id")
@@ -236,6 +244,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes() -> None:
 async def test_pipeline_surface_routes_cache_hit_without_validator_or_feedback() -> (
     None
 ):
+    """cache hit만 있으면 Normalization/Validator/feedback이 생략되는지 확인한다."""
     app = app_with_agent_provider()
     settings = app.store.get_settings()
     source_urls = {
@@ -272,6 +281,7 @@ async def test_pipeline_surface_routes_cache_hit_without_validator_or_feedback()
 
 @pytest.mark.anyio
 async def test_pipeline_surface_routes_mixed_cache_and_feedback() -> None:
+    """cache hit와 miss가 섞여도 feedback과 적재가 완료되는지 확인한다."""
     app = app_with_agent_provider(feedback_required=True)
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]

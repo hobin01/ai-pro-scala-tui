@@ -690,6 +690,7 @@ func monitoringTotalCost(total MonitoringTotal) string {
 	return fmt.Sprintf("$%.4f", *total.Cost)
 }
 
+// monitoringAgentCost는 agent별 누적 비용을 달러 문자열로 표시한다.
 func monitoringAgentCost(cost float64) string {
 	if cost <= 0 {
 		return "$0.0000"

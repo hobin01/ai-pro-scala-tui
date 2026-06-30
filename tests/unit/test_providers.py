@@ -31,6 +31,7 @@ class RejectingOpenAiModule(ModuleType):
 
 
 def test_usage_records_model_price_cost() -> None:
+    """Provider usage가 model price로 비용을 계산하는지 확인한다."""
     usage = calculate_usage(
         prompt_tokens=1000,
         completion_tokens=500,
@@ -42,6 +43,7 @@ def test_usage_records_model_price_cost() -> None:
 
 
 def test_usage_cost_is_zero_without_model_price() -> None:
+    """가격 정보가 없으면 usage 비용이 0으로 남는지 확인한다."""
     usage = calculate_usage(prompt_tokens=1000, completion_tokens=500, price=None)
 
     assert usage.cost_usd == Decimal("0")
