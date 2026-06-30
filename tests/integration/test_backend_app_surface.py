@@ -83,40 +83,22 @@ class AgentJsonProvider:
 
     def _response_text(self, payload: JsonObject) -> str:
         task = str(payload.get("task") or "")
-        if task == "Generate one OCSF mapping decision.":
-            source = payload.get("source")
-            if not isinstance(source, dict):
-                raise AssertionError("normalization prompt must contain source")
-            field = str(source.get("field") or "")
-            if field in {"src_ip", "source_ip", "clientip", "client_ip"}:
-                return json.dumps(
-                    {
-                        "action": "map",
-                        "ocsf_field": "src_endpoint.ip",
-                        "ocsf_type": "ip",
-                    }
-                )
-            if field in {"port", "dest_port", "dst_port"}:
-                return json.dumps(
-                    {
-                        "action": "map",
-                        "ocsf_field": "dst_endpoint.port",
-                        "ocsf_type": "integer",
-                    }
-                )
-            if field in {"@timestamp", "_time", "time"}:
-                return json.dumps(
-                    {"action": "map", "ocsf_field": "time", "ocsf_type": "string"}
-                )
-            if field in {"action", "status"}:
-                return json.dumps(
-                    {
-                        "action": "map",
-                        "ocsf_field": "activity_name",
-                        "ocsf_type": "string",
-                    }
-                )
-            return json.dumps({"action": "keep_raw"})
+        if task == "Generate OCSF mapping decisions for cache-miss fields.":
+            fields = payload.get("fields")
+            if not isinstance(fields, list):
+                raise AssertionError("normalization prompt must contain fields")
+            return json.dumps(
+                {
+                    "decisions": [
+                        self._mapping_decision(
+                            _field_item_id(field),
+                            str(field.get("source_field")),
+                        )
+                        for field in fields
+                        if isinstance(field, dict)
+                    ]
+                }
+            )
         if task == "Validate SCALA mapping decisions.":
             if self.feedback_required:
                 return json.dumps(
@@ -130,6 +112,44 @@ class AgentJsonProvider:
                 )
             return json.dumps({"status": "valid"})
         return json.dumps({"status": "ok"})
+
+    def _mapping_decision(self, item_id: str, field: str) -> JsonObject:
+        if field in {"src_ip", "source_ip", "clientip", "client_ip"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "src_endpoint.ip",
+                "ocsf_type": "ip",
+            }
+        if field in {"port", "dest_port", "dst_port"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "dst_endpoint.port",
+                "ocsf_type": "integer",
+            }
+        if field in {"@timestamp", "_time", "time"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "time",
+                "ocsf_type": "string",
+            }
+        if field in {"action", "status"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "activity_name",
+                "ocsf_type": "string",
+            }
+        return {"item_id": item_id, "action": "keep_raw"}
+
+
+def _field_item_id(field: JsonObject) -> str:
+    item_id = field.get("item_id")
+    if not isinstance(item_id, str) or not item_id:
+        raise AssertionError("normalization prompt field must contain item_id")
+    return item_id
 
 
 def app_with_agent_provider(*, feedback_required: bool = False) -> BackendApp:

@@ -305,17 +305,20 @@ class AgentWorkflowRunner:
         model = _agent_model(settings, AgentName.NORMALIZATION)
         price = _model_price(settings, model)
         assert self._llm_provider is not None
-        for item in state.get("miss_items", []):
+        miss_items = state.get("miss_items", [])
+        if miss_items:
             prompt = _agent_prompt(
                 settings,
                 AgentName.NORMALIZATION,
-                _normalization_prompt(item),
+                _normalization_batch_prompt(miss_items),
             )
             response = self._llm_provider.complete(prompt, model, price)
             totals.add(response.usage)
-            decision = _parse_mapping_decision(item.field, response.text)
-            decisions.append(decision)
-            writes.append(CacheWrite(item.key, decision))
+            decisions = _parse_mapping_decisions(miss_items, response.text)
+            writes = [
+                CacheWrite(item.key, decision)
+                for item, decision in zip(miss_items, decisions, strict=True)
+            ]
         self._record_usage(
             UUID(state["run_id"]),
             AgentName.NORMALIZATION,
@@ -747,23 +750,12 @@ def _schema_profile_prompt(items: list[FieldWorkItem]) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def _normalization_prompt(item: FieldWorkItem) -> str:
+def _normalization_batch_prompt(items: list[FieldWorkItem]) -> str:
     payload = {
-        "task": "Generate one OCSF mapping decision.",
-        "source": {
-            "solution": item.source.solution,
-            "index": item.source.index,
-            "field": item.field.name,
-            "type": item.field.type,
-            "samples": item.field.samples,
-        },
-        "ocsf_candidates": [
-            {
-                "name": candidate.name,
-                "type": candidate.type_name,
-                "caption": candidate.caption,
-            }
-            for candidate in item.candidates
+        "task": "Generate OCSF mapping decisions for cache-miss fields.",
+        "fields": [
+            _normalization_field_payload(position, item)
+            for position, item in enumerate(items, start=1)
         ],
         "known_ocsf_targets": [
             "time",
@@ -787,17 +779,48 @@ def _normalization_prompt(item: FieldWorkItem) -> str:
         ],
         "rules": [
             "Return JSON only.",
+            "Return exactly one decision for every field item_id.",
+            "Copy each item_id exactly in the matching decision.",
             "Use action=map only when one canonical target is semantically correct.",
             "Use action=keep_raw for vendor-specific, duplicated, or ambiguous fields.",
             "Never drop data.",
         ],
         "response_schema": {
-            "action": "map | keep_raw",
-            "ocsf_field": "string or null",
-            "ocsf_type": "string or null",
+            "decisions": [
+                {
+                    "item_id": "field-001",
+                    "source_field": "string",
+                    "action": "map | keep_raw",
+                    "ocsf_field": "string or null",
+                    "ocsf_type": "string or null",
+                },
+            ],
         },
     }
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _normalization_field_payload(position: int, item: FieldWorkItem) -> JsonObject:
+    return {
+        "item_id": _normalization_item_id(position),
+        "solution": item.source.solution,
+        "index": item.source.index,
+        "source_field": item.field.name,
+        "source_type": item.field.type,
+        "samples": item.field.samples,
+        "ocsf_candidates": [
+            {
+                "name": candidate.name,
+                "type": candidate.type_name,
+                "caption": candidate.caption,
+            }
+            for candidate in item.candidates
+        ],
+    }
+
+
+def _normalization_item_id(position: int) -> str:
+    return f"field-{position:03d}"
 
 
 def _validator_prompt(decisions: list[MappingDecision]) -> str:
@@ -841,7 +864,10 @@ def _orchestrator_result_prompt(state: AgentWorkflowState) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def _parse_mapping_decision(field: FieldSample, text: str) -> MappingDecision:
+def _parse_mapping_decisions(
+    items: list[FieldWorkItem],
+    text: str,
+) -> list[MappingDecision]:
     try:
         payload = json.loads(_extract_json(text))
     except json.JSONDecodeError as exc:
@@ -850,6 +876,66 @@ def _parse_mapping_decision(field: FieldSample, text: str) -> MappingDecision:
         ) from exc
     if not isinstance(payload, dict):
         raise ProviderError("Normalization agent returned invalid mapping JSON")
+    raw_decisions = payload.get("decisions")
+    if not isinstance(raw_decisions, list):
+        raise ProviderError("Normalization agent returned invalid mapping JSON")
+    decisions_by_id = _decisions_by_key(raw_decisions, "item_id")
+    decisions_by_field = _decision_buckets_by_field(raw_decisions)
+    decisions: list[MappingDecision] = []
+    for position, item in enumerate(items, start=1):
+        item_id = _normalization_item_id(position)
+        decision_payload = decisions_by_id.get(item_id)
+        if not isinstance(decision_payload, dict):
+            decision_payload = _pop_decision_by_field(
+                decisions_by_field, item.field.name
+            )
+        if not isinstance(decision_payload, dict):
+            raise ProviderError("Normalization agent omitted a mapping decision")
+        decisions.append(_parse_mapping_decision_payload(item.field, decision_payload))
+    return decisions
+
+
+def _decisions_by_key(
+    raw_decisions: list[object],
+    key: str,
+) -> dict[str, dict[str, object]]:
+    decisions: dict[str, dict[str, object]] = {}
+    for item in raw_decisions:
+        if not isinstance(item, dict):
+            continue
+        raw_key = item.get(key)
+        if isinstance(raw_key, str) and raw_key:
+            decisions[raw_key] = item
+    return decisions
+
+
+def _decision_buckets_by_field(
+    raw_decisions: list[object],
+) -> dict[str, list[dict[str, object]]]:
+    decisions: dict[str, list[dict[str, object]]] = {}
+    for item in raw_decisions:
+        if not isinstance(item, dict):
+            continue
+        source_field = item.get("source_field")
+        if isinstance(source_field, str) and source_field:
+            decisions.setdefault(source_field, []).append(item)
+    return decisions
+
+
+def _pop_decision_by_field(
+    decisions: dict[str, list[dict[str, object]]],
+    source_field: str,
+) -> dict[str, object] | None:
+    matches = decisions.get(source_field)
+    if not matches:
+        return None
+    return matches.pop(0)
+
+
+def _parse_mapping_decision_payload(
+    field: FieldSample,
+    payload: dict[str, object],
+) -> MappingDecision:
     action = payload.get("action")
     if action == "keep_raw":
         return MappingDecision(field.name, field.type, "keep_raw", None, None)
