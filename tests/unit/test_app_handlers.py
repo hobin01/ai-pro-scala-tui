@@ -408,6 +408,7 @@ async def test_pipeline_records_agent_usage_with_settings_prompts() -> None:
     ):
         agent_usage = [row for row in usage if row.agent == agent]
         assert agent_usage
+        assert len(agent_usage) == 1
         assert sum(row.total_tokens for row in agent_usage) > 0
         assert sum(row.cost_usd for row in agent_usage) > 0
 

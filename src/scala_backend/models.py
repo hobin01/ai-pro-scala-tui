@@ -115,7 +115,7 @@ class MonitoringQueryParams(BaseModel):
 
 
 class UsageRecord(BaseModel):
-    """agent 호출별 token usage와 model 정보를 저장한다."""
+    """agent별 token usage와 model 정보를 저장한다."""
 
     model_config = ConfigDict(frozen=True)
 

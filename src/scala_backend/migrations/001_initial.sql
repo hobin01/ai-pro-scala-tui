@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS scala_agent_usage (
     total_tokens INT NOT NULL DEFAULT 0,
     cost_usd NUMERIC NOT NULL DEFAULT 0,
     last_activity TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (run_id, agent)
 );
 
 CREATE TABLE IF NOT EXISTS scala_data_lineage_metadata (

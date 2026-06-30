@@ -94,7 +94,19 @@ class PostgresStore:
                     "INSERT INTO scala_agent_usage (run_id, agent, model, "
                     "prompt_tokens, completion_tokens, total_tokens, cost_usd, "
                     "last_activity, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (run_id, agent) DO UPDATE SET "
+                    "model = COALESCE(EXCLUDED.model, scala_agent_usage.model), "
+                    "prompt_tokens = scala_agent_usage.prompt_tokens "
+                    "+ EXCLUDED.prompt_tokens, "
+                    "completion_tokens = scala_agent_usage.completion_tokens "
+                    "+ EXCLUDED.completion_tokens, "
+                    "total_tokens = scala_agent_usage.total_tokens "
+                    "+ EXCLUDED.total_tokens, "
+                    "cost_usd = scala_agent_usage.cost_usd + EXCLUDED.cost_usd, "
+                    "last_activity = COALESCE(EXCLUDED.last_activity, "
+                    "scala_agent_usage.last_activity), "
+                    "created_at = EXCLUDED.created_at",
                     (
                         record.run_id,
                         record.agent.value,

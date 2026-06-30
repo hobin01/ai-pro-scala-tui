@@ -151,6 +151,7 @@ def test_postgres_store_writes_expected_tables_when_records_are_saved(
     assert "INSERT INTO scala_settings" in sql
     assert "INSERT INTO scala_runs" in sql
     assert "INSERT INTO scala_agent_usage" in sql
+    assert "ON CONFLICT (run_id, agent)" in sql
     assert "INSERT INTO scala_data_lineage_metadata" in sql
     assert "UPDATE scala_runs" in sql
     setting_params = cursor.calls[0].params

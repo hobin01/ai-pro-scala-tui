@@ -12,3 +12,4 @@ def test_initial_migration_defines_required_tables() -> None:
         "scala_data_lineage_metadata",
     ):
         assert f"CREATE TABLE IF NOT EXISTS {table}" in sql
+    assert "UNIQUE (run_id, agent)" in sql

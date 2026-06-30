@@ -105,6 +105,22 @@ class InMemoryStore:
 
     def add_usage(self, record: UsageRecord) -> None:
         """설정/실행 메타 저장소의 add usage 변경을 저장 계층에 반영한다."""
+        for index, current in enumerate(self._usage):
+            if current.run_id == record.run_id and current.agent == record.agent:
+                self._usage[index] = current.model_copy(
+                    update={
+                        "model": record.model or current.model,
+                        "prompt_tokens": (current.prompt_tokens + record.prompt_tokens),
+                        "completion_tokens": (
+                            current.completion_tokens + record.completion_tokens
+                        ),
+                        "total_tokens": current.total_tokens + record.total_tokens,
+                        "cost_usd": current.cost_usd + record.cost_usd,
+                        "last_activity": record.last_activity or current.last_activity,
+                        "created_at": record.created_at,
+                    }
+                )
+                return
         self._usage.append(record)
 
     def list_usage(self) -> list[UsageRecord]:
