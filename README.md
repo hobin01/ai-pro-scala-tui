@@ -31,8 +31,7 @@ Python JSON-RPC 백엔드와 Docker Compose 기반 개발 인프라를 조작한
 ## 사용법
 
 처음 실행하거나 데이터가 꼬였다고 판단되면 아래 순서로 깨끗한 환경을 만든다.
-`docker-backend-clean`은 이 프로젝트 Compose 컨테이너와 이름 있는 볼륨을
-삭제한다.
+`docker-backend-clean`은 이 프로젝트 Compose 컨테이너와 이름 있는 볼륨을 삭제한다.
 
 ```bash
 make docker-backend-clean
