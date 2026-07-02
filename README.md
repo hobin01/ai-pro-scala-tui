@@ -115,6 +115,82 @@ SCALA_TUI_MOCK=1 ./bin/scala-tui
 ./scripts/qa-tui.sh
 ```
 
+## 성능 지표 측정
+
+PLANS.md 13번의 평가 지표 측정은 개발/수동 테스트 Compose와 분리된
+`docker-compose.performance.yml`을 사용한다. Compose project 이름은
+`scala-performance`이고, PostgreSQL, Redis, ChromaDB, OpenSearch,
+Elasticsearch, Splunk 볼륨과 host port가 기존 `docker-backend-*` 환경과 다르다.
+
+깨끗한 cold-cache 상태에서 시작하려면 먼저 performance 환경만 삭제한다.
+
+```bash
+make docker-performance-clean
+```
+
+성능 평가용 인프라와 백엔드를 준비한다.
+
+```bash
+make docker-performance-build
+make docker-performance-up
+make docker-performance-init
+```
+
+정답지가 있는 평가 dataset을 생성하고 Elasticsearch/Splunk 성능 평가 index에
+적재한다. 기본 `COUNT=1000`이면 Elasticsearch 1000건, Splunk 1000건이 생성된다.
+
+```bash
+COUNT=1000 make docker-performance-seed
+```
+
+성능 평가용 TUI/backend pipeline을 실행한다. performance Compose 백엔드는
+`127.0.0.1:8875`로 노출된다.
+
+```bash
+make build
+SCALA_BACKEND_ADDR=127.0.0.1:8875 ./bin/scala-tui
+```
+
+TUI에서 `Collect & Normalize`를 선택한 뒤 아래 4개 소스를 선택한다.
+
+- Elasticsearch `scala-perf-es-network`
+- Elasticsearch `scala-perf-es-endpoint`
+- Splunk `scala_perf_web`
+- Splunk `scala_perf_auth`
+
+실행이 끝나면 Redis mapping cache와 PostgreSQL lineage metadata에서 actual 결과를
+추출한 뒤 평가 지표를 계산한다.
+
+```bash
+make docker-performance-export
+make docker-performance-evaluate
+```
+
+계산 대상 지표는 PRD 10장의 `Field Mapping Precision`,
+`Field Mapping Recall`, `Lineage Traceability`다. 산출물은 performance backend
+volume의 `/data/performance-dataset`에 저장된다. 같은 dataset을 성능 평가용
+Elasticsearch/Splunk index에 적재하므로, TUI/backend pipeline도 기존 개발
+환경과 분리된 조건에서 실행할 수 있다.
+
+- `elasticsearch/*.jsonl`, `splunk/*.jsonl`: 평가용 원천 데이터
+- `answer_key.json`: field mapping과 lineage 정답지
+- `actual_results.json`: 실행된 pipeline에서 추출한 실제 mapping/lineage 결과
+- `metrics.json`: 계산된 평가 지표
+
+로컬 Docker 없이 dataset 생성과 metric 계산기만 확인할 수도 있다. 이 경우 실제
+pipeline 산출물이 없으므로, 계산기 smoke test를 위해 정답지를 actual fixture로
+복사한다.
+
+```bash
+uv run scala-backend generate-performance-dataset \
+  --count 100 \
+  --output-dir .scala-performance-data/dataset
+cp .scala-performance-data/dataset/answer_key.json \
+  .scala-performance-data/dataset/actual_results.json
+uv run scala-backend evaluate-performance-dataset \
+  --dataset-dir .scala-performance-data/dataset
+```
+
 ## 설정
 
 런타임 설정은 TUI 설정 화면에서 즉시 반영되며 백엔드 저장소에 유지된다.

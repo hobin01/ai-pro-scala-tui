@@ -4,12 +4,14 @@ from typing import ClassVar
 
 from pytest import MonkeyPatch
 
+from scala_backend.connector_fixtures import FixtureConnector
 from scala_backend.connectors import (
     ElasticsearchConnector,
     SplunkConnector,
     parse_service_url,
     splunk_source_doc_id,
 )
+from scala_backend.models import RawDocument
 
 
 def test_parse_service_url_extracts_scheme_host_and_port() -> None:
@@ -31,7 +33,25 @@ def test_splunk_source_doc_id_preserves_seeded_and_native_ids() -> None:
 
     assert seeded == "splunk-seed-1"
     assert native == "bucket:42"
-    assert native_with_seed_id == "bucket:43"
+    assert native_with_seed_id == "splunk-seed-1"
+
+
+def test_fixture_schema_samples_keep_first_non_null_type() -> None:
+    """Fixture schema sample이 null보다 실제 sample 타입을 우선하는지 확인한다."""
+    connector = FixtureConnector(
+        "splunk",
+        [
+            RawDocument("splunk", "security", "one", {"user": "alice"}),
+            RawDocument("splunk", "security", "two", {"user": None}),
+        ],
+    )
+
+    samples = connector.fetch_schema_samples("security")
+
+    assert len(samples) == 1
+    assert samples[0].name == "user"
+    assert samples[0].samples == ["alice", None]
+    assert samples[0].type == "string"
 
 
 class FakeElasticsearchClient:

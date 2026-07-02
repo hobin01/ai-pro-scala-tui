@@ -1,0 +1,158 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["scala-backend", "serve"]
+    environment:
+      SCALA_BACKEND_HOST: 0.0.0.0
+      SCALA_BACKEND_PORT: "8875"
+      SCALA_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+      SCALA_DATABASE_URL: postgresql://scala_perf:scala_perf@postgres:5432/scala_perf
+      SCALA_REDIS_URL: redis://redis:6379/0
+      SCALA_CHROMA_PATH: /data/chroma-performance
+      SCALA_CHROMA_HOST: chroma
+      SCALA_CHROMA_PORT: "8000"
+      SCALA_CHROMA_SSL: "false"
+      SCALA_OCSF_VERSION: 1.8.0
+      SCALA_OCSF_COLLECTION: ocsf-schema-performance
+      SCALA_OPENAI_MODEL: gpt-5.4-mini
+      SCALA_OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+      SCALA_OPENSEARCH_URL: http://opensearch:9200
+      SCALA_OPENSEARCH_USERNAME: ""
+      SCALA_OPENSEARCH_PASSWORD: ""
+      SCALA_ELASTICSEARCH_URL: http://elasticsearch:9200
+      SCALA_ELASTICSEARCH_USERNAME: ""
+      SCALA_ELASTICSEARCH_PASSWORD: ""
+      SCALA_SPLUNK_URL: https://splunk:8089
+      SCALA_SPLUNK_USERNAME: admin
+      SCALA_SPLUNK_PASSWORD: ScalaPerf123!
+    ports:
+      - "127.0.0.1:8875:8875"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      splunk:
+        condition: service_healthy
+    volumes:
+      - scala-performance-backend-data:/data
+    secrets:
+      - openai_api_key
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: scala_perf
+      POSTGRES_PASSWORD: scala_perf
+      POSTGRES_DB: scala_perf
+    ports:
+      - "127.0.0.1:54321:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scala_perf -d scala_perf"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - scala-performance-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8
+    ports:
+      - "127.0.0.1:63801:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - scala-performance-redis-data:/data
+
+  chroma:
+    image: chromadb/chroma@sha256:1e0b73a187a28757c572acba508c46f48c9e8b0acaf5c20e6d95cdedce1acdf6
+    ports:
+      - "127.0.0.1:8011:8000"
+    volumes:
+      - scala-performance-chroma-data:/chroma/chroma
+
+  opensearch:
+    image: opensearchproject/opensearch@sha256:123e6591a47b1d54686890551bdb35739c85193ecded381219fc9e059e18128f
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ScalaPerf123!
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9211:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    volumes:
+      - scala-performance-opensearch-data:/usr/share/opensearch/data
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9212:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    volumes:
+      - scala-performance-elasticsearch-data:/usr/share/elasticsearch/data
+
+  splunk:
+    image: splunk/splunk@sha256:5fef7b0d2c83f6e8b3fe3cda5885e2a01e3a6eb99d8502e6333aaa64e7021f62
+    platform: linux/amd64
+    environment:
+      SPLUNK_START_ARGS: --accept-license
+      SPLUNK_GENERAL_TERMS: --accept-sgt-current-at-splunk-com
+      SPLUNK_PASSWORD: ScalaPerf123!
+    ports:
+      - "127.0.0.1:8010:8000"
+      - "127.0.0.1:8099:8089"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -k -fsS -u "admin:$${SPLUNK_PASSWORD}"
+          https://localhost:8089/services/server/info >/dev/null
+      interval: 20s
+      timeout: 10s
+      retries: 30
+    volumes:
+      - scala-performance-splunk-data:/opt/splunk/var
+
+volumes:
+  scala-performance-backend-data:
+    name: scala-performance-backend-data
+  scala-performance-postgres-data:
+    name: scala-performance-postgres-data
+  scala-performance-redis-data:
+    name: scala-performance-redis-data
+  scala-performance-chroma-data:
+    name: scala-performance-chroma-data
+  scala-performance-opensearch-data:
+    name: scala-performance-opensearch-data
+  scala-performance-elasticsearch-data:
+    name: scala-performance-elasticsearch-data
+  scala-performance-splunk-data:
+    name: scala-performance-splunk-data
+
+secrets:
+  openai_api_key:
+    file: ${SCALA_OPENAI_SECRET_FILE:-.scala-data/secrets/openai_api_key}

@@ -204,12 +204,12 @@ def _setting_url(
 
 def splunk_source_doc_id(body: JsonObject) -> str:
     """Splunk event에서 seed id 또는 _serial/_raw 기반 식별자를 뽑는다."""
+    if "source_doc_id" in body and body["source_doc_id"] not in (None, ""):
+        return str(body["source_doc_id"])
     bucket = str(body.get("_bkt", ""))
     offset = str(body.get("_cd", ""))
     if bucket or offset:
         return f"{bucket}:{offset}"
-    if "source_doc_id" in body:
-        return str(body["source_doc_id"])
     return str(body.get("_serial", body.get("_raw", body.get("_time", ""))))
 
 

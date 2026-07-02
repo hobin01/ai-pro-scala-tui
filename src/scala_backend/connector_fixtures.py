@@ -24,7 +24,12 @@ class FixtureConnector:
                 samples = fields.setdefault(key, [])
                 if len(samples) < limit:
                     samples.append(value)
-                types[key] = _json_type(value)
+                current_type = types.get(key)
+                next_type = _json_type(value)
+                if current_type is None or (
+                    current_type == "null" and next_type != "null"
+                ):
+                    types[key] = next_type
         return [
             FieldSample(name=name, type=types[name], samples=samples[:limit])
             for name, samples in sorted(fields.items())

@@ -160,6 +160,28 @@ def _field_item_id(field: JsonObject) -> str:
     return item_id
 
 
+def _normalization_prompt_fields(provider: AgentJsonProvider) -> set[str]:
+    """provider 호출 기록에서 normalization LLM field 이름을 추출한다."""
+    fields: set[str] = set()
+    for call in provider.calls:
+        prompt = str(call["prompt"])
+        payload = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
+        if (
+            payload.get("task")
+            != "Generate OCSF mapping decisions for cache-miss fields."
+        ):
+            continue
+        raw_fields = payload.get("fields")
+        if not isinstance(raw_fields, list):
+            continue
+        fields.update(
+            str(field.get("source_field"))
+            for field in raw_fields
+            if isinstance(field, dict)
+        )
+    return fields
+
+
 def app_with_agent_provider(*, feedback_required: bool = False) -> BackendApp:
     """fallback LLM provider를 붙인 BackendApp fixture를 만든다."""
     app = create_app(BackendConfig())
@@ -237,6 +259,26 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes() -> None:
             AgentName.VALIDATOR,
         ):
             assert any(row.agent == agent and row.total_tokens > 0 for row in usage)
+        task_group.cancel_scope.cancel()
+
+
+@pytest.mark.anyio
+async def test_pipeline_surface_resolves_known_mapping_before_llm() -> None:
+    """known field mapping이 LLM batch에 들어가지 않는지 확인한다."""
+    app = app_with_agent_provider()
+    provider = app.llm_provider
+    assert isinstance(provider, AgentJsonProvider)
+    async with anyio.create_task_group() as task_group:
+        peer = InlinePeer(task_group)
+        await app.handle("pipeline.run", {"sources": PIPELINE_SOURCES}, peer)
+        with anyio.fail_after(2):
+            await peer.completed.wait()
+
+        normalization_fields = _normalization_prompt_fields(provider)
+        assert "src_ip" not in normalization_fields
+        assert "clientip" not in normalization_fields
+        assert "vendor_custom" not in normalization_fields
+        assert "EventCode" in normalization_fields
         task_group.cancel_scope.cancel()
 
 
