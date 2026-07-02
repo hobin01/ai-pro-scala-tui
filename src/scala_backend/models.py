@@ -63,16 +63,6 @@ class FieldSample(BaseModel):
     samples: list[JsonValue] = Field(default_factory=list, max_length=5)
 
 
-class IndexSamples(BaseModel):
-    """한 source index에서 수집한 field sample 목록이다."""
-
-    model_config = ConfigDict(frozen=True)
-
-    solution: str
-    index: str
-    fields: list[FieldSample]
-
-
 class SettingsSetParams(BaseModel):
     """settings.set이 수정할 설정 key와 JSON 값을 검증한다."""
 

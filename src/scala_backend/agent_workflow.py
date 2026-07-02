@@ -9,11 +9,10 @@ from uuid import UUID
 
 from langgraph.graph import END, START, StateGraph
 
-from scala_backend.cache import MappingCache, MappingDecision, cache_key
+from scala_backend.cache import CacheWrite, MappingCache, MappingDecision, cache_key
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import ProviderError
 from scala_backend.ids import stable_opensearch_id
-from scala_backend.mapping import CacheWrite
 from scala_backend.models import (
     AgentName,
     FieldSample,
