@@ -277,7 +277,7 @@ async def test_pipeline_surface_resolves_known_mapping_before_llm() -> None:
         normalization_fields = _normalization_prompt_fields(provider)
         assert "src_ip" not in normalization_fields
         assert "clientip" not in normalization_fields
-        assert "vendor_custom" not in normalization_fields
+        assert "vendor_custom" in normalization_fields
         assert "EventCode" in normalization_fields
         task_group.cancel_scope.cancel()
 

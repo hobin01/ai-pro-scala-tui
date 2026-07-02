@@ -13,6 +13,7 @@ from scala_backend.cache import CacheWrite, MappingCache, MappingDecision, cache
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import ProviderError
 from scala_backend.ids import stable_opensearch_id
+from scala_backend.mapping_decisions import deterministic_mapping_decision
 from scala_backend.models import (
     AgentName,
     FieldSample,
@@ -21,39 +22,13 @@ from scala_backend.models import (
     RawDocument,
     SourceSelection,
 )
-from scala_backend.normalization import apply_mapping, recommend_mapping
+from scala_backend.normalization import apply_mapping
 from scala_backend.ocsf import OcsfField
 from scala_backend.output.opensearch import OpenSearchLoader
 from scala_backend.providers import LlmProvider, ProviderUsage
 from scala_backend.runtime import request
 from scala_backend.store import BackendStore, make_usage
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
-
-SPLUNK_RUNTIME_METADATA_FIELDS = frozenset(
-    {
-        "_bkt",
-        "_cd",
-        "_indextime",
-        "_serial",
-        "_si",
-        "_sourcetype",
-        "host",
-        "index",
-        "linecount",
-        "source",
-        "source_doc_id",
-        "sourcetype",
-        "splunk_server",
-    }
-)
-DETERMINISTIC_KEEP_RAW_FIELDS = frozenset(
-    {
-        "identity_provider",
-        "raw",
-        "source_doc_id",
-    }
-)
-DETERMINISTIC_KEEP_RAW_MARKERS = ("custom", "flag", "mystery", "typo", "weird")
 
 
 def _merge_sequence(left: list[Any], right: list[Any]) -> list[Any]:
@@ -361,7 +336,7 @@ class AgentWorkflowRunner:
         miss_items = state.get("miss_items", [])
         llm_items: list[FieldWorkItem] = []
         for item in miss_items:
-            decision = _deterministic_mapping_decision(item)
+            decision = deterministic_mapping_decision(item.source, item.field)
             if decision is not None:
                 decisions.append(decision)
                 writes.append(CacheWrite(item.key, decision))
@@ -745,34 +720,6 @@ def _cache_branch_route(state: AgentWorkflowState) -> str:
 def _miss_branch_route(state: AgentWorkflowState) -> str:
     """Hit branch가 남아 있으면 miss branch 완료를 기다리게 한다."""
     return "wait" if state.get("cache_hit", False) else "final"
-
-
-def _deterministic_mapping_decision(item: FieldWorkItem) -> MappingDecision | None:
-    """명확한 field는 LLM 전에 규칙 기반 mapping/keep_raw로 확정한다."""
-    if (
-        item.source.solution == "splunk"
-        and item.field.name in SPLUNK_RUNTIME_METADATA_FIELDS
-    ):
-        return MappingDecision(
-            item.field.name,
-            item.field.type,
-            "keep_raw",
-            None,
-            None,
-        )
-    lowered = item.field.name.lower()
-    if lowered in DETERMINISTIC_KEEP_RAW_FIELDS or any(
-        marker in lowered for marker in DETERMINISTIC_KEEP_RAW_MARKERS
-    ):
-        return MappingDecision(
-            item.field.name,
-            item.field.type,
-            "keep_raw",
-            None,
-            None,
-        )
-    decision = recommend_mapping(item.field)
-    return decision if decision.action == "map" else None
 
 
 def _source_url(settings: dict[str, object], solution: str) -> str:
