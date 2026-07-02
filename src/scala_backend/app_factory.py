@@ -52,12 +52,7 @@ def _provider(config: BackendConfig) -> OpenAiProvider | None:
     """유효한 OpenAI key가 있을 때만 실제 provider를 만든다."""
     if not config.openai_api_key or config.openai_api_key == "YOUR_OPENAI_API_KEY":
         return None
-    return OpenAiProvider(
-        config.openai_api_key,
-        admin_api_key=config.openai_admin_api_key,
-        cost_api_key_id=config.openai_cost_api_key_id,
-        cost_project_id=config.openai_cost_project_id,
-    )
+    return OpenAiProvider(config.openai_api_key)
 
 
 def create_ocsf_index(

@@ -8,9 +8,6 @@ services:
       SCALA_BACKEND_HOST: 0.0.0.0
       SCALA_BACKEND_PORT: "8765"
       SCALA_OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-      SCALA_OPENAI_ADMIN_API_KEY: ${SCALA_OPENAI_ADMIN_API_KEY:-}
-      SCALA_OPENAI_COST_API_KEY_ID: ${SCALA_OPENAI_COST_API_KEY_ID:-}
-      SCALA_OPENAI_COST_PROJECT_ID: ${SCALA_OPENAI_COST_PROJECT_ID:-}
       SCALA_DATABASE_URL: postgresql://scala:scala@postgres:5432/scala
       SCALA_REDIS_URL: redis://redis:6379/0
       SCALA_CHROMA_PATH: /data/chroma

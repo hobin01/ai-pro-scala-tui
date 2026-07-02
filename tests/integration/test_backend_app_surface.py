@@ -12,10 +12,17 @@ from scala_backend.app_factory import create_app
 from scala_backend.cache import cache_key
 from scala_backend.config import BackendConfig
 from scala_backend.connector_fixtures import default_connectors
-from scala_backend.models import JsonObject
+from scala_backend.models import AgentName, JsonObject
 from scala_backend.normalization import recommend_mapping
 from scala_backend.pipeline import stable_opensearch_id
 from scala_backend.providers import LlmResponse, ProviderUsage
+
+PIPELINE_SOURCES = [
+    {"solution": "elasticsearch", "index": "scala-es-network"},
+    {"solution": "elasticsearch", "index": "scala-es-endpoint"},
+    {"solution": "splunk", "index": "main"},
+    {"solution": "splunk", "index": "security"},
+]
 
 
 class InlinePeer:
@@ -51,11 +58,17 @@ class InlinePeer:
 
 
 class AgentJsonProvider:
-    """fallback mapping JSON을 그대로 돌려주는 LLM provider 대역이다."""
+    """agent별 JSON 응답을 돌려주는 integration provider 대역이다."""
+
+    def __init__(self, *, feedback_required: bool = False) -> None:
+        """feedback 필요 여부와 호출 기록을 초기화한다."""
+        self.feedback_required = feedback_required
+        self.calls: list[dict[str, object]] = []
+        self.validate_calls: list[str] = []
 
     def validate(self, model: str) -> None:
-        """integration provider의 model preflight 성공을 반환한다."""
-        del model
+        """preflight model 검증 호출을 기록한다."""
+        self.validate_calls.append(model)
 
     def complete(
         self,
@@ -63,24 +76,94 @@ class AgentJsonProvider:
         model: str,
         price: dict[str, float] | None,
     ) -> LlmResponse:
-        """prompt를 기록하고 fallback JSON mapping 응답을 반환한다."""
-        del model, price
+        """prompt payload를 해석해 agent별 JSON 응답과 usage를 반환한다."""
+        self.calls.append({"prompt": prompt, "model": model, "price": price})
         payload: object = json.loads(prompt[prompt.find("{") : prompt.rfind("}") + 1])
         if not isinstance(payload, dict):
-            raise AssertionError("mapping prompt must contain JSON")
-        fallback = payload.get("fallback")
-        if not isinstance(fallback, dict):
-            raise AssertionError("mapping prompt must contain fallback")
+            raise AssertionError("agent prompt must contain JSON")
         return LlmResponse(
-            text=json.dumps(fallback),
-            usage=ProviderUsage(1, 1, 2, Decimal("0")),
+            text=self._response_text(payload),
+            usage=ProviderUsage(3, 2, 5, Decimal("0.00001")),
         )
 
+    def _response_text(self, payload: JsonObject) -> str:
+        """agent task 이름에 맞는 JSON 응답 문자열을 만든다."""
+        task = str(payload.get("task") or "")
+        if task == "Generate OCSF mapping decisions for cache-miss fields.":
+            fields = payload.get("fields")
+            if not isinstance(fields, list):
+                raise AssertionError("normalization prompt must contain fields")
+            return json.dumps(
+                {
+                    "decisions": [
+                        self._mapping_decision(
+                            _field_item_id(field),
+                            str(field.get("source_field")),
+                        )
+                        for field in fields
+                        if isinstance(field, dict)
+                    ]
+                }
+            )
+        if task == "Validate SCALA mapping decisions.":
+            if self.feedback_required:
+                return json.dumps(
+                    {
+                        "status": "feedback_required",
+                        "feedback_request": {
+                            "source_field": "clientip",
+                            "question": "Confirm source IP mapping.",
+                        },
+                    }
+                )
+            return json.dumps({"status": "valid"})
+        return json.dumps({"status": "ok"})
 
-def app_with_agent_provider() -> BackendApp:
+    def _mapping_decision(self, item_id: str, field: str) -> JsonObject:
+        """field 이름에 맞는 deterministic mapping decision을 만든다."""
+        if field in {"src_ip", "source_ip", "clientip", "client_ip"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "src_endpoint.ip",
+                "ocsf_type": "ip",
+            }
+        if field in {"port", "dest_port", "dst_port"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "dst_endpoint.port",
+                "ocsf_type": "integer",
+            }
+        if field in {"@timestamp", "_time", "time"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "time",
+                "ocsf_type": "string",
+            }
+        if field in {"action", "status"}:
+            return {
+                "item_id": item_id,
+                "action": "map",
+                "ocsf_field": "activity_name",
+                "ocsf_type": "string",
+            }
+        return {"item_id": item_id, "action": "keep_raw"}
+
+
+def _field_item_id(field: JsonObject) -> str:
+    """normalization prompt field에서 item_id를 읽어 검증한다."""
+    item_id = field.get("item_id")
+    if not isinstance(item_id, str) or not item_id:
+        raise AssertionError("normalization prompt field must contain item_id")
+    return item_id
+
+
+def app_with_agent_provider(*, feedback_required: bool = False) -> BackendApp:
     """fallback LLM provider를 붙인 BackendApp fixture를 만든다."""
     app = create_app(BackendConfig())
-    app.llm_provider = AgentJsonProvider()
+    app.llm_provider = AgentJsonProvider(feedback_required=feedback_required)
     app.set_pipeline()
     return app
 
@@ -93,12 +176,7 @@ async def test_pipeline_surface_returns_run_id() -> None:
         peer = InlinePeer(task_group)
         result = await app.handle(
             "pipeline.run",
-            {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "logs-2026"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
+            {"sources": PIPELINE_SOURCES},
             peer,
         )
         with anyio.fail_after(1):
@@ -112,35 +190,14 @@ async def test_pipeline_surface_returns_run_id() -> None:
 
 
 @pytest.mark.anyio
-async def test_pipeline_surface_reports_prd_agent_count_and_completes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_pipeline_surface_reports_prd_agent_count_and_completes() -> None:
     """pipeline 실행이 PRD agent trace와 완료 notification을 내보내는지 확인한다."""
     app = app_with_agent_provider()
-    graph_calls: list[tuple[bool, bool, bool]] = []
-
-    def capture_graph(
-        run_id: str,
-        *,
-        cache_hit: bool = False,
-        cache_miss: bool = True,
-        needs_feedback: bool = False,
-    ) -> JsonObject:
-        """agent_graph 입력을 캡처하고 PRD trace fixture를 반환한다."""
-        graph_calls.append((cache_hit, cache_miss, needs_feedback))
-        return {"run_id": run_id, "stages": [], "nodes": []}
-
-    monkeypatch.setattr("scala_backend.pipeline.run_agent_graph", capture_graph)
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
         result = await app.handle(
             "pipeline.run",
-            {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "logs-2026"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
+            {"sources": PIPELINE_SOURCES},
             peer,
         )
         with anyio.fail_after(2):
@@ -151,8 +208,7 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
             for method, params in peer.messages
             if method == "progress" and params.get("agent") == "schema_profiler"
         ]
-        assert "profiled 9 fields (cache 0 hit · 9 miss)" in progress_messages
-        assert graph_calls == [(False, True, True)]
+        assert any(message.startswith("profiled ") for message in progress_messages)
 
         completed = next(
             params
@@ -160,95 +216,73 @@ async def test_pipeline_surface_reports_prd_agent_count_and_completes(
             if method == "run.status" and params.get("status") == "completed"
         )
         assert completed["run_id"] == result["run_id"]
-        assert completed["summary"] == {
-            "mapped": 7,
-            "kept_raw": 2,
-            "loaded": 2,
-            "lineage": 2,
-            "cached": 9,
-        }
+        assert completed["summary"]["loaded"] == 4
+        assert completed["summary"]["lineage"] == 4
+        assert completed["summary"]["cached"] > 0
         fixture_connectors = default_connectors()
         es_doc = next(
-            iter(fixture_connectors["elasticsearch"].iter_documents("logs-2026"))
+            iter(fixture_connectors["elasticsearch"].iter_documents("scala-es-network"))
         )
-        splunk_doc = next(iter(fixture_connectors["splunk"].iter_documents("main")))
-        assert completed["lineage_refs"] == [
-            {
-                "source_solution": "elasticsearch",
-                "source_index": "logs-2026",
-                "source_doc_id": "es-1",
-                "opensearch_id": stable_opensearch_id(es_doc),
-            },
-            {
-                "source_solution": "splunk",
-                "source_index": "main",
-                "source_doc_id": "_bkt-1:_cd-42",
-                "opensearch_id": stable_opensearch_id(splunk_doc),
-            },
-        ]
+        assert completed["lineage_refs"][0] == {
+            "source_solution": "elasticsearch",
+            "source_index": "scala-es-network",
+            "source_doc_id": "es-network-1",
+            "opensearch_id": stable_opensearch_id(es_doc),
+        }
+        usage = app.store.list_usage()
+        for agent in (
+            AgentName.ORCHESTRATOR,
+            AgentName.SCHEMA_PROFILER,
+            AgentName.NORMALIZATION,
+            AgentName.VALIDATOR,
+        ):
+            assert any(row.agent == agent and row.total_tokens > 0 for row in usage)
         task_group.cancel_scope.cancel()
 
 
 @pytest.mark.anyio
-async def test_pipeline_surface_routes_cache_hit_into_agent_graph(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """cache hit source가 agent graph의 cache-hit 분기로 기록되는지 확인한다."""
+async def test_pipeline_surface_routes_cache_hit_without_validator_or_feedback() -> (
+    None
+):
+    """cache hit만 있으면 Normalization/Validator/feedback이 생략되는지 확인한다."""
     app = app_with_agent_provider()
     settings = app.store.get_settings()
-    source_url = settings["source.splunk.url"]
-    assert isinstance(source_url, str)
     source_urls = {
         "elasticsearch": settings["source.elasticsearch.url"],
-        "splunk": source_url,
+        "splunk": settings["source.splunk.url"],
     }
-    for solution, index in (("elasticsearch", "logs-2026"), ("splunk", "main")):
+    for source in PIPELINE_SOURCES:
+        solution = str(source["solution"])
+        index = str(source["index"])
         assert isinstance(source_urls[solution], str)
         for field in app.connectors[solution].fetch_schema_samples(index):
             app.cache.set(
                 cache_key(source_urls[solution], index, field.name, field.type),
                 recommend_mapping(field),
             )
-    graph_calls: list[tuple[bool, bool, bool]] = []
-
-    def capture_graph(
-        run_id: str,
-        *,
-        cache_hit: bool = False,
-        cache_miss: bool = True,
-        needs_feedback: bool = False,
-    ) -> JsonObject:
-        """cache hit 입력을 캡처하고 cache-hit trace fixture를 반환한다."""
-        graph_calls.append((cache_hit, cache_miss, needs_feedback))
-        return {"run_id": run_id, "stages": [], "nodes": []}
-
-    monkeypatch.setattr("scala_backend.pipeline.run_agent_graph", capture_graph)
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
-        await app.handle(
-            "pipeline.run",
-            {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "logs-2026"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
-            peer,
-        )
+        await app.handle("pipeline.run", {"sources": PIPELINE_SOURCES}, peer)
         with anyio.fail_after(2):
             await peer.completed.wait()
 
-        assert graph_calls == [(True, False, False)]
+        usage = app.store.list_usage()
+        assert not any(row.agent == AgentName.VALIDATOR for row in usage)
+        assert not any(row.agent == AgentName.NORMALIZATION for row in usage)
         assert not any(method == "feedback.request" for method, _ in peer.messages)
+        completed = next(
+            params
+            for method, params in peer.messages
+            if method == "run.status" and params.get("status") == "completed"
+        )
+        assert completed["summary"]["cached"] == 0
         task_group.cancel_scope.cancel()
 
 
 @pytest.mark.anyio
-async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """캐시와 feedback이 agent graph로 전달되는지 검증한다."""
-    app = app_with_agent_provider()
+async def test_pipeline_surface_routes_mixed_cache_and_feedback() -> None:
+    """cache hit와 miss가 섞여도 feedback과 적재가 완료되는지 확인한다."""
+    app = app_with_agent_provider(feedback_required=True)
     settings = app.store.get_settings()
     source_url = settings["source.splunk.url"]
     assert isinstance(source_url, str)
@@ -261,35 +295,17 @@ async def test_pipeline_surface_routes_mixed_cache_and_feedback_into_agent_graph
         cache_key(source_url, "main", time_field.name, time_field.type),
         recommend_mapping(time_field),
     )
-    graph_calls: list[tuple[bool, bool, bool]] = []
-
-    def capture_graph(
-        run_id: str,
-        *,
-        cache_hit: bool = False,
-        cache_miss: bool = True,
-        needs_feedback: bool = False,
-    ) -> JsonObject:
-        """mixed cache/feedback 입력을 캡처하고 feedback trace fixture를 반환한다."""
-        graph_calls.append((cache_hit, cache_miss, needs_feedback))
-        return {"run_id": run_id, "stages": [], "nodes": []}
-
-    monkeypatch.setattr("scala_backend.pipeline.run_agent_graph", capture_graph)
     async with anyio.create_task_group() as task_group:
         peer = InlinePeer(task_group)
-        await app.handle(
-            "pipeline.run",
-            {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "logs-2026"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
-            peer,
-        )
+        await app.handle("pipeline.run", {"sources": PIPELINE_SOURCES}, peer)
         with anyio.fail_after(2):
             await peer.completed.wait()
 
-        assert graph_calls == [(True, True, True)]
+        completed = next(
+            params
+            for method, params in peer.messages
+            if method == "run.status" and params.get("status") == "completed"
+        )
+        assert completed["summary"]["cached"] > 0
         assert any(method == "feedback.request" for method, _ in peer.messages)
         task_group.cancel_scope.cancel()

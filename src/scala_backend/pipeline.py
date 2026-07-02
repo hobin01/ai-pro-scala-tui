@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import anyio
 
-from scala_backend.agent_graph import run_agent_graph
+from scala_backend.agent_workflow import AgentWorkflowRunner
 from scala_backend.cache import MappingCache
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import RunInProgressError
-from scala_backend.mapping import CacheWrite, MappingDecider, MappingResult
+from scala_backend.ids import stable_opensearch_id as _stable_opensearch_id
 from scala_backend.models import (
-    AgentName,
-    LineageRecord,
     PipelineRunParams,
     RawDocument,
     RunRecord,
     SourceSelection,
 )
-from scala_backend.normalization import apply_mapping
 from scala_backend.output.opensearch import OpenSearchLoader
 from scala_backend.providers import LlmProvider
 from scala_backend.runtime import notify, start_soon
-from scala_backend.store import BackendStore, make_usage
+from scala_backend.store import BackendStore
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 
@@ -46,10 +42,11 @@ class PipelineRunner:
         self._opensearch = opensearch
         self._ocsf_index = ocsf_index
         self._llm_provider = llm_provider
-        self._decider = MappingDecider(
+        self._workflow = AgentWorkflowRunner(
             store,
             connectors,
             cache,
+            opensearch,
             ocsf_index,
             llm_provider,
         )
@@ -90,22 +87,12 @@ class PipelineRunner:
     ) -> None:
         """정규화 파이프라인의 execute 변경을 저장 계층에 반영한다."""
         loaded = 0
-        lineage_refs: list[dict[str, str]] = []
         try:
             await notify(
                 peer, "run.status", {"run_id": str(run_id), "status": "running"}
             )
-            docs = self._collect_documents(sources)
-            mapping_result = await self._decider.decide(run_id, sources, peer)
-            decisions = mapping_result.decisions
-            cache_hits = mapping_result.cache_hit_count
-            cache_misses = mapping_result.cache_miss_count
-            run_agent_graph(
-                str(run_id),
-                cache_hit=cache_hits > 0,
-                cache_miss=cache_misses > 0,
-                needs_feedback=mapping_result.feedback_requested,
-            )
+            result = await self._workflow.run(run_id, sources, peer)
+            loaded = result.loaded
             await notify(
                 peer,
                 "progress",
@@ -113,48 +100,12 @@ class PipelineRunner:
                     "run_id": str(run_id),
                     "agent": "schema_profiler",
                     "message": (
-                        f"profiled {len(decisions)} fields "
-                        f"(cache {cache_hits} hit · {cache_misses} miss)"
+                        f"profiled {len(result.decisions)} fields "
+                        f"(cache {result.cache_hit_count} hit · "
+                        f"{result.cache_miss_count} miss)"
                     ),
                 },
             )
-            settings = self._store.get_settings()
-            opensearch_index = _opensearch_index(settings)
-            for doc in docs:
-                normalized = apply_mapping(doc.body, decisions)
-                opensearch_id = stable_opensearch_id(doc)
-                if self._opensearch is not None:
-                    opensearch_id = self._opensearch.index_normalized(
-                        opensearch_index,
-                        opensearch_id,
-                        normalized,
-                    )
-                self._store.add_lineage(
-                    LineageRecord(
-                        run_id=run_id,
-                        source_solution=doc.source_solution,
-                        source_index=doc.source_index,
-                        source_doc_id=doc.source_doc_id,
-                        opensearch_index=opensearch_index,
-                        opensearch_id=opensearch_id,
-                        raw_document=doc.body,
-                        normalized_document=normalized,
-                        created_at=datetime.now(UTC),
-                    ),
-                )
-                lineage_refs.append(
-                    {
-                        "source_solution": doc.source_solution,
-                        "source_index": doc.source_index,
-                        "source_doc_id": doc.source_doc_id,
-                        "opensearch_id": opensearch_id,
-                    }
-                )
-                loaded += 1
-            cached = self._write_cache(mapping_result.cache_writes)
-            mapped = sum(1 for decision in decisions if decision.action == "map")
-            kept_raw = sum(1 for decision in decisions if decision.action == "keep_raw")
-            self._record_usage(run_id, loaded, cached, mapping_result)
             self._store.update_run(run_id, "completed", loaded)
             await notify(
                 peer,
@@ -162,7 +113,13 @@ class PipelineRunner:
                 {"run_id": str(run_id), "text": f"loaded {loaded} normalized docs"},
             )
             await self._send_completed(
-                run_id, mapped, kept_raw, loaded, cached, lineage_refs, peer
+                run_id,
+                result.mapped,
+                result.kept_raw,
+                loaded,
+                result.cached,
+                result.lineage_refs,
+                peer,
             )
         except Exception as exc:
             self._store.update_run(run_id, "failed", loaded)
@@ -184,10 +141,11 @@ class PipelineRunner:
         """정규화 파이프라인의 replace runtime 보조 경로를 분리한다."""
         self._connectors = connectors
         self._opensearch = opensearch
-        self._decider = MappingDecider(
+        self._workflow = AgentWorkflowRunner(
             self._store,
             connectors,
             self._cache,
+            opensearch,
             self._ocsf_index,
             self._llm_provider,
         )
@@ -200,50 +158,6 @@ class PipelineRunner:
                 list(self._connectors[source.solution].iter_documents(source.index)),
             )
         return docs
-
-    def _write_cache(self, writes: list[CacheWrite]) -> int:
-        """정규화 파이프라인의 write cache 보조 경로를 분리한다."""
-        for write in writes:
-            self._cache.set(write.key, write.decision)
-        return len(writes)
-
-    def _record_usage(
-        self,
-        run_id: UUID,
-        loaded: int,
-        cached: int,
-        mapping_result: MappingResult,
-    ) -> None:
-        """정규화 파이프라인의 record usage 보조 경로를 분리한다."""
-        self._store.add_usage(
-            make_usage(run_id, AgentName.ORCHESTRATOR, "showed final result"),
-        )
-        self._store.add_usage(
-            make_usage(
-                run_id,
-                AgentName.SCHEMA_PROFILER,
-                (
-                    f"profiled {len(mapping_result.decisions)} fields "
-                    f"({mapping_result.cache_hit_count} cache hits)"
-                ),
-            ),
-        )
-        if not any(
-            row.run_id == run_id and row.agent == AgentName.NORMALIZATION
-            for row in self._store.list_usage()
-        ):
-            self._store.add_usage(
-                make_usage(run_id, AgentName.NORMALIZATION, "generated mappings"),
-            )
-        self._store.add_usage(
-            make_usage(run_id, AgentName.VALIDATOR, "validated mappings"),
-        )
-        for agent, activity in (
-            (AgentName.LOAD, f"loaded {loaded} docs"),
-            (AgentName.CACHING, f"cached {cached} mappings"),
-            (AgentName.LINEAGE, f"recorded {loaded} lineage rows"),
-        ):
-            self._store.add_usage(make_usage(run_id, agent, activity))
 
     async def _send_completed(
         self,
@@ -290,9 +204,5 @@ def _opensearch_link(settings: dict[str, object]) -> str:
 
 
 def stable_opensearch_id(doc: RawDocument) -> str:
-    """원본 source 식별자를 재실행에도 같은 OpenSearch _id로 해시한다."""
-    source_key = "\x00".join(
-        [doc.source_solution, doc.source_index, doc.source_doc_id],
-    )
-    digest = hashlib.sha256(source_key.encode("utf-8")).hexdigest()[:24]
-    return f"scala-{digest}"
+    """원본 문서 식별자로 재실행 가능한 OpenSearch id를 만든다."""
+    return _stable_opensearch_id(doc)

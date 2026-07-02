@@ -137,10 +137,10 @@ func defaultSettings() settings {
 		elasticsearchIndices: []string{"logs-2024", "firewall-idx"},
 		splunkIndices:        []string{"main", "security"},
 		openSearchURL:        "https://opensearch.local:9200",
-		orchestratorModel:    "gpt-5.4",
-		profilerModel:        "gpt-5.4",
-		normalizationModel:   "gpt-5.4",
-		validatorModel:       "gpt-5.4",
+		orchestratorModel:    "gpt-5.4-mini",
+		profilerModel:        "gpt-5.4-mini",
+		normalizationModel:   "gpt-5.4-mini",
+		validatorModel:       "gpt-5.4-mini",
 		apiKeyMasked:         "sk-****-demo",
 		resultIndex:          "scala-normalized/security-events",
 		kibanaURL:            "https://kibana.local:5601",
@@ -184,13 +184,13 @@ func defaultLineage() map[string]lineageRecord {
 // defaultMonitoring는 mock Agent Monitoring의 scope별 snapshot을 만든다.
 func defaultMonitoring(settings settings) []monitoringSnapshot {
 	rows := []monitoringRow{
-		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "0 tokens", cost: "--"},
-		{name: "Schema Profiler", model: settings.profilerModel, tokens: "0 tokens", cost: "--"},
-		{name: "Normalization", model: settings.normalizationModel, tokens: "6,120 tokens", cost: "--"},
-		{name: "Validator", model: settings.validatorModel, tokens: "0 tokens", cost: "--"},
-		{name: "Load", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
-		{name: "Caching", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
-		{name: "Lineage", model: "-- (no LLM)", tokens: "0 tokens", cost: "--"},
+		{name: "Orchestrator", model: settings.orchestratorModel, tokens: "1,260 tokens", cost: "$0.0000"},
+		{name: "Schema Profiler", model: settings.profilerModel, tokens: "2,140 tokens", cost: "$0.0000"},
+		{name: "Normalization", model: settings.normalizationModel, tokens: "6,120 tokens", cost: "$0.0000"},
+		{name: "Validator", model: settings.validatorModel, tokens: "1,830 tokens", cost: "$0.0000"},
+		{name: "Load", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
+		{name: "Caching", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
+		{name: "Lineage", model: "-- (no LLM)", tokens: "0 tokens", cost: "$0.0000"},
 	}
 	return []monitoringSnapshot{
 		{scope: "Session", totalRuns: 1, totalDocs: 2000, totalCost: "cost unavailable", asOf: "2026-06-27 16:04 KST", lastRunID: "run-demo-001", agentRows: rows},

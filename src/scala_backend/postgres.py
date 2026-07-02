@@ -16,7 +16,7 @@ def migrate_postgres(database_url: str) -> None:
     ddl = "\n".join(path.read_text() for path in sorted(MIGRATIONS_DIR.glob("*.sql")))
     with psycopg.connect(database_url) as connection:
         with connection.cursor() as cursor:
-            cursor.execute(cast("LiteralString", ddl))
+            cursor.execute(cast(LiteralString, ddl))
         connection.commit()
 
 

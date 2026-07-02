@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import anyio
-from anyio.abc import SocketStream
 
 from scala_backend.app import BackendApp
 from scala_backend.config import BackendConfig
@@ -27,9 +26,3 @@ def _make_handler(app: BackendApp) -> RpcHandler:
         return await app.handle(method, params, peer)
 
     return handle
-
-
-async def probe_once(stream: SocketStream, payload: bytes) -> bytes:
-    """backend listen socket이 준비됐는지 짧은 TCP probe로 확인한다."""
-    await stream.send(payload)
-    return await stream.receive()

@@ -11,6 +11,13 @@ import socket
 from pathlib import Path
 from typing import Any
 
+PIPELINE_SOURCES = [
+    {"solution": "elasticsearch", "index": "scala-es-network"},
+    {"solution": "elasticsearch", "index": "scala-es-endpoint"},
+    {"solution": "splunk", "index": "main"},
+    {"solution": "splunk", "index": "security"},
+]
+
 
 def main() -> None:
     """환경변수를 읽어 BackendApp JSON-RPC 서버를 실행한다."""
@@ -32,12 +39,7 @@ def main() -> None:
             transcript,
             2,
             "samples.fetch",
-            {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "scala-es-logs"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
+            {"sources": PIPELINE_SOURCES},
         )
         _run_pipeline(file, transcript, 3)
         _call(file, transcript, 4, "monitoring.query", {"scope": "session"})
@@ -93,12 +95,7 @@ def _run_pipeline(
             "jsonrpc": "2.0",
             "id": request_id,
             "method": "pipeline.run",
-            "params": {
-                "sources": [
-                    {"solution": "elasticsearch", "index": "scala-es-logs"},
-                    {"solution": "splunk", "index": "main"},
-                ]
-            },
+            "params": {"sources": PIPELINE_SOURCES},
         },
     )
     while True:

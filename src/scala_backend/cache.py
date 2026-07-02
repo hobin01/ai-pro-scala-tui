@@ -16,6 +16,14 @@ class MappingDecision:
     ocsf_type: str | None
 
 
+@dataclass(frozen=True)
+class CacheWrite:
+    """Caching agent가 Redis에 반영할 매핑 결정을 담는다."""
+
+    key: str
+    decision: MappingDecision
+
+
 class MappingCache(Protocol):
     """mapping 결정 cache 구현이 제공해야 하는 get/set 계약이다."""
 

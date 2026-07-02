@@ -39,6 +39,23 @@ class FakeSplunkService:
         self.indexes = {"main": FakeSplunkIndex()}
 
 
+class CreatableSplunkIndexes(dict[str, FakeSplunkIndex]):
+    """생성 호출을 기록하는 Splunk indexes 대역이다."""
+
+    def create(self, index: str) -> FakeSplunkIndex:
+        """생성할 Splunk index 이름을 기록한다."""
+        self[index] = FakeSplunkIndex()
+        return self[index]
+
+
+class CreatableSplunkService:
+    """indexes 속성을 제공하는 Splunk service 대역이다."""
+
+    def __init__(self) -> None:
+        """테스트가 관찰할 creatable indexes 대역을 연결한다."""
+        self.indexes = CreatableSplunkIndexes()
+
+
 def test_seed_elasticsearch_documents_indexes_with_stable_source_ids() -> None:
     """Elasticsearch seed가 안정적인 source id로 문서를 index하는지 확인한다."""
     client = FakeElasticsearchClient()
@@ -58,3 +75,14 @@ def test_seed_splunk_events_submits_json_events() -> None:
 
     assert ids == ["splunk-seed-1"]
     assert '"source_doc_id": "splunk-seed-1"' in service.indexes["main"].events[0]
+
+
+def test_seed_splunk_events_creates_missing_index() -> None:
+    """Splunk index가 없으면 seed 전에 index를 생성하는지 확인한다."""
+    service = CreatableSplunkService()
+
+    ids = seed_splunk_events(service, "security", [{"source_ip": "10.0.0.5"}])
+
+    assert ids == ["splunk-seed-1"]
+    assert "security" in service.indexes
+    assert '"source_ip": "10.0.0.5"' in service.indexes["security"].events[0]

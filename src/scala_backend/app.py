@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import UTC, datetime
-from decimal import Decimal
-from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -28,7 +25,6 @@ from scala_backend.models import (
     PipelineRunParams,
     SamplesFetchParams,
     SettingsSetParams,
-    UsageRecord,
 )
 from scala_backend.output.opensearch import OpenSearchLoader
 from scala_backend.pipeline import PipelineRunner
@@ -137,13 +133,7 @@ class BackendApp:
         usage = self.store.list_usage()
         if params.scope == "session":
             usage = [row for row in usage if row.created_at >= self.started_at]
-        result = aggregate_usage(usage, params.scope)
-        cost = self._openai_cost(params, usage)
-        total = result.get("total")
-        if isinstance(total, dict) and cost is not None:
-            total["cost"] = float(cost)
-            total["cost_source"] = "openai_costs_api"
-        return result
+        return aggregate_usage(usage, params.scope)
 
     async def lineage_lookup(
         self, params: LineageLookupParams, peer: object
@@ -222,9 +212,10 @@ class BackendApp:
         provider = self.llm_provider
         if provider is None:
             raise ProviderError("OpenAI API key is not configured")
-        normalization_model = settings.get("agent.normalization.model")
-        assert isinstance(normalization_model, str)
-        provider.validate(normalization_model)
+        for agent in ("orchestrator", "schema_profiler", "normalization", "validator"):
+            model = settings.get(f"agent.{agent}.model")
+            assert isinstance(model, str)
+            provider.validate(model)
         for source in params.sources:
             if not isinstance(settings.get(f"source.{source.solution}.url"), str):
                 raise ConfigurationError(f"{source.solution} URL is not configured")
@@ -264,29 +255,3 @@ class BackendApp:
             self.ocsf_index,
             self.llm_provider,
         )
-
-    def _openai_cost(
-        self,
-        params: MonitoringQueryParams,
-        usage: list[UsageRecord],
-    ) -> Decimal | None:
-        """monitoring scope에 맞는 기간으로 OpenAI Costs API 금액을 조회한다."""
-        provider = self.llm_provider
-        if provider is None or not hasattr(provider, "organization_cost_usd"):
-            return None
-        cost_method = cast(
-            Callable[[datetime, datetime], Decimal],
-            cast(Any, provider).organization_cost_usd,
-        )
-        end_time = datetime.now(UTC)
-        if params.scope == "session":
-            start_time = self.started_at
-        elif params.scope == "today":
-            start_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0)
-        else:
-            created_at = [row.created_at for row in usage]
-            start_time = min(created_at, default=self.started_at)
-        try:
-            return cost_method(start_time, end_time)
-        except ProviderError:
-            return None

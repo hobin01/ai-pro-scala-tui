@@ -14,12 +14,15 @@ from scala_backend.connectors import parse_service_url
 from scala_backend.ocsf import ingest_official_ocsf, load_official_ocsf_fields
 from scala_backend.postgres import migrate_postgres, seed_postgres
 from scala_backend.providers import OpenAiProvider
+from scala_backend.seed.dev_data import es_seed_batches, splunk_seed_batches
 from scala_backend.seed.external import seed_elasticsearch_documents, seed_splunk_events
 from scala_backend.server import serve as serve_backend
 from scala_backend.store import agent_model_settings, seed_dev_settings
 from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 
 app = typer.Typer(no_args_is_help=True)
+ES_SEED_INDICES = ("scala-es-network", "scala-es-endpoint")
+SPLUNK_SEED_INDICES = ("main", "security")
 
 
 @app.command()
@@ -58,9 +61,9 @@ def seed_settings(env_file: Annotated[Path | None, typer.Option()] = None) -> No
     config = load_config(env_file)
     if config.database_url == "memory://":
         backend = create_app(config)
-        seed_dev_settings(backend.store, _settings_overrides(config))
+        seed_dev_settings(backend.store, settings_overrides(config))
     else:
-        seed_postgres(config.database_url, _settings_overrides(config))
+        seed_postgres(config.database_url, settings_overrides(config))
     typer.echo("dev settings seeded")
 
 
@@ -104,8 +107,12 @@ def seed_data(
         password=config.splunk_password,
         verify=False,
     )
-    es_ids = seed_elasticsearch_documents(es, "scala-es-logs", _es_docs(count))
-    splunk_ids = seed_splunk_events(splunk, "main", _splunk_docs(count))
+    es_ids: list[str] = []
+    for index, docs in es_seed_batches(count).items():
+        es_ids.extend(seed_elasticsearch_documents(es, index, docs))
+    splunk_ids: list[str] = []
+    for index, docs in splunk_seed_batches(count).items():
+        splunk_ids.extend(seed_splunk_events(splunk, index, docs))
     typer.echo(f"seeded elasticsearch={len(es_ids)} splunk={len(splunk_ids)} documents")
 
 
@@ -114,52 +121,26 @@ async def _serve_async(config: BackendConfig, backend: BackendApp) -> None:
     await serve_backend(config, backend)
 
 
-def _settings_overrides(config: BackendConfig) -> dict[str, object]:
+def settings_overrides(config: BackendConfig) -> dict[str, object]:
     """scala-backend CLI의 settings overrides 보조 경로를 분리한다."""
     return {
         **agent_model_settings(config.openai_model),
         "source.elasticsearch.url": config.elasticsearch_url,
-        "source.elasticsearch.indices": ["scala-es-logs"],
+        "source.elasticsearch.indices": list(ES_SEED_INDICES),
         "source.splunk.url": config.splunk_url,
-        "source.splunk.indices": ["main"],
+        "source.splunk.indices": list(SPLUNK_SEED_INDICES),
         "output.opensearch.url": config.opensearch_url,
         "output.opensearch.index": "scala-normalized",
         "console.kibana.url": "http://127.0.0.1:5601",
         "console.splunk.url": "http://127.0.0.1:8000",
         "console.opensearch.url": "http://127.0.0.1:5602",
+        f"model.{config.openai_model}.input_cost_per_1m": (
+            config.openai_input_cost_per_1m
+        ),
+        f"model.{config.openai_model}.output_cost_per_1m": (
+            config.openai_output_cost_per_1m
+        ),
     }
-
-
-def _es_docs(count: int) -> list[dict[str, object]]:
-    """scala-backend CLI의 es docs 보조 경로를 분리한다."""
-    return [
-        {
-            "source_doc_id": f"es-seed-{index}",
-            "src_ip": f"10.10.0.{index % 250 + 1}",
-            "dest_port": "443" if index % 2 == 0 else "8443",
-            "action": "allow" if index % 3 else "blocked",
-            "empty": "",
-            "nullable": None,
-            "vendor_custom": f"es-extra-{index}",
-        }
-        for index in range(1, count + 1)
-    ]
-
-
-def _splunk_docs(count: int) -> list[dict[str, object]]:
-    """scala-backend CLI의 splunk docs 보조 경로를 분리한다."""
-    return [
-        {
-            "source_doc_id": f"splunk-seed-{index}",
-            "clientip": f"192.168.1.{index % 250 + 1}",
-            "port": "443" if index % 2 else "8443",
-            "status": "allow" if index % 3 else "blocked",
-            "_time": "2026-06-28T08:00:00Z",
-            "nullable": None,
-            "splunk_custom": f"sp-extra-{index}",
-        }
-        for index in range(1, count + 1)
-    ]
 
 
 def main() -> None:

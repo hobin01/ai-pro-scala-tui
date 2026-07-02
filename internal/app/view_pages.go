@@ -221,14 +221,14 @@ func (m *Model) renderMonitoring(b *strings.Builder) {
 	} else {
 		fmt.Fprintf(b, "Total  %d docs · %s   (last run %s)\n\n", snapshot.totalDocs, snapshot.totalCost, snapshot.lastRunID)
 	}
-	fmt.Fprintln(b, "Agent             Model          Last activity         Tokens")
-	fmt.Fprintln(b, "──────────────    ───────────    ───────────────────   ──────")
+	fmt.Fprintln(b, "Agent             Model          Tokens        Cost       Last activity")
+	fmt.Fprintln(b, "──────────────    ───────────    ──────────    ───────    ───────────────────")
 	for _, row := range snapshot.agentRows {
 		activity := row.activity
 		if activity == "" {
 			activity = agentActivity(row.name)
 		}
-		fmt.Fprintf(b, "%-17s %-14s %-20s %s\n", row.name, row.model, activity, row.tokens)
+		fmt.Fprintf(b, "%-17s %-14s %-12s %-9s %s\n", row.name, row.model, row.tokens, row.cost, activity)
 	}
 }
 
