@@ -208,6 +208,6 @@ pyrightconfig.json
 .claude/
 .scala-data/
 .scala-performance-data/
-.your-work-history/
-!.your-work-history/README.md
-!.your-work-history/TEMPLATE.md 
+your-work-history/
+!your-work-history/README.md
+!your-work-history/TEMPLATE.md 
