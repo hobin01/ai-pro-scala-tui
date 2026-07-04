@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
 
@@ -11,6 +13,19 @@ from scala_backend.app import BackendApp
 from scala_backend.app_factory import create_app
 from scala_backend.config import BackendConfig, load_config
 from scala_backend.connectors import parse_service_url
+from scala_backend.evaluation.performance import (
+    ES_ENDPOINT_INDEX,
+    ES_NETWORK_INDEX,
+    OPENSEARCH_INDEX,
+    SPLUNK_AUTH_INDEX,
+    SPLUNK_WEB_INDEX,
+    PerformanceDatasetError,
+    elasticsearch_performance_batches,
+    evaluate_performance_dataset,
+    export_performance_results,
+    generate_performance_dataset,
+    splunk_performance_batches,
+)
 from scala_backend.ocsf import ingest_official_ocsf, load_official_ocsf_fields
 from scala_backend.postgres import migrate_postgres, seed_postgres
 from scala_backend.providers import OpenAiProvider
@@ -23,6 +38,8 @@ from scala_backend.vector.ocsf_chroma import ChromaOcsfIndex
 app = typer.Typer(no_args_is_help=True)
 ES_SEED_INDICES = ("scala-es-network", "scala-es-endpoint")
 SPLUNK_SEED_INDICES = ("main", "security")
+PERFORMANCE_ES_SEED_INDICES = (ES_NETWORK_INDEX, ES_ENDPOINT_INDEX)
+PERFORMANCE_SPLUNK_SEED_INDICES = (SPLUNK_WEB_INDEX, SPLUNK_AUTH_INDEX)
 
 
 @app.command()
@@ -65,6 +82,20 @@ def seed_settings(env_file: Annotated[Path | None, typer.Option()] = None) -> No
     else:
         seed_postgres(config.database_url, settings_overrides(config))
     typer.echo("dev settings seeded")
+
+
+@app.command("seed-performance-settings")
+def seed_performance_settings(
+    env_file: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """성능 평가용 source/output settings를 독립 index 이름으로 저장한다."""
+    config = load_config(env_file)
+    if config.database_url == "memory://":
+        backend = create_app(config)
+        seed_dev_settings(backend.store, performance_settings_overrides(config))
+    else:
+        seed_postgres(config.database_url, performance_settings_overrides(config))
+    typer.echo("performance settings seeded")
 
 
 @app.command("ingest-ocsf")
@@ -116,6 +147,83 @@ def seed_data(
     typer.echo(f"seeded elasticsearch={len(es_ids)} splunk={len(splunk_ids)} documents")
 
 
+@app.command("generate-performance-dataset")
+def generate_performance_data(
+    output_dir: Annotated[Path, typer.Option()],
+    count: Annotated[int, typer.Option(min=1, max=20000)] = 1000,
+) -> None:
+    """성능 지표 측정용 source JSONL과 answer_key.json을 생성한다."""
+    try:
+        dataset = generate_performance_dataset(output_dir, count)
+    except PerformanceDatasetError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(
+        "generated performance dataset "
+        f"elasticsearch={dataset.elasticsearch_count} "
+        f"splunk={dataset.splunk_count} path={dataset.root}"
+    )
+
+
+@app.command("seed-performance-data")
+def seed_performance_data(
+    env_file: Annotated[Path | None, typer.Option()] = None,
+    count: Annotated[int, typer.Option(min=1, max=20000)] = 1000,
+    output_dir: Annotated[Path, typer.Option()] = Path("/data/performance-dataset"),
+) -> None:
+    """성능 평가용 dataset을 생성하고 독립 ES/Splunk index에 적재한다."""
+    config = load_config(env_file)
+    generate_performance_dataset(output_dir, count)
+    elasticsearch = importlib.import_module("elasticsearch")
+    splunk_client = importlib.import_module("splunklib.client")
+    es = elasticsearch.Elasticsearch(config.elasticsearch_url)
+    splunk_url = parse_service_url(config.splunk_url, default_port=8089)
+    splunk = splunk_client.connect(
+        host=splunk_url.host,
+        port=splunk_url.port,
+        scheme=splunk_url.scheme,
+        username=config.splunk_username,
+        password=config.splunk_password,
+        verify=False,
+    )
+    es_ids: list[str] = []
+    for index, docs in elasticsearch_performance_batches(count).items():
+        es_ids.extend(seed_elasticsearch_documents(es, index, docs))
+    splunk_ids: list[str] = []
+    for index, docs in splunk_performance_batches(count).items():
+        splunk_ids.extend(seed_splunk_events(splunk, index, docs))
+    typer.echo(
+        "seeded performance data "
+        f"elasticsearch={len(es_ids)} splunk={len(splunk_ids)} "
+        f"dataset={output_dir}"
+    )
+
+
+@app.command("evaluate-performance-dataset")
+def evaluate_performance_data(
+    dataset_dir: Annotated[Path, typer.Option()],
+) -> None:
+    """성능 평가 dataset의 정답지 기준 metric을 계산한다."""
+    try:
+        report = evaluate_performance_dataset(dataset_dir)
+    except PerformanceDatasetError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(json.dumps(asdict(report), ensure_ascii=False, sort_keys=True))
+
+
+@app.command("export-performance-results")
+def export_performance_data(
+    env_file: Annotated[Path | None, typer.Option()] = None,
+    output_dir: Annotated[Path, typer.Option()] = Path("/data/performance-dataset"),
+) -> None:
+    """성능 pipeline 실행 후 Redis/PostgreSQL actual 결과를 파일로 추출한다."""
+    config = load_config(env_file)
+    try:
+        path = export_performance_results(config, output_dir)
+    except PerformanceDatasetError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(f"exported performance results path={path}")
+
+
 async def _serve_async(config: BackendConfig, backend: BackendApp) -> None:
     """scala-backend CLI의 serve async 보조 경로를 분리한다."""
     await serve_backend(config, backend)
@@ -140,6 +248,19 @@ def settings_overrides(config: BackendConfig) -> dict[str, object]:
         f"model.{config.openai_model}.output_cost_per_1m": (
             config.openai_output_cost_per_1m
         ),
+    }
+
+
+def performance_settings_overrides(config: BackendConfig) -> dict[str, object]:
+    """성능 평가 compose가 사용할 source/output settings 값을 만든다."""
+    return {
+        **settings_overrides(config),
+        "source.elasticsearch.indices": list(PERFORMANCE_ES_SEED_INDICES),
+        "source.splunk.indices": list(PERFORMANCE_SPLUNK_SEED_INDICES),
+        "output.opensearch.index": OPENSEARCH_INDEX,
+        "console.kibana.url": "http://127.0.0.1:5611",
+        "console.splunk.url": "http://127.0.0.1:8010",
+        "console.opensearch.url": "http://127.0.0.1:5612",
     }
 
 

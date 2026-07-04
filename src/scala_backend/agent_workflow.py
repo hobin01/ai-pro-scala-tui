@@ -13,6 +13,7 @@ from scala_backend.cache import CacheWrite, MappingCache, MappingDecision, cache
 from scala_backend.connectors import SiemConnector
 from scala_backend.errors import ProviderError
 from scala_backend.ids import stable_opensearch_id
+from scala_backend.mapping_decisions import deterministic_mapping_decision
 from scala_backend.models import (
     AgentName,
     FieldSample,
@@ -333,19 +334,28 @@ class AgentWorkflowRunner:
         price = _model_price(settings, model)
         assert self._llm_provider is not None
         miss_items = state.get("miss_items", [])
-        if miss_items:
+        llm_items: list[FieldWorkItem] = []
+        for item in miss_items:
+            decision = deterministic_mapping_decision(item.source, item.field)
+            if decision is not None:
+                decisions.append(decision)
+                writes.append(CacheWrite(item.key, decision))
+            else:
+                llm_items.append(item)
+        if llm_items:
             prompt = _agent_prompt(
                 settings,
                 AgentName.NORMALIZATION,
-                _normalization_batch_prompt(miss_items),
+                _normalization_batch_prompt(llm_items),
             )
             response = self._llm_provider.complete(prompt, model, price)
             totals.add(response.usage)
-            decisions = _parse_mapping_decisions(miss_items, response.text)
-            writes = [
+            llm_decisions = _parse_mapping_decisions(llm_items, response.text)
+            decisions.extend(llm_decisions)
+            writes.extend(
                 CacheWrite(item.key, decision)
-                for item, decision in zip(miss_items, decisions, strict=True)
-            ]
+                for item, decision in zip(llm_items, llm_decisions, strict=True)
+            )
         self._record_usage(
             UUID(state["run_id"]),
             AgentName.NORMALIZATION,

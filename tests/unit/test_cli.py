@@ -22,6 +22,9 @@ def test_cli_help_lists_backend_commands() -> None:
     assert "migrate" in result.output
     assert "seed-dev-settings" in result.output
     assert "ingest-ocsf" in result.output
+    assert "generate-performance-dataset" in result.output
+    assert "export-performance-results" in result.output
+    assert "evaluate-performance-dataset" in result.output
 
 
 def test_dev_settings_expose_four_complex_source_indices() -> None:

@@ -207,3 +207,4 @@ pyrightconfig.json
 .agents/
 .claude/
 .scala-data/
+.scala-performance-data/
