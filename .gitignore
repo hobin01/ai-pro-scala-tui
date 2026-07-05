@@ -211,3 +211,5 @@ pyrightconfig.json
 your-work-history/
 !your-work-history/README.md
 !your-work-history/TEMPLATE.md 
+manual-example.py 
+final-results/

@@ -52,7 +52,8 @@ SCALA의 현재 목표 중 주요 내용은 다음과 같다. 자세한 내용�
 ```text
 ai-pro-scala-tui/
 ├── AGENTS.md               # `You` 기본 지침
-├── PLANS.md               # `You` 가 프로젝트 수행을 위한 전반적인 계획 단계
+├── PLANS.md                # `You` 가 프로젝트 수행을 위한 전반적인 계획 단계
+├── DESIGN.md               # `You` 가 프로젝트 수행을 위한 디자인 참고 내용
 ├── README.md               # 프로젝트 전체 설명
 └── your-docs/              # `You`가 코드 개발 시 필요한 문서 저장 디렉토리
     ├── CODING-RULES.md         # 코드 개발 시 지켜야 할 규칙들 (컨벤션 규칙, 사용하면 좋은 skill 목록 등)
@@ -70,6 +71,16 @@ ai-pro-scala-tui/
     └── README.md               # 관련 문서들에 대한 설명
     └── tui-pages/              # TUI 페이지별 상세 문서(mockup) 디렉토리
     └── sw-architecture/        # SW 아키텍처 구성 내용
+├── cmd/                    # SCALA TUI 실행
+├── final-results/          # SCALA 프로젝트 수행 결과 산출물 
+├── internal/               # SCALA TUI 내부 동작 코드
+├── scripts/                # SCALA 프로젝트 수행 시 사용할 스크립트 모음 
+├── src/                    # SCALA 프로젝트 핵심 백엔드 소스코드 
+├── tests/                  # SCALA 프로젝트 백엔드 유닛 테스트 
+├── docker-compose.backend.yml     # SCALA 백엔드 실행을 위한 compose 파일 
+├── docker-compose.performance.yml # SCALA 평가 측정 실행을 위한 compose 파일 
+├── Dockerfile.backend      # SCALA 도커 이미지 빌드를 위한 dockerfile
+└── Makefile                # 컨테이너 초기화, 컨테이너 실행 등 기능 별 빌드/실행 스크립트
 ```
 
 ## 프로젝트 규칙 및 제약사항
