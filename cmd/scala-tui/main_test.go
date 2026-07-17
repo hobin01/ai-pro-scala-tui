@@ -6,7 +6,7 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
-	"github.com/hobin01/ai-pro-scala-tui/internal/app"
+	"scala-tui/internal/app"
 )
 
 // TestBubbleTeaViewOutputsInitialView는 main test의 화면 출력과 상태 전이를 확인한다.

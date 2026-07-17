@@ -13,8 +13,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/hobin01/ai-pro-scala-tui/internal/app"
-	"github.com/hobin01/ai-pro-scala-tui/internal/backendrpc"
+	"scala-tui/internal/app"
+	"scala-tui/internal/backendrpc"
 )
 
 // tickMsg는 spinner와 mock 진행 상태를 주기적으로 갱신하라는 신호다.

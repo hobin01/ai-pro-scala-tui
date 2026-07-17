@@ -7,7 +7,7 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
-	"github.com/hobin01/ai-pro-scala-tui/internal/app"
+	"scala-tui/internal/app"
 )
 
 var testANSIPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)

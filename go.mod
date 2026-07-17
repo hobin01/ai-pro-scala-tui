@@ -1,4 +1,4 @@
-module github.com/hobin01/ai-pro-scala-tui
+module scala-tui
 
 go 1.24.4
 
