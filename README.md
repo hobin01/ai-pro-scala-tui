@@ -7,9 +7,7 @@ SCALA: Security Canonical Alignment & Lineage Automation
 ### SCALA 
 
 이기종 보안 데이터를 OCSF 기준 문서로 정규화하고, 결과를 OpenSearch에 적재하며, 
-
 적재된 문서에서 원본 문서까지 추적할 수 있는 lineage를 유지한다. 
-
 사용자는 로컬 터미널에서 실행되는 TUI를 통해 Python JSON-RPC 백엔드와 Docker Compose 기반으로 실행한다.
 
 ## 주요 기능
@@ -27,22 +25,68 @@ SCALA: Security Canonical Alignment & Lineage Automation
 - Python 3.12+
 - 스크립트 기반 TUI QA를 위한 `tmux`
 
-## 사용법
+---
+
+## 사용법 (요약)
+
+### 필수 설치 사항
+- Go 1.24+
+- Docker Compose v2 및 호환 가능 Docker Engine
+- python 3.12+
+- uv
+- tmux
+
+### SCALA 초기 설정
+- `.env.example` 복사하여 `.env` 생성 및 `OPENAI_API_KEY` 입력
+
+### SCALA 초기화, 테스트용 데이터 생성, 백엔드 실행
+```bash
+make docker-backend-clean
+make docker-backend-build
+make docker-backend-up
+make docker-backend-init
+make docker-backend-seed
+```
+
+### TUI 실행
+```bash
+make build
+SCALA_BACKEND_ADDR=127.0.0.1:8765 ./bin/scala-tui
+```
+
+### 평가 측정
+```bash
+make docker-performance-clean
+make docker-performance-build
+make docker-performance-up
+make docker-performance-init
+COUNT=1000 make docker-performance-seed
+make build
+SCALA_BACKEND_ADDR=127.0.0.1:8875 ./bin/scala-tui
+```
+
+### 평가 결과 확인
+```bash
+make docker-performance-export
+make docker-performance-evaluate
+make docker-performance-copy-results
+```
+
+---
+
+## 사용법 (상세)
 
 ### 초기 세팅
 
-처음 실행하거나 데이터가 꼬였다고 판단되면 아래 순서로 깨끗한 환경을 만든다.
 `docker-backend-clean`은 이 프로젝트 Compose 컨테이너와 이름 있는 볼륨을 삭제한다.
 
 ```bash
 make docker-backend-clean
 ```
 
-`.env.example`을 `.env`로 복사한 뒤 `OPENAI_API_KEY`를 설정한다. 
-이 값은 `make docker-backend-secret` 단계에서 git이 추적하지 않는 Docker secret 파일로 복사되며, 
-`docker compose config`나 git commit에 출력되지 않는다. 
-기본 에이전트 모델은 `gpt-5.4-mini`이고, 에이전트별 비용 계산은 `.env`의 아래 1M 토큰당 단가를 사용한다. 
-다른 모델을 쓰면 두 단가도 현재 OpenAI 가격에 맞게 함께 바꿔야 한다.
+- `.env.example`을 `.env`로 복사한 뒤 `OPENAI_API_KEY`를 설정한다. 
+- 이 값은 `make docker-backend-secret` 단계에서 git이 추적하지 않는 Docker secret 파일로 복사되며, `docker compose config`나 git commit에 출력되지 않는다. 
+- 기본 에이전트 모델은 `gpt-5.4-mini`이고, 에이전트별 비용 계산은 `.env`의 아래 1M 토큰당 단가를 사용한다. 다른 모델을 쓰면 두 단가도 현재 OpenAI 가격에 맞게 함께 바꿔야 한다.
 
 ```env
 SCALA_OPENAI_MODEL=gpt-5.4-mini
@@ -61,8 +105,6 @@ make docker-backend-init
 make docker-backend-seed
 ```
 
-각 명령의 역할은 다음과 같다.
-
 - `docker-backend-build`: Python 백엔드 이미지를 빌드한다.
 - `docker-backend-up`: PostgreSQL, Redis, ChromaDB, OpenSearch, OpenSearch Dashboards, Elasticsearch, Kibana, Splunk를 실행한다.
 - `docker-backend-init`: PostgreSQL schema, 개발 settings, OCSF ChromaDB index를 준비하고 백엔드 JSON-RPC 서비스를 시작한다.
@@ -77,8 +119,7 @@ make build
 SCALA_BACKEND_ADDR=127.0.0.1:8765 ./bin/scala-tui
 ```
 
-TUI에서 `Collect & Normalize`를 선택한 뒤 아래 4개 소스를 선택해 파이프라인을
-실행한다.
+TUI에서 `Collect & Normalize`를 선택한 뒤 소스를 선택해 파이프라인을 실행한다. 기본 소스는 아래와 같이 생성된다.
 
 - Elasticsearch `scala-es-network`
 - Elasticsearch `scala-es-endpoint`
@@ -86,7 +127,9 @@ TUI에서 `Collect & Normalize`를 선택한 뒤 아래 4개 소스를 선택해
 - Splunk `security`
 
 실행 완료 화면에는 OpenSearch Dashboards 주소와 샘플 lineage `_id`가 표시된다.
+
 `Lineage Viewer`에 해당 `_id`를 넣으면 원본 소스, index, doc id와 정규화 문서를 함께 확인할 수 있다. 
+
 `Agent Monitoring`에서는 Orchestrator, Schema Profiler, Normalization, Validator 에이전트의 누적 토큰과 저장된 비용을 확인한다.
 
 Docker Compose는 백엔드 JSON-RPC를 `127.0.0.1:8765`로 노출하고, 개발 콘솔은 아래 주소로 노출한다.
@@ -104,9 +147,9 @@ SCALA_TUI_MOCK=1 ./bin/scala-tui
 
 ## 성능 지표 측정
 
-PLANS.md 13번의 평가 지표 측정은 개발/수동 테스트 Compose와 분리된 `docker-compose.performance.yml`을 사용한다. Compose project 이름은 `scala-performance`이고, PostgreSQL, Redis, ChromaDB, OpenSearch, OpenSearch Dashboards, Elasticsearch, Kibana, Splunk 볼륨과 host port가 기존 `docker-backend-*` 환경과 다르다.
+평가 지표 측정은 개발/수동 테스트 Compose와 분리된 `docker-compose.performance.yml`을 사용한다. Compose project 이름은 `scala-performance`이고, PostgreSQL, Redis, ChromaDB, OpenSearch, OpenSearch Dashboards, Elasticsearch, Kibana, Splunk 볼륨과 host port가 기존 `docker-backend-*` 환경과 다르다.
 
-깨끗한 cold-cache 상태에서 시작하려면 먼저 performance 환경만 삭제한다.
+cold-start 환경 구성을 위해 performance 환경만 삭제한다.
 
 ```bash
 make docker-performance-clean
@@ -157,7 +200,7 @@ make docker-performance-evaluate
 
 산출물을 로컬에서 확인하려면 backend volume의 dataset을 `.scala-performance-data/dataset` 으로 복사한다. 
 다른 위치가 필요하면 `LOCAL_PERFORMANCE_DATASET_DIR`를 바꿔 실행한다.
-`actual_results.json`은 `make docker-performance-export` 이후에 생기고,
+`actual_results.json`은 `make docker-performance-export` 이후에 생긴다.
 `metrics.json`은 `make docker-performance-evaluate` 이후에 생긴다. 
 두 파일까지 로컬에 가져오려면 두 명령을 실행한 다음 복사한다.
 
@@ -165,7 +208,8 @@ make docker-performance-evaluate
 make docker-performance-copy-results
 ```
 
-계산 대상 지표는 PRD 10장의 `Field Mapping Precision`, `Field Mapping Recall`, `Lineage Traceability`다. 산출물은 performance backend volume의 `/data/performance-dataset`에 저장된다. 
+계산되는 평가 지표는 `Field Mapping Precision`, `Field Mapping Recall`, `Lineage Traceability`다. 
+산출물은 performance backend volume의 `/data/performance-dataset`에 저장된다. 
 같은 dataset을 성능 평가용 Elasticsearch/Splunk index에 적재하므로, 
 TUI/backend pipeline도 기존 개발 환경과 분리된 조건에서 실행할 수 있다.
 
@@ -174,7 +218,12 @@ TUI/backend pipeline도 기존 개발 환경과 분리된 조건에서 실행할
 - `actual_results.json`: 실행된 pipeline에서 추출한 실제 mapping/lineage 결과
 - `metrics.json`: 계산된 평가 지표
 
+---
+
 ## 설정
 
 런타임 설정은 TUI 설정 화면에서 즉시 반영되며 백엔드 저장소에 유지된다.
-환경변수는 서비스 엔드포인트와 기본 모델 값을 설정한다. 지원하는 값은 `.env.example`에서 확인할 수 있다.
+
+환경변수는 서비스 엔드포인트와 기본 모델 값을 설정한다. 
+
+지원하는 값은 `.env.example`에서 확인할 수 있다.
